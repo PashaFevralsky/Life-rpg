@@ -1,7 +1,7 @@
 {
-  "name": "Life RPG 6.0",
+  "name": "Life RPG 6.0.1",
   "short_name": "Life RPG",
-  "description": "Life OS 6.0: финансы и счета, OCR-импорт, долговой движок, Smart Budget, CRM продаж, теннисная аналитика, база знаний и адаптивный Daily Engine.",
+  "description": "Life RPG 6.0.1 — Life OS with Bank Sync and fresh setup",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

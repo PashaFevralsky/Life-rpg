@@ -80,3 +80,17 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .analytics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.life-score{display:grid;grid-template-columns:130px 1fr;gap:16px;align-items:center}.life-score-bars{display:grid;gap:7px}.life-score-bars>div{display:grid;grid-template-columns:75px 1fr;gap:8px;align-items:center;font-size:11px;color:var(--muted)}.boss-mini{padding:10px 0;border-bottom:1px solid rgba(32,52,81,.7)}.boss-mini:last-child{border-bottom:0}.boss-mini .progress{margin:6px 0}
 @media(max-width:720px){.account-row{grid-template-columns:1fr auto}.account-row input,.account-row .btn{grid-column:1 / -1}.transaction-row,.debt-engine-row{grid-template-columns:1fr auto}.transaction-row .btn,.debt-engine-row .btn{grid-column:1 / -1}.analytics-grid{grid-template-columns:1fr 1fr}.life-score{grid-template-columns:1fr}}
 @media(max-width:420px){.analytics-grid{grid-template-columns:1fr}}
+
+
+/* 6.0.1 Bank Sync */
+.bank-sync-card{border-color:rgba(34,211,238,.45);background:linear-gradient(155deg,rgba(14,37,61,.98),rgba(14,27,48,.98))}
+.bank-sync-actions{align-items:center;flex-wrap:wrap}
+.bank-sync-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.bank-sync-summary>div{padding:12px;border:1px solid var(--line);border-radius:15px;background:#0b1728;min-width:0}
+.bank-sync-summary span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.bank-sync-summary b{display:block;margin-top:5px;font-size:17px;overflow-wrap:anywhere}
+.bank-sync-summary small{display:block;margin-top:4px;color:var(--muted);font-size:10px}
+.good-notice{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.08)}
+details summary{cursor:pointer;color:#c8d3e3;font-weight:750;font-size:13px}
+@media(max-width:680px){.bank-sync-summary{grid-template-columns:1fr 1fr}.bank-sync-actions .btn,.bank-sync-actions label.btn{width:100%;justify-content:center}}
+@media(max-width:380px){.bank-sync-summary{grid-template-columns:1fr}}
