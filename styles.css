@@ -94,3 +94,13 @@ button:disabled{opacity:.45;cursor:not-allowed}
 details summary{cursor:pointer;color:#c8d3e3;font-weight:750;font-size:13px}
 @media(max-width:680px){.bank-sync-summary{grid-template-columns:1fr 1fr}.bank-sync-actions .btn,.bank-sync-actions label.btn{width:100%;justify-content:center}}
 @media(max-width:380px){.bank-sync-summary{grid-template-columns:1fr}}
+
+
+/* Life RPG 6.2 Financial OS */
+.financial-command-card{border-color:rgba(139,92,246,.55);background:linear-gradient(155deg,rgba(26,25,58,.98),rgba(10,31,52,.98))}
+.health-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.health-item{padding:12px;border-radius:14px;background:#0b1728;border:1px solid #223657}.health-item b{display:block;font-size:18px;margin:4px 0}.health-item.warn{border-color:#775d16}.health-item.bad{border-color:#7f2938}
+.decision-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.decision-kpis>div{padding:10px;border-radius:13px;background:#0b1728;border:1px solid #223657}.decision-kpis span{display:block;font-size:10px;color:var(--muted)}.decision-kpis b{display:block;margin-top:4px}.decision-row{padding:10px 0;border-bottom:1px solid rgba(32,52,81,.65)}.decision-row.bad b{color:#fecdd3}.decision-row.warn b{color:#fde68a}.decision-row.good b{color:#a7f3d0}
+.forecast-os-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.mini-forecast{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px}.mini-forecast>div{padding:9px;border-radius:12px;background:#0b1728;border:1px solid #223657}.mini-forecast span{display:block;font-size:10px;color:var(--muted)}.mini-forecast b{display:block;margin-top:4px;font-size:12px}
+.asset-row,.smart-proposal{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid rgba(32,52,81,.72)}.smart-proposal{grid-template-columns:minmax(0,1fr) auto}.asset-row:last-child,.smart-proposal:last-child{border-bottom:0}.ai-action{display:flex;gap:9px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(32,52,81,.65)}.ai-action input{width:auto;margin-top:3px}.ai-action small{color:var(--muted);overflow-wrap:anywhere}
+@media(max-width:720px){.health-grid,.forecast-os-grid{grid-template-columns:1fr 1fr}.decision-kpis{grid-template-columns:1fr}.mini-forecast{grid-template-columns:1fr 1fr 1fr}.asset-row{grid-template-columns:1fr auto}.asset-row .btn{grid-column:1 / -1}}
+@media(max-width:420px){.health-grid,.forecast-os-grid{grid-template-columns:1fr}.mini-forecast{grid-template-columns:1fr 1fr}.smart-proposal{grid-template-columns:1fr}.smart-proposal .btn{width:100%}}

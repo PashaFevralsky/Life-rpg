@@ -1,7 +1,7 @@
 {
-  "name": "Life RPG 6.0.1",
+  "name": "Life RPG 6.2",
   "short_name": "Life RPG",
-  "description": "Life RPG 6.0.1 — Life OS with Bank Sync and fresh setup",
+  "description": "Life RPG 6.2 — Financial OS: unified finance, smart inbox, decisions, forecast, assets and AI Bridge",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
