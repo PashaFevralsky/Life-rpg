@@ -24,3 +24,9 @@
 .funnel-row{display:grid;grid-template-columns:120px 1fr 70px;gap:9px;align-items:center}
 .funnel-bar{height:9px;border-radius:999px;background:#192941;overflow:hidden}.funnel-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#22d3ee,#8b5cf6)}
 @media(max-width:650px){.forecast-grid{grid-template-columns:1fr}.funnel-row{grid-template-columns:90px 1fr 58px}}
+
+/* Life RPG 5.1 reliability */
+.income-schedule-row{display:grid;grid-template-columns:80px 1fr 130px auto;gap:8px;align-items:end;padding:10px 0;border-bottom:1px solid rgba(32,52,81,.7)}
+.income-schedule-row:last-child{border-bottom:0}
+input[readonly]{opacity:.78;cursor:not-allowed}
+@media(max-width:650px){.income-schedule-row{grid-template-columns:72px 1fr}.income-schedule-row .field:nth-child(4){grid-column:1 / -1}.income-schedule-row>.btn{grid-column:1 / -1}}
