@@ -49,3 +49,16 @@ input[readonly]{opacity:.78;cursor:not-allowed}
 button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:850px){.autopilot-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.autopilot-grid,.compare-grid{grid-template-columns:1fr}.cashflow-event{grid-template-columns:60px 1fr auto}}
+
+
+/* Life RPG 5.2.1 Money Engine */
+.money-engine-card{background:linear-gradient(145deg,#101f34,#12243a)}
+.money-balance-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.money-balance{padding:13px;border-radius:16px;background:#0b1728;border:1px solid #223657}
+.money-balance b{display:block;font-size:20px;margin-top:5px}
+.phase-box{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px 12px;border-radius:14px;background:#0b1728;border:1px solid #245044;margin-bottom:10px}
+.phase-box>b{font-size:12px;color:#b9c9d8}
+.accepted-plan{padding:12px;border-radius:16px;background:#111d31;border:1px solid #3a4f70;margin-bottom:10px}
+.accepted-plan .report-item span{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+@media(max-width:700px){.money-balance-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:420px){.money-balance-grid{grid-template-columns:1fr}}

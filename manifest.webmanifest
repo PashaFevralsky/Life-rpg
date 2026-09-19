@@ -1,7 +1,7 @@
 {
-  "name": "Life RPG 5.2",
+  "name": "Life RPG 5.2.1",
   "short_name": "Life RPG",
-  "description": "Life OS 5.2: финансовый автопилот, долги, денежный поток, продажи, настольный теннис, чтение, навыки и RPG-прогресс.",
+  "description": "Life OS 5.2.1: Money Engine с реальным денежным балансом, резервами, финансовыми фазами и автопилотом долгов.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
