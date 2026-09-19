@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="stylesheet" href="./styles.css">
+<title>Life RPG 5.0</title>
+</head>
+<body>
+<div class="shell">
+<header class="top">
+  <div class="profile-mini"><div class="avatar" id="avatar">P</div><div><div class="name" id="headerName">Павел</div><div class="sub" id="headerRank">Уровень 1 • Новичок</div></div></div>
+  <div class="top-actions"><button class="iconbtn" id="installBtn" hidden>＋ <span class="label-hide">Установить</span></button><button class="iconbtn" onclick="exportBackup(false)" title="Резервная копия">↗</button></div>
+</header>
+
+<section id="today" class="section active">
+  <div class="hero">
+    <div class="card hero-main">
+      <div class="eyebrow">Персонаж</div>
+      <div class="level-row"><div><div class="level" id="lvl">1</div><div class="rank" id="rankText">Новичок</div></div><div class="right"><div class="smallcaps">Всего XP</div><div class="metric" id="xpTotal">0</div></div></div>
+      <div class="xp-line"><span id="xpText">0 / 1000 XP</span><span id="xpPct">0%</span></div><div class="progress"><i id="xpProgress"></i></div>
+    </div>
+    <div class="card streak"><div><div class="fire">🔥</div><div class="smallcaps">Стабильность</div></div><div><div class="big" id="stabilityText">0/7</div><div class="muted" id="stability30">0 из 30 активных дней</div></div></div>
+  </div>
+  <div class="grid">
+    <div class="card span-12"><div class="title">Быстрые действия</div><div class="quick"><button onclick="quickAction('income')"><b>+</b>Доход</button><button onclick="quickAction('payment')"><b>₽</b>Платёж</button><button onclick="quickAction('expense')"><b>−</b>Расход</button><button onclick="quickAction('work')"><b>↗</b>Работа</button><button onclick="quickAction('tennis')"><b>🏓</b>Тренировка</button><button onclick="quickAction('reading')"><b>📚</b>Чтение</button></div></div>
+    <div class="card span-7"><div class="title">Что сделать сегодня</div><div id="todayPriorities"></div><div class="title" style="margin-top:16px">Ежедневные квесты</div><div id="todayQuestList"></div></div>
+    <div class="card span-5"><div class="title">Главный квест</div><div class="section-title">Закрыть все долги</div><div class="muted">10-месячная кампания</div><div class="goal"><div class="goal-top"><span>Платежи в этом месяце</span><b id="monthPaidText">0 ₽</b></div><div class="progress"><i id="monthProgress"></i></div><div class="sub" id="monthGoalSub">Цель: 162 000 ₽</div></div><div class="goal"><div class="goal-top"><span>Остаток долга</span><b id="debtTotalToday">0 ₽</b></div><div class="progress red"><i id="debtProgressToday"></i></div><div class="sub" id="debtPctTextToday">Погашено 0%</div></div></div>
+    <div class="card span-6"><div class="title">Характеристики</div><div class="stats-list" id="statsListToday"></div></div>
+    <div class="card span-6"><div class="title">Недельный отчёт</div><div class="report-grid" id="weeklyReport"></div></div>
+    <div class="card span-6"><div class="title">Текущий сезон</div><div id="seasonCard"></div></div>
+    <div class="card span-6"><div class="title">Активность за 35 дней</div><div class="calendar" id="activityCalendar"></div><div class="sub" style="margin-top:9px">Один пропуск не уничтожает прогресс: ориентир — стабильность за 7 и 30 дней.</div></div>
+    <div class="card span-12"><div class="title">Последние достижения</div><div class="ach-grid" id="homeAchievements"></div></div>
+  </div>
+</section>
+
+<section id="finance" class="section">
+  <div class="grid">
+    <div class="card span-12"><div class="eyebrow">Финансы</div><div class="section-title">Кампания против долгов</div><div class="kpi-row" style="margin-top:14px"><div class="kpi"><div class="smallcaps">Остаток долга</div><div class="num" id="finDebt">0 ₽</div></div><div class="kpi"><div class="smallcaps">Пришло за месяц</div><div class="num sm" id="finIncome">0 ₽</div></div><div class="kpi"><div class="smallcaps">Платежи месяца</div><div class="num" id="finMonth">0 ₽</div></div><div class="kpi"><div class="smallcaps">До цели</div><div class="num" id="finNeed">0 ₽</div></div><div class="kpi"><div class="smallcaps">Расходы на жизнь</div><div class="num sm" id="finExpenses">0 ₽</div></div><div class="kpi"><div class="smallcaps">Учтённый остаток</div><div class="num sm" id="finCash">0 ₽</div></div></div></div>
+    <div class="card span-7"><div class="title">Денежный поток</div><div id="incomeSummary"></div><div class="split" style="margin-top:12px"><button class="btn" onclick="openIncomeModal()">+ Поступление</button><button class="btn secondary" onclick="openModal('expenseModal')">− Расход</button></div><div class="title" style="margin-top:18px">Последние поступления</div><div id="incomeHistory"></div></div>
+    <div class="card span-5"><div class="title">Что делать с деньгами сейчас</div><div id="cashAdvisor"></div></div>
+    <div class="card span-7"><div class="title">Долги-боссы</div><div id="bossList"></div></div>
+    <div class="card span-5"><div class="title">Следующее действие</div><div id="payoffRecommendation"></div><div class="split" style="margin-top:12px"><button class="btn" onclick="openModal('paymentModal')">+ Платёж</button><button class="btn secondary" onclick="openModal('syncModal')">Сверить с банком</button></div></div>
+    <div class="card span-7"><div class="title">Финансовый календарь</div><div class="timeline" id="financeCalendar"></div></div>
+    <div class="card span-5"><div class="title">Сценарии погашения</div><div id="scenarioList"></div><div class="notice" style="margin-top:10px">Расчёт приблизительный: проценты моделируются помесячно. Фактические банковские остатки лучше периодически синхронизировать.</div></div>
+    <div class="card span-12"><div class="title">Долг → ноль: факт против плана</div><div class="chartbox"><svg id="debtChart" viewBox="0 0 900 210" preserveAspectRatio="none"></svg></div><div class="legend"><span><i class="dot" style="background:#22d3ee"></i>Факт</span><span><i class="dot" style="background:#8b5cf6"></i>План 162 тыс.</span></div></div>
+    <div class="card span-6"><div class="title">Проценты</div><div class="metric" id="interestCurrent">—</div><div class="muted">Оценка будущих процентов при текущей цели</div><div class="goal"><div class="goal-top"><span>Экономия против 110 тыс./мес.</span><b id="interestSaved">—</b></div></div></div>
+    <div class="card span-6"><div class="title">История платежей</div><div id="paymentHistory"></div></div>
+    <div class="card span-6"><div class="title">Расходы месяца</div><div id="expenseSummary"></div><div id="expenseHistory"></div></div>
+
+    <div class="card span-6"><div class="title">Конверты расходов</div><div id="envelopeList"></div><button class="btn secondary" style="margin-top:12px" onclick="openEnvelopeEditor()">Настроить лимиты</button></div>
+    <div class="card span-6"><div class="title">Прогноз денег 30 / 60 / 90 дней</div><div id="cashForecast"></div><div class="notice" style="margin-top:10px">Прогноз использует плановые поступления, цель по долгам и дневной резерв. Это сценарий, а не банковский баланс.</div></div>
+
+    <div class="card span-6"><div class="title">Что даст дополнительный платёж</div><div class="formgrid"><div class="field"><label>Сумма досрочки, ₽</label><input id="extraCalcAmount" type="number" min="0" value="25000"></div></div><button class="btn secondary" style="margin-top:10px" onclick="calcExtraSavings()">Рассчитать эффект</button><div id="extraSavingsResult" style="margin-top:12px"></div></div>
+    <div class="card span-6"><div class="title">Финансовый отчёт месяца</div><div id="financeMonthlyReport"></div></div>
+
+    <div class="card span-12"><div class="title">Импорт банковской выписки CSV</div><div class="muted">Локальный импорт: файл не отправляется в интернет. Поддерживаются CSV/TSV с колонками вроде Дата, Описание, Сумма. Положительные суммы попадут в доходы, отрицательные — в расходы.</div><div class="split" style="margin-top:12px"><label class="btn secondary">Выбрать CSV<input id="bankCsvInput" type="file" accept=".csv,.txt,.tsv" style="display:none"></label><button class="btn ghost" onclick="clearImportedTransactions()">Удалить импортированные операции</button></div><div id="bankImportStatus" class="status" style="margin-top:10px"></div></div>
+  </div>
+</section>
+
+<section id="work" class="section">
+  <div class="grid">
+    <div class="card span-12 work-hero"><div class="smallcaps">Работа</div><div class="section-title">Продажи как прокачка карьеры</div><div class="kpi-row" style="margin-top:14px"><div class="kpi"><div class="smallcaps">План месяца</div><div class="num sm" id="workPlanKpi">0 ₽</div></div><div class="kpi"><div class="smallcaps">Факт</div><div class="num sm" id="workSalesKpi">0 ₽</div></div><div class="kpi"><div class="smallcaps">Выполнение</div><div class="num" id="workPctKpi">0%</div></div></div></div>
+    <div class="card span-6"><div class="title">Добавить рабочий день</div><div class="formgrid"><div class="field"><label>Продажи / реализации, ₽</label><input id="workSales" type="number" min="0" placeholder="0"></div><div class="field"><label>Новые целевые контакты</label><input id="workContacts" type="number" min="0" value="0"></div><div class="field"><label>Follow-up</label><input id="workFollowups" type="number" min="0" value="0"></div><div class="field"><label>Разговоры с ЛПР</label><input id="workLpr" type="number" min="0" value="0"></div><div class="field"><label>Встречи / созвоны</label><input id="workMeetings" type="number" min="0" value="0"></div><div class="field"><label>КП / расчёты</label><input id="workProposals" type="number" min="0" value="0"></div><div class="field"><label>Новых сделок / побед</label><input id="workWins" type="number" min="0" value="0"></div><div class="field"><label>Добавлено в воронку, ₽</label><input id="workPipeline" type="number" min="0" value="0"></div></div><div class="field" style="margin-top:10px"><label>Заметка / важный объект</label><textarea id="workNote"></textarea></div><button class="btn" style="margin-top:12px" onclick="addWorkLog()">Сохранить день</button></div>
+    <div class="card span-6"><div class="title">Активность месяца</div><div class="report-grid" id="workActivitySummary"></div><div class="goal"><div class="goal-top"><span>План продаж</span><b id="workProgressText"></b></div><div class="progress green"><i id="workProgress"></i></div></div></div>
+    <div class="card span-6"><div class="title">Карьерные квесты</div><div id="workQuests"></div></div>
+    <div class="card span-6"><div class="title">Темп до плана</div><div id="workPace"></div></div>
+    <div class="card span-6"><div class="title">Воронка действий</div><div id="workFunnel"></div></div>
+    <div class="card span-6"><div class="title">Последние записи</div><div id="workLogList"></div></div>
+  </div>
+</section>
+
+<section id="tennis" class="section">
+  <div class="grid">
+    <div class="card span-12 tennis-hero"><div class="smallcaps">Настольный теннис</div><div class="section-title">Игровой профиль</div><div class="kpi-row" style="margin-top:14px"><div class="kpi"><div class="smallcaps">Сессии</div><div class="num" id="ttSessions">0</div></div><div class="kpi"><div class="smallcaps">Часы</div><div class="num" id="ttHours">0</div></div><div class="kpi"><div class="smallcaps">Win rate</div><div class="num" id="ttWinRate">0%</div></div><div class="kpi"><div class="smallcaps">Сессии месяца</div><div class="num" id="ttMonthSessions">0</div></div><div class="kpi"><div class="smallcaps">Последние 10</div><div class="num" id="ttLast10">0%</div></div></div></div>
+    <div class="card span-6"><div class="title">Добавить сессию</div><div class="formgrid"><div class="field"><label>Формат</label><select id="ttType"><option>Тренировка</option><option>Спарринг</option><option>Турнир</option><option>Техника</option><option>Подачи / приём</option></select></div><div class="field"><label>Длительность, мин</label><input id="ttMinutes" type="number" value="90"></div><div class="field"><label>Фокус</label><select id="ttFocus"><option>Смешанная</option><option>FH</option><option>BH</option><option>Подача</option><option>Приём</option><option>Ноги</option><option>Тактика</option></select></div><div class="field"><label>Нагрузка 1–10</label><input id="ttLoad" type="number" min="1" max="10" value="7"></div><div class="field"><label>Победы</label><input id="ttW" type="number" min="0" value="0"></div><div class="field"><label>Поражения</label><input id="ttL" type="number" min="0" value="0"></div><div class="field"><label>Подача / приём, мин</label><input id="ttServe" type="number" min="0" value="0"></div><div class="field"><label>Ноги / перемещения, мин</label><input id="ttFoot" type="number" min="0" value="0"></div><div class="field"><label>Соперник / тренер</label><input id="ttOpponent" placeholder="Имя"></div><div class="field"><label>Счёт / результат</label><input id="ttScore" placeholder="3:1, 2:3..."></div></div><div class="field" style="margin-top:10px"><label>Вывод</label><textarea id="ttNote" placeholder="Что получилось? Что улучшить?"></textarea></div><button class="btn" style="margin-top:12px" onclick="addTennis()">Сохранить сессию</button></div>
+    <div class="card span-6"><div class="title">Навыки игрока</div><div class="stats-list" id="tennisSkills"></div><div class="title" style="margin-top:18px">Квесты недели</div><div id="tennisQuests"></div></div>
+    <div class="card span-6"><div class="title">Соперники</div><div id="opponentJournal"></div></div>
+    <div class="card span-6"><div class="title">Теннисный отчёт месяца</div><div id="tennisMonthlyReport"></div></div>
+    <div class="card span-12"><div class="title">История тренировок</div><div id="tennisLog"></div></div>
+  </div>
+</section>
+
+<section id="more" class="section">
+  <div class="grid">
+    <div class="card span-12 book-hero"><div class="smallcaps">Life OS</div><div class="section-title">Книги, навыки, ачивки и настройки</div></div>
+    <div class="card span-6"><div class="title">Библиотека</div><div id="bookList"></div><button class="btn secondary" onclick="openModal('bookModal')">+ Добавить книгу</button></div>
+    <div class="card span-6"><div class="title">Навыки / Skill Tree</div><div id="skillTree" class="skill-tree"></div></div>
+    <div class="card span-6"><div class="title">Чтение и знания</div><div id="readingDashboard"></div></div>
+    <div class="card span-6"><div class="title">Магазин наград</div><div id="rewardList"></div></div>
+    <div class="card span-6"><div class="title">Все достижения</div><div class="ach-grid" id="allAchievements"></div></div>
+    <div class="card span-6"><div class="title">Итог текущего месяца</div><div id="monthlyLifeReport"></div></div>
+    <div class="card span-6"><div class="title">Уведомления</div><div class="muted">Приложение может напоминать о ближайших платежах при запуске и пока оно активно. Гарантированные фоновые уведомления без сервера Android/PWA не обещают.</div><button class="btn secondary" style="margin-top:12px" onclick="enableNotifications()">Включить уведомления</button><div class="status" id="notificationStatus"></div></div>
+    <div class="card span-6"><div class="title">Профиль и настройки</div><div class="formgrid"><div class="field"><label>Имя</label><input id="profileName"></div><div class="field"><label>План продаж / мес., ₽</label><input id="settingWorkPlan" type="number"></div><div class="field"><label>Доход / мес., ₽</label><input id="settingIncome" type="number"></div><div class="field"><label>Цель на долги / мес., ₽</label><input id="settingDebtGoal" type="number"></div><div class="field"><label>Резерв на жизнь / день, ₽</label><input id="settingDailySpend" type="number"></div></div><div class="field" style="margin-top:10px"><label>Главная цель</label><input id="profileGoal"></div><button class="btn" style="margin-top:12px" onclick="saveSettings()">Сохранить настройки</button></div>
+    <div class="card span-12"><div class="title">История сезонов</div><div id="seasonHistory"></div></div>
+    <div class="card span-12"><div class="title">Облако и Android</div><div class="report-grid"><div class="report-item"><div class="smallcaps">Сейчас</div><b>Локальная PWA</b><div class="sub">IndexedDB + офлайн + резервные копии</div></div><div class="report-item"><div class="smallcaps">Cloud-ready</div><b>Да</b><div class="sub">В архиве есть схема Supabase и инструкция подключения</div></div><div class="report-item"><div class="smallcaps">Android-ready</div><b>Да</b><div class="sub">В архиве есть Capacitor-конфигурация для сборки APK</div></div></div></div>
+    <div class="card span-12"><div class="title">Данные, версия и резервные копии</div><div class="muted">Основное хранилище — IndexedDB. Приложение работает офлайн. Для переноса между устройствами используй резервную копию.</div><div class="backup" style="margin-top:14px"><button class="btn secondary" onclick="exportBackup(false)">Экспорт JSON</button><button class="btn secondary" onclick="openModal('encryptedBackupModal')">Зашифрованная копия</button><label class="btn secondary">Импорт файла<input id="importFile" type="file" accept=".json,.lrpg" style="display:none"></label></div><div class="status" id="storageStatus">Загрузка…</div><div class="status" id="versionStatus"></div></div>
+    <div class="card span-12"><div class="title">Опасная зона</div><button class="btn danger" onclick="resetAll()">Сбросить весь прогресс</button></div>
+  </div>
+</section>
+</div>
+
+<nav class="bottom"><button class="navbtn active" data-tab="today"><b>⌂</b>Сегодня</button><button class="navbtn" data-tab="finance"><b>₽</b>Финансы</button><button class="navbtn" data-tab="work"><b>↗</b>Работа</button><button class="navbtn" data-tab="tennis"><b>🏓</b>Теннис</button><button class="navbtn" data-tab="more"><b>•••</b>Ещё</button></nav>
+<div class="toast" id="toast"></div>
+
+<div class="modal" id="paymentModal"><div class="modal-card"><div class="modal-head"><div class="title">Добавить платёж</div><button class="close" onclick="closeModal('paymentModal')">×</button></div><div class="formgrid"><div class="field"><label>Долг</label><select id="payDebt"></select></div><div class="field"><label>Сумма, ₽</label><input id="payAmount" type="number" min="0"></div></div><button class="btn" style="margin-top:12px" onclick="addPayment()">Зачесть платёж</button></div></div>
+<div class="modal" id="syncModal"><div class="modal-card"><div class="modal-head"><div class="title">Сверить остаток с банком</div><button class="close" onclick="closeModal('syncModal')">×</button></div><div class="formgrid"><div class="field"><label>Долг</label><select id="syncDebt"></select></div><div class="field"><label>Фактический остаток, ₽</label><input id="syncBalanceInput" type="number" min="0"></div></div><button class="btn" style="margin-top:12px" onclick="syncBalance()">Сохранить остаток</button></div></div>
+<div class="modal" id="readingModal"><div class="modal-card"><div class="modal-head"><div class="title">Сессия чтения</div><button class="close" onclick="closeModal('readingModal')">×</button></div><div class="formgrid"><div class="field"><label>Книга</label><select id="readBook"></select></div><div class="field"><label>Минуты</label><input id="readMinutes" type="number" value="30"></div><div class="field"><label>Страницы прочитано</label><input id="readPages" type="number" value="0"></div></div><div class="field" style="margin-top:10px"><label>Мысль / тезис</label><textarea id="readNote" placeholder="Что стоит запомнить или применить?"></textarea></div><button class="btn" style="margin-top:12px" onclick="addReading()">Сохранить чтение</button></div></div>
+<div class="modal" id="bookModal"><div class="modal-card"><div class="modal-head"><div class="title">Добавить книгу</div><button class="close" onclick="closeModal('bookModal')">×</button></div><div class="formgrid"><div class="field"><label>Название</label><input id="bookTitle"></div><div class="field"><label>Автор</label><input id="bookAuthor"></div><div class="field"><label>Всего страниц</label><input id="bookPages" type="number" min="1"></div></div><button class="btn" style="margin-top:12px" onclick="addBook()">Добавить</button></div></div>
+
+
+<div class="modal" id="incomeModal"><div class="modal-card"><div class="modal-head"><div class="title">Добавить поступление</div><button class="close" onclick="closeModal('incomeModal')">×</button></div><div class="formgrid"><div class="field"><label>Дата</label><input id="incomeDate" type="date"></div><div class="field"><label>Сумма, ₽</label><input id="incomeAmount" type="number" min="0" inputmode="decimal"></div><div class="field"><label>Источник</label><select id="incomeSource"><option>Зарплата</option><option>Премия</option><option>Доп. доход</option><option>Возврат / компенсация</option><option>Стартовый остаток / корректировка</option><option>Другое</option></select></div><div class="field"><label>Комментарий</label><input id="incomeNote" placeholder="Например: зарплата за сентябрь"></div></div><div class="notice" style="margin-top:10px">Если начинаешь вести приложение не с первого дня месяца, можно один раз внести текущие свободные деньги как «Стартовый остаток / корректировка». Это сделает расчёт доступной суммы точнее.</div><button class="btn" style="margin-top:12px" onclick="addIncome()">Сохранить поступление</button></div></div>
+<div class="modal" id="expenseModal"><div class="modal-card"><div class="modal-head"><div class="title">Добавить расход</div><button class="close" onclick="closeModal('expenseModal')">×</button></div><div class="formgrid"><div class="field"><label>Сумма, ₽</label><input id="expenseAmount" type="number" min="0"></div><div class="field"><label>Категория</label><select id="expenseCategory"><option>Еда</option><option>Транспорт</option><option>Дом</option><option>Связь</option><option>Развлечения</option><option>Теннис</option><option>Покупки</option><option>Другое</option></select></div></div><div class="field" style="margin-top:10px"><label>Комментарий</label><input id="expenseNote"></div><button class="btn" style="margin-top:12px" onclick="addExpense()">Сохранить расход</button></div></div>
+
+<div class="modal" id="envelopeModal"><div class="modal-card"><div class="modal-head"><div class="title">Лимиты конвертов</div><button class="close" onclick="closeModal('envelopeModal')">×</button></div><div id="envelopeEditor" class="formgrid"></div><div class="notice" style="margin-top:10px">Лимиты не блокируют траты — они показывают, где бюджет начинает выходить за рамки.</div><button class="btn" style="margin-top:12px" onclick="saveEnvelopeLimits()">Сохранить лимиты</button></div></div>
+<div class="modal" id="encryptedBackupModal"><div class="modal-card"><div class="modal-head"><div class="title">Зашифрованная резервная копия</div><button class="close" onclick="closeModal('encryptedBackupModal')">×</button></div><div class="field"><label>Пароль</label><input id="backupPassword" type="password" autocomplete="new-password"></div><div class="notice" style="margin-top:10px">Пароль нигде не сохраняется. Без него восстановить зашифрованный файл нельзя.</div><button class="btn" style="margin-top:12px" onclick="exportBackup(true)">Создать .lrpg</button></div></div>
+<script src="./app.js"></script>
+</body>
+</html>

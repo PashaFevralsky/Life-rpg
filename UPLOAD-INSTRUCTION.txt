@@ -1,0 +1,14 @@
+GitHub Mobile Deploy — Life RPG 5.0
+
+Загрузи ВСЕ 7 файлов прямо в корень репозитория:
+
+index.html
+styles.css
+app.js
+sw.js
+manifest.webmanifest
+icon-192.png
+icon-512.png
+
+Папки не нужны.
+Папка integrations намеренно исключена — она не требуется для работы PWA.

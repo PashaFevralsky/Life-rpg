@@ -1,0 +1,386 @@
+"use strict";
+const APP_VERSION="5.0.0";
+const STATE_VERSION=7;
+const DB_NAME="life-rpg-db";
+const DB_VERSION=7;
+const START_DEBT=1341522.94;
+const XP_PER_LEVEL=1000;
+const $=id=>document.getElementById(id);
+
+function localDateKey(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function localMonthKey(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
+function isoWeekKey(d=new Date()){const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=x.getUTCDay()||7;x.setUTCDate(x.getUTCDate()+4-day);const y0=new Date(Date.UTC(x.getUTCFullYear(),0,1));const w=Math.ceil((((x-y0)/86400000)+1)/7);return `${x.getUTCFullYear()}-W${String(w).padStart(2,"0")}`}
+function parseLocal(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d,12)}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function daysBetween(a,b){return Math.floor((new Date(b.getFullYear(),b.getMonth(),b.getDate())-new Date(a.getFullYear(),a.getMonth(),a.getDate()))/86400000)}
+function rub(n){return Math.round(Number(n)||0).toLocaleString("ru-RU")+" ₽"}
+function compactRub(n){return new Intl.NumberFormat("ru-RU",{notation:"compact",maximumFractionDigits:1}).format(Number(n)||0)+" ₽"}
+function pct(n,d=0){return `${(Number(n)||0).toFixed(d)}%`}
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function uid(){return `${Date.now()}-${Math.random().toString(36).slice(2,9)}`}
+function escapeHtml(v){return String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function fmtDate(s){const d=typeof s==="string"?parseLocal(s):s;return d.toLocaleDateString("ru-RU",{day:"2-digit",month:"short"})}
+function monthDiff(a,b){return (b.getFullYear()-a.getFullYear())*12+b.getMonth()-a.getMonth()}
+function deepClone(x){return structuredClone(x)}
+
+const DEFAULT_STATE={
+  version:STATE_VERSION,
+  profile:{name:"Павел",goal:"Закрыть долги и прокачать жизнь системно"},
+  settings:{monthlyIncome:150000,monthlyDebtGoal:162000,workMonthlyPlan:4500000,campaignStart:"2026-09-19",campaignMonths:10,dailySpendLimit:1300,incomeEvents:[{day:5,label:"Зарплата",amount:50000},{day:15,label:"Зарплата",amount:50000},{day:25,label:"Зарплата",amount:50000}]},
+  xpEarned:0,xpSpent:0,
+  stats:{Финансы:0,Карьера:0,Разум:0,Теннис:0,Тело:0,Отношения:0,Дисциплина:0},
+  xpEvents:[],
+  debts:[
+    {name:"Кредит 800 000",initial:800000,balance:800000,rate:34.9,min:29310,dueDay:30,priority:4},
+    {name:"Кредитка 476 307",initial:476307.16,balance:476307.16,rate:61.9,min:26000,dueDay:18,priority:1},
+    {name:"Кредитка 48 358",initial:48357.57,balance:48357.57,rate:49,min:3301.92,dueDay:16,priority:3},
+    {name:"Кредитка 16 858",initial:16858.21,balance:16858.21,rate:59.99,min:1200,dueDay:2,priority:2}
+  ],
+  payments:[],balanceHistory:[{date:"2026-09-19",total:START_DEBT,type:"start"}],
+  checks:{},questDone:{},achievements:{},rewardPurchases:[],
+  workLogs:[],tennis:[],books:[],readingLogs:[],expenses:[],incomeLogs:[],bankImportIds:[],envelopeLimits:{"Еда":0,"Транспорт":0,"Дом":0,"Связь":0,"Развлечения":0,"Теннис":0,"Покупки":0,"Другое":0},workTargets:{contacts:20,followups:10,lpr:3,meetings:3,proposals:3},
+  created:new Date().toISOString(),updated:new Date().toISOString()
+};
+let S=deepClone(DEFAULT_STATE),db=null,deferredInstall=null;
+
+const DAILY_QUESTS=[
+  {id:"expenses",title:"Записать расходы",stat:"Дисциплина",xp:10},
+  {id:"no_credit",title:"Без новых покупок в кредит",stat:"Финансы",xp:20},
+  {id:"focus",title:"1 фокус-блок по работе",stat:"Карьера",xp:20},
+  {id:"read",title:"Читать 30 минут",stat:"Разум",xp:20},
+  {id:"walk",title:"Прогулка 30+ минут",stat:"Тело",xp:20},
+  {id:"family",title:"1 час семье / себе",stat:"Отношения",xp:20}
+];
+const GENERAL_WEEKLY=[
+  {id:"review",title:"Подвести итоги недели",stat:"Дисциплина",xp:80},
+  {id:"read5",title:"5 дней чтения за неделю",stat:"Разум",xp:100,condition:()=>readingDaysThisWeek()>=5},
+  {id:"clean_fin",title:"Неделя без новых кредитных покупок",stat:"Финансы",xp:120,condition:()=>dailyQuestCountThisWeek("no_credit")>=7}
+];
+const WORK_WEEKLY=[
+  {id:"contacts20",title:"20 новых целевых контактов",stat:"Карьера",xp:120,condition:()=>workWeek().contacts>=20},
+  {id:"follow10",title:"10 follow-up",stat:"Карьера",xp:100,condition:()=>workWeek().followups>=10},
+  {id:"lpr3",title:"3 разговора с ЛПР",stat:"Карьера",xp:150,condition:()=>workWeek().lpr>=3},
+  {id:"proposals3",title:"3 качественных КП / расчёта",stat:"Карьера",xp:120,condition:()=>workWeek().proposals>=3},
+  {id:"crm",title:"Неделя без просроченных задач CRM",stat:"Дисциплина",xp:150}
+];
+const TENNIS_WEEKLY=[
+  {id:"sessions3",title:"3 тренировки за неделю",stat:"Теннис",xp:180,condition:()=>tennisWeek().sessions>=3},
+  {id:"sessions4",title:"4 тренировки за неделю",stat:"Теннис",xp:250,condition:()=>tennisWeek().sessions>=4},
+  {id:"tourney",title:"Турнир / рейтинговые игры",stat:"Теннис",xp:250,condition:()=>tennisWeek().tournaments>=1},
+  {id:"serve60",title:"60 минут подачи / приёма",stat:"Теннис",xp:100,condition:()=>tennisWeek().serve>=60},
+  {id:"foot45",title:"45 минут работы ног",stat:"Теннис",xp:100,condition:()=>tennisWeek().foot>=45}
+];
+const REWARDS=[
+  {id:"evening",name:"Вечер без обязательных дел",cost:300,paid:false},
+  {id:"movie",name:"Фильм / сериал без чувства вины",cost:400,paid:false},
+  {id:"food",name:"Любимое блюдо",cost:500,paid:true,rub:1000,gate:true},
+  {id:"smallbuy",name:"Покупка до 1 000 ₽",cost:1200,paid:true,rub:1000,gate:true},
+  {id:"halfday",name:"Полдня полностью себе",cost:1500,paid:false},
+  {id:"hobby",name:"Хобби / развлечение до 2 000 ₽",cost:2200,paid:true,rub:2000,gate:true},
+  {id:"bossreward",name:"Большая награда после босса",cost:5000,paid:true,rub:5000,gate:true,requiresClosedDebt:true}
+];
+const SKILL_NODES={
+  "Финансы":[[250,"Контроль","Ведение платежей и бюджета"],[1000,"Долговой охотник","Стабильная досрочка"],[3000,"Свобода","Системное управление деньгами"]],
+  "Карьера":[[250,"Поиск","Регулярный новый поток клиентов"],[1000,"ЛПР","Работа с принимающими решения"],[3000,"Закрытие","Системные продажи и переговоры"]],
+  "Разум":[[250,"Читатель","Регулярное чтение"],[1000,"Аналитик","Конспекты и применение"],[3000,"Исследователь","Глубокое обучение"]],
+  "Теннис":[[250,"Стабильность","Регулярные тренировки"],[1000,"Матчевик","Перенос техники в игру"],[3000,"Турнирный игрок","Системная соревновательная практика"]],
+  "Тело":[[250,"Движение","Регулярные прогулки"],[1000,"Выносливость","Стабильная нагрузка"],[3000,"Атлетизм","Системное физическое развитие"]],
+  "Отношения":[[250,"Присутствие","Качественное время без отвлечений"],[1000,"Опора","Регулярные совместные дела"],[3000,"Баланс","Стабильное внимание отношениям"]],
+  "Дисциплина":[[250,"Ритм","Регулярность без идеальности"],[1000,"Система","Стабильные процессы"],[3000,"Автопилот","Привычки работают без усилий"]]
+};
+const ACHIEVEMENTS=[
+  ["first_debt","Первый босс","Закрыть первый долг","⚔"],
+  ["debt100","Минус 100k","Погасить 100 000 ₽ основного долга","💥"],
+  ["debt25","Четверть пути","Погасить 25% стартового долга","◔"],
+  ["debt50","Экватор","Погасить 50% стартового долга","◐"],
+  ["debt75","Последняя четверть","Погасить 75% стартового долга","◕"],
+  ["debtfree","Debt Free","Закрыть все долги","🏆"],
+  ["stable7","Стабильная неделя","7 активных дней за последние 7","🔥"],
+  ["stable20","Системный месяц","20 активных дней из 30","🧱"],
+  ["tennis12","Регулярный игрок","12 теннисных сессий","🏓"],
+  ["tourney4","Турнирный режим","4 турнира","🥇"],
+  ["book1","Первая книга","Закончить книгу","📚"],
+  ["books3","Книжный червь","Закончить 3 книги","📖"],
+  ["career500","Охотник за сделками","500 XP карьеры","🎯"],
+  ["salesplan","План закрыт","Выполнить месячный план продаж","📈"],
+  ["debtgoal","Финансовый удар","Выполнить месячную цель по долгам","💳"]
+];
+
+function normalizeState(raw){
+  raw=raw||{};const out=deepClone(DEFAULT_STATE);
+  out.version=STATE_VERSION;out.profile={...out.profile,...(raw.profile||{})};out.settings={...out.settings,...(raw.settings||{})};
+  const legacyIncome=Number(raw?.settings?.monthlyIncome||0)===200000;
+  const legacyEvents=Array.isArray(raw?.settings?.incomeEvents)&&raw.settings.incomeEvents.length===4&&[75000,50000,25000,50000].every((v,i)=>Number(raw.settings.incomeEvents[i]?.amount||0)===v)&&[5,15,20,25].every((v,i)=>Number(raw.settings.incomeEvents[i]?.day||0)===v);
+  if(legacyIncome&&legacyEvents){out.settings.monthlyIncome=150000;out.settings.incomeEvents=deepClone(DEFAULT_STATE.settings.incomeEvents);}
+  out.xpEarned=Number(raw.xpEarned??raw.xp??0)||0;out.xpSpent=Number(raw.xpSpent||0)||0;out.stats={...out.stats,...(raw.stats||{})};out.xpEvents=Array.isArray(raw.xpEvents)?raw.xpEvents:[];
+  const rb=Array.isArray(raw.debts)?raw.debts:[];out.debts=out.debts.map((d,i)=>({...d,...(rb[i]||{}),initial:Number((rb[i]||{}).initial??d.initial)}));
+  out.payments=Array.isArray(raw.payments)?raw.payments:[];out.balanceHistory=Array.isArray(raw.balanceHistory)&&raw.balanceHistory.length?raw.balanceHistory:[{date:out.settings.campaignStart,total:out.debts.reduce((a,d)=>a+(d.initial||0),0),type:"start"}];
+  out.checks=raw.checks&&typeof raw.checks==="object"?raw.checks:{};out.questDone=raw.questDone&&typeof raw.questDone==="object"?raw.questDone:{};out.achievements=raw.achievements&&typeof raw.achievements==="object"?raw.achievements:{};out.rewardPurchases=Array.isArray(raw.rewardPurchases)?raw.rewardPurchases:[];
+  out.workLogs=Array.isArray(raw.workLogs)?raw.workLogs:[];out.tennis=Array.isArray(raw.tennis)?raw.tennis:[];out.books=Array.isArray(raw.books)?raw.books:[];out.readingLogs=Array.isArray(raw.readingLogs)?raw.readingLogs:[];out.expenses=Array.isArray(raw.expenses)?raw.expenses:[];out.incomeLogs=Array.isArray(raw.incomeLogs)?raw.incomeLogs:[];out.bankImportIds=Array.isArray(raw.bankImportIds)?raw.bankImportIds:[];out.envelopeLimits={...out.envelopeLimits,...(raw.envelopeLimits||{})};out.workTargets={...out.workTargets,...(raw.workTargets||{})};
+  if(!out.xpEvents.length&&out.xpEarned>0)out.xpEvents.push({id:uid(),date:out.created||new Date().toISOString(),xp:out.xpEarned,stat:"Миграция",label:"Перенесённый XP"});
+  return out;
+}
+
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=e=>{const x=e.target.result;if(!x.objectStoreNames.contains("state"))x.createObjectStore("state");if(!x.objectStoreNames.contains("backups"))x.createObjectStore("backups",{keyPath:"ts"})};r.onsuccess=()=>{db=r.result;res(db)};r.onerror=()=>rej(r.error)})}
+function dbGet(store,key){return new Promise((res,rej)=>{const q=db.transaction(store,"readonly").objectStore(store).get(key);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function dbPut(store,val,key){return new Promise((res,rej)=>{const os=db.transaction(store,"readwrite").objectStore(store),q=key===undefined?os.put(val):os.put(val,key);q.onsuccess=()=>res();q.onerror=()=>rej(q.error)})}
+async function loadState(){try{await openDB();const saved=await dbGet("state","current");if(saved)S=normalizeState(saved);else{const legacy=localStorage.getItem("lifeRpg3")||localStorage.getItem("lifeRpgPwa");if(legacy)S=normalizeState(JSON.parse(legacy));await persist(true)}$("storageStatus").textContent="IndexedDB подключена • локальная база работает офлайн."}catch(e){const x=localStorage.getItem("lifeRpg4");if(x)S=normalizeState(JSON.parse(x));$("storageStatus").textContent="IndexedDB недоступна • используется резервное localStorage."}render();runReminderCheck();setInterval(runReminderCheck,3600000)}
+async function persist(makeBackup=false){S.version=STATE_VERSION;S.updated=new Date().toISOString();try{if(!db)await openDB();await dbPut("state",S,"current");const day=localDateKey(),last=localStorage.getItem("lifeRpgBackupDay");if(makeBackup||day!==last){await dbPut("backups",{ts:Date.now(),day,state:deepClone(S)});localStorage.setItem("lifeRpgBackupDay",day)}}catch(e){localStorage.setItem("lifeRpg4",JSON.stringify(S))}}
+async function save(msg){await persist();render();if(msg)toast(msg)}
+
+function totalDebt(){return S.debts.reduce((a,d)=>a+Math.max(0,Number(d.balance)||0),0)}
+function debtPaid(){return Math.max(0,START_DEBT-totalDebt())}
+function debtPct(){return clamp(debtPaid()/START_DEBT*100,0,100)}
+function monthPayments(month=localMonthKey()){return S.payments.filter(p=>(p.monthKey||String(p.date||"").slice(0,7))===month).reduce((a,p)=>a+(Number(p.amount)||0),0)}
+function monthExpenses(month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)).reduce((a,x)=>a+(+x.amount||0),0)}
+function monthIncome(month=localMonthKey()){return S.incomeLogs.filter(x=>x.dateKey?.startsWith(month)).reduce((a,x)=>a+(+x.amount||0),0)}
+function trackedCash(month=localMonthKey()){return monthIncome(month)-monthExpenses(month)-monthPayments(month)}
+function plannedIncomeForMonth(){return (S.settings.incomeEvents||[]).reduce((a,x)=>a+(+x.amount||0),0)}
+function plannedIncomeToDate(d=new Date()){const y=d.getFullYear(),m=d.getMonth(),today=d.getDate();return (S.settings.incomeEvents||[]).filter(x=>x.day<=today).reduce((a,x)=>a+(+x.amount||0),0)}
+function planGap(){return (+S.settings.monthlyDebtGoal||0)-(+S.settings.monthlyIncome||0)}
+function planWarningHtml(){const g=planGap();if(g<=0)return "";return `<div class="notice income-warn" style="margin-top:10px"><b>План требует ещё ${rub(g)} сверх ожидаемого дохода.</b><br>Чтобы выполнить цель ${rub(S.settings.monthlyDebtGoal)} при плане дохода ${rub(S.settings.monthlyIncome)}, нужен стартовый остаток, дополнительное фактическое поступление или снижение цели.</div>`}
+function paymentToDebtMonth(i,month){return S.payments.filter(p=>p.debtIndex===i&&(p.monthKey||String(p.date||"").slice(0,7))===month).reduce((a,p)=>a+(+p.amount||0),0)}
+function nextPlannedIncomeDate(from=new Date()){
+  const start=new Date(from.getFullYear(),from.getMonth(),from.getDate(),0,0,0),todayKey=localDateKey(from),actualToday=S.incomeLogs.filter(x=>x.dateKey===todayKey).reduce((a,x)=>a+(+x.amount||0),0),plannedToday=(S.settings.incomeEvents||[]).filter(x=>x.day===from.getDate()).reduce((a,x)=>a+(+x.amount||0),0),candidates=[];
+  for(let off=0;off<3;off++){
+    const y=start.getFullYear(),m=start.getMonth()+off,last=new Date(y,m+1,0).getDate();
+    for(const ev of (S.settings.incomeEvents||[])){
+      const dt=new Date(y,m,Math.min(ev.day,last),12),sameDay=localDateKey(dt)===todayKey;
+      if(dt>=start&&(!sameDay||actualToday<plannedToday))candidates.push({date:dt,label:ev.label,amount:+ev.amount||0});
+    }
+  }
+  return candidates.sort((a,b)=>a.date-b.date)[0]||null;
+}
+function remainingMinimumsThisMonth(){
+  const mk=localMonthKey();
+  return S.debts.reduce((sum,d,i)=>d.balance>0?sum+Math.max(0,(+d.min||0)-paymentToDebtMonth(i,mk)):sum,0);
+}
+function mandatoryBefore(dateLimit){
+  const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1,0),limit=new Date(dateLimit.getFullYear(),dateLimit.getMonth(),dateLimit.getDate(),23,59,59),items=[];
+  for(let off=0;off<2;off++){
+    const y=now.getFullYear(),m=now.getMonth()+off,last=new Date(y,m+1,0).getDate(),mk=`${y}-${String(m+1).padStart(2,"0")}`;
+    S.debts.forEach((d,i)=>{
+      if(d.balance<=0)return;
+      const due=new Date(y,m,Math.min(d.dueDay,last),12);
+      if(due>=start&&due<=limit){
+        const need=Math.max(0,(+d.min||0)-paymentToDebtMonth(i,mk));
+        if(need>0)items.push({debt:d.name,date:due,amount:need});
+      }
+    });
+  }
+  return items.sort((a,b)=>a.date-b.date);
+}
+function cashAdvice(){
+  const cash=trackedCash(),next=nextPlannedIncomeDate(),today=new Date();
+  const days=next?Math.max(0,daysBetween(today,next.date)):7;
+  const living=Math.max(0,days*(+S.settings.dailySpendLimit||0));
+  const mandatory=next?mandatoryBefore(next.date):[];
+  const mandatorySum=mandatory.reduce((a,x)=>a+x.amount,0);
+  const reserve=living+mandatorySum;
+  const safe=Math.max(0,cash-reserve);
+  const unpaidMins=remainingMinimumsThisMonth();
+  const extraNeeded=Math.max(0,S.settings.monthlyDebtGoal-monthPayments()-unpaidMins);
+  const recommended=Math.max(0,Math.min(safe,extraNeeded));
+  return {cash,next,days,living,mandatory,mandatorySum,reserve,safe,unpaidMins,extraNeeded,recommended};
+}
+
+function daysInMonth(d=new Date()){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
+function workingDaysLeft(d=new Date()){let n=0,x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12),end=new Date(d.getFullYear(),d.getMonth()+1,0,12);while(x<=end){const wd=x.getDay();if(wd!==0&&wd!==6)n++;x=addDays(x,1)}return n}
+function monthCategorySpend(cat,month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)&&x.category===cat).reduce((a,x)=>a+(+x.amount||0),0)}
+function plannedIncomeOverDays(days){const start=new Date(),end=addDays(start,days);let sum=0;for(let d=new Date(start.getFullYear(),start.getMonth(),1,12);d<=end;d=new Date(d.getFullYear(),d.getMonth()+1,1,12)){const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();for(const ev of (S.settings.incomeEvents||[])){const x=new Date(d.getFullYear(),d.getMonth(),Math.min(ev.day,last),12);if(x>=start&&x<=end)sum+=+ev.amount||0}}return sum}
+function cashForecast(days){const income=plannedIncomeOverDays(days),living=(+S.settings.dailySpendLimit||0)*days,months=Math.max(1,days/30.4375),debtGoal=(+S.settings.monthlyDebtGoal||0)*months;return {income,living,debtGoal,net:trackedCash()+income-living-debtGoal}}
+function parseCsvDate(v){v=String(v||"").trim();let m;if((m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)))return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;if((m=v.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/)))return `${m[3]}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;return ""}
+function parseMoney(v){let s=String(v??"").replace(/\s/g,"").replace(/[₽рRUB]/gi,"").replace(",",".");s=s.replace(/(?!^)-/g,"");const n=Number(s);return Number.isFinite(n)?n:0}
+function detectDelimiter(line){const opts=[";","\t",","];return opts.sort((a,b)=>(line.split(b).length-line.split(a).length))[0]}
+function splitCsvLine(line,delim){const out=[];let cur="",q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){cur+='"';i++}else q=!q}else if(c===delim&&!q){out.push(cur);cur=""}else cur+=c}out.push(cur);return out}
+function classifyImportedExpense(desc){const s=String(desc||"").toLowerCase();if(/такси|метро|автобус|бенз|транспорт/.test(s))return"Транспорт";if(/кафе|ресторан|магазин|продукт|пятер|магнит|перекр/.test(s))return"Еда";if(/мобил|интернет|телефон|связ/.test(s))return"Связь";if(/теннис|спорт|клуб/.test(s))return"Теннис";if(/ozon|wildberries|wb|market|маркет/.test(s))return"Покупки";return"Другое"}
+function transactionFingerprint(date,amount,desc){let h=0,s=`${date}|${amount}|${desc}`;for(let i=0;i<s.length;i++)h=((h<<5)-h+s.charCodeAt(i))|0;return String(h)}
+function highestRateDebtIndex(){let best=-1;S.debts.forEach((d,i)=>{if(d.balance>0&&(best<0||d.rate>S.debts[best].rate))best=i});return best}
+function simulateWithImmediatePayment(amount){const base=simulateDebt(S.settings.monthlyDebtGoal),copy=deepClone(S.debts),i=highestRateDebtIndex();if(i<0)return null;copy[i].balance=Math.max(0,copy[i].balance-Math.max(0,amount));const alt=simulateDebt(S.settings.monthlyDebtGoal,copy);return {base,alt,debt:S.debts[i]}}
+function currentMonthReport(){const w=workMonth(),tt=S.tennis.filter(x=>x.dateKey?.startsWith(localMonthKey())),read=S.readingLogs.filter(x=>x.dateKey?.startsWith(localMonthKey())),income=monthIncome(),expenses=monthExpenses(),payments=monthPayments();return {income,expenses,payments,cash:income-expenses-payments,work:w,tennis:tt.length,tournaments:tt.filter(x=>x.type==="Турнир").length,readMinutes:read.reduce((a,x)=>a+(+x.minutes||0),0),books:S.books.filter(b=>b.status==="done"&&String(b.completed||"").startsWith(localMonthKey())).length}}
+
+function availableXp(){return Math.max(0,S.xpEarned-S.xpSpent)}
+function level(){return Math.min(100,1+Math.floor(S.xpEarned/XP_PER_LEVEL))}
+function rank(l){return l<5?"Новичок":l<10?"Искатель":l<20?"Ветеран":l<35?"Эксперт":l<50?"Мастер":l<75?"Грандмастер":"Легенда"}
+function addXp(xp,stat,label="",sourceId=""){xp=Math.max(0,Math.round(xp));if(!xp)return;S.xpEarned+=xp;if(stat&&S.stats[stat]!=null)S.stats[stat]+=xp;S.xpEvents.push({id:uid(),date:new Date().toISOString(),xp,stat,label,sourceId})}
+function removeXp(xp,stat,label="Откат",sourceId=""){xp=Math.max(0,Math.round(xp));S.xpEarned=Math.max(0,S.xpEarned-xp);if(stat&&S.stats[stat]!=null)S.stats[stat]=Math.max(0,S.stats[stat]-xp);S.xpEvents.push({id:uid(),date:new Date().toISOString(),xp:-xp,stat,label,sourceId})}
+function toast(t){const x=$("toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),1800)}
+function openModal(id){$(id)?.classList.add("open")}function closeModal(id){$(id)?.classList.remove("open")}
+function switchTab(id){document.querySelectorAll(".navbtn").forEach(x=>x.classList.toggle("active",x.dataset.tab===id));document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===id));window.scrollTo({top:0,behavior:"smooth"})}
+function quickAction(type){if(type==="income"){switchTab("finance");openIncomeModal()}if(type==="payment"){switchTab("finance");openModal("paymentModal")}if(type==="expense"){openModal("expenseModal")}if(type==="work"){switchTab("work");$("workContacts").focus()}if(type==="tennis"){switchTab("tennis");$("ttMinutes").focus()}if(type==="reading"){switchTab("more");openModal("readingModal")}}
+
+function activeDay(dateKey){const checks=Object.values(S.checks[dateKey]||{}).some(v=>v===true||v?.done);const w=S.workLogs.some(x=>x.date===dateKey),t=S.tennis.some(x=>x.dateKey===dateKey),r=S.readingLogs.some(x=>x.dateKey===dateKey),p=S.payments.some(x=>(x.localDate||String(x.date||"").slice(0,10))===dateKey);return checks||w||t||r||p}
+function stability(days){let n=0,d=new Date();for(let i=0;i<days;i++){if(activeDay(localDateKey(d)))n++;d.setDate(d.getDate()-1)}return n}
+function calcStreak(){let n=0,d=new Date();for(let i=0;i<365;i++){if(activeDay(localDateKey(d)))n++;else if(i>0)break;d.setDate(d.getDate()-1)}return n}
+function dailyQuestState(qid,date=localDateKey()){return !!S.checks[date]?.[qid]}
+async function toggleDaily(qid){const q=DAILY_QUESTS.find(x=>x.id===qid);if(!q)return;const k=localDateKey();S.checks[k]=S.checks[k]||{};const was=!!S.checks[k][qid];S.checks[k][qid]=!was;if(was)removeXp(q.xp,q.stat,`Отмена: ${q.title}`,`daily:${k}:${qid}`);else addXp(q.xp,q.stat,q.title,`daily:${k}:${qid}`);await save(was?"Квест отменён":"Квест выполнен")}
+function dailyQuestCountThisWeek(qid){let n=0,d=new Date();const wk=isoWeekKey(d);for(let i=0;i<7;i++){if(isoWeekKey(d)===wk&&dailyQuestState(qid,localDateKey(d)))n++;d.setDate(d.getDate()-1)}return n}
+function questKey(group,id,period="weekly"){return `${group}:${period==="monthly"?localMonthKey():isoWeekKey()}:${id}`}
+async function claimQuest(group,id){let list=group==="general"?GENERAL_WEEKLY:group==="work"?WORK_WEEKLY:TENNIS_WEEKLY;const q=list.find(x=>x.id===id);if(!q)return;const key=questKey(group,id);if(S.questDone[key])return;if(q.condition&&!q.condition()){toast("Условие ещё не выполнено");return}S.questDone[key]=true;addXp(q.xp,q.stat,q.title,key);await save(`+${q.xp} XP`)}
+function renderQuestGroup(list,group){return list.map(q=>{const key=questKey(group,q.id),done=!!S.questDone[key],ready=!q.condition||q.condition();return `<div class="quest"><button class="check ${done?"done":""} ${!ready&&!done?"locked":""}" onclick="claimQuest('${group}','${q.id}')">${done?"✓":ready?"":"·"}</button><div class="qbody"><div class="qtitle">${escapeHtml(q.title)}</div><div class="qmeta">${escapeHtml(q.stat)}${ready&&!done?" • готово к получению":""}</div></div><div class="xp">+${q.xp} XP</div></div>`}).join("")}
+
+function readingDaysThisWeek(){const wk=isoWeekKey();return new Set(S.readingLogs.filter(x=>isoWeekKey(parseLocal(x.dateKey))===wk).map(x=>x.dateKey)).size}
+function weekBounds(){const d=new Date(),day=(d.getDay()+6)%7,start=addDays(d,-day),end=addDays(start,6);return [localDateKey(start),localDateKey(end)]}
+function inRange(dateKey,a,b){return dateKey>=a&&dateKey<=b}
+function workWeek(){const [a,b]=weekBounds();return aggregateWork(S.workLogs.filter(x=>inRange(x.date,a,b)))}
+function workMonth(){return aggregateWork(S.workLogs.filter(x=>x.date.startsWith(localMonthKey())))}
+function aggregateWork(arr){return arr.reduce((o,x)=>({sales:o.sales+(+x.sales||0),contacts:o.contacts+(+x.contacts||0),followups:o.followups+(+x.followups||0),lpr:o.lpr+(+x.lpr||0),meetings:o.meetings+(+x.meetings||0),proposals:o.proposals+(+x.proposals||0),wins:o.wins+(+x.wins||0),pipeline:o.pipeline+(+x.pipeline||0)}),{sales:0,contacts:0,followups:0,lpr:0,meetings:0,proposals:0,wins:0,pipeline:0})}
+async function addWorkLog(){const x={id:uid(),date:localDateKey(),sales:+$("workSales").value||0,contacts:+$("workContacts").value||0,followups:+$("workFollowups").value||0,lpr:+$("workLpr").value||0,meetings:+$("workMeetings").value||0,proposals:+$("workProposals").value||0,wins:+$("workWins").value||0,pipeline:+$("workPipeline").value||0,note:$("workNote").value.trim()};x.xpAward=Math.min(120,Math.min(15,x.contacts*3)+Math.min(20,x.followups*2)+Math.min(30,x.lpr*10)+Math.min(20,x.meetings*10)+Math.min(24,x.proposals*8)+Math.min(20,x.wins*10)+(x.sales>0?10:0));S.workLogs.unshift(x);addXp(x.xpAward,"Карьера","Рабочий день",`work:${x.id}`);["workSales","workContacts","workFollowups","workLpr","workMeetings","workProposals","workWins","workPipeline"].forEach(id=>$(id).value=0);$("workNote").value="";await save(`Рабочий день сохранён • +${x.xpAward} XP`)}
+async function deleteWork(id){const i=S.workLogs.findIndex(x=>x.id===id);if(i<0)return;const x=S.workLogs[i];S.workLogs.splice(i,1);removeXp(x.xpAward||0,"Карьера","Удалена рабочая запись",`work:${id}`);await save("Рабочая запись удалена")}
+
+function tennisWeek(){const [a,b]=weekBounds(),arr=S.tennis.filter(x=>inRange(x.dateKey,a,b));return {sessions:arr.length,tournaments:arr.filter(x=>x.type==="Турнир").length,serve:arr.reduce((n,x)=>n+(+x.serveMin||0),0),foot:arr.reduce((n,x)=>n+(+x.footMin||0),0)}}
+async function addTennis(){const min=+$("ttMinutes").value||0;if(min<=0){toast("Укажи длительность");return}const x={id:uid(),dateKey:localDateKey(),date:new Date().toLocaleDateString("ru-RU"),type:$("ttType").value,min,focus:$("ttFocus").value,load:+$("ttLoad").value||0,w:+$("ttW").value||0,l:+$("ttL").value||0,serveMin:+$("ttServe").value||0,footMin:+$("ttFoot").value||0,opponent:$("ttOpponent").value.trim(),score:$("ttScore").value.trim(),note:$("ttNote").value.trim()};x.xpAward=Math.min(60,Math.floor(min/30)*15)+(x.type==="Турнир"?50:0)+Math.min(25,x.w*5)+(x.serveMin>=20?15:0)+(x.footMin>=15?10:0);S.tennis.unshift(x);addXp(x.xpAward,"Теннис","Теннисная сессия",`tennis:${x.id}`);$("ttNote").value=$("ttOpponent").value=$("ttScore").value="";await save(`Сессия сохранена • +${x.xpAward} XP`)}
+async function deleteTennis(id){const i=S.tennis.findIndex(x=>x.id===id);if(i<0)return;const x=S.tennis[i];S.tennis.splice(i,1);removeXp(x.xpAward||0,"Теннис","Удалена тренировка",`tennis:${id}`);await save("Тренировка удалена")}
+
+function currentBook(){return S.books.find(b=>b.status!=="done")}
+async function addBook(){const title=$("bookTitle").value.trim(),pages=+$("bookPages").value||0;if(!title||pages<=0){toast("Укажи название и страницы");return}S.books.push({id:uid(),title,author:$("bookAuthor").value.trim(),totalPages:pages,currentPage:0,status:"reading",created:localDateKey(),notes:""});$("bookTitle").value=$("bookAuthor").value=$("bookPages").value="";closeModal("bookModal");await save("Книга добавлена")}
+async function addReading(){const id=$("readBook").value,min=+$("readMinutes").value||0,pages=+$("readPages").value||0;if(min<=0){toast("Укажи время чтения");return}const b=S.books.find(x=>x.id===id);if(!b){toast("Сначала добавь книгу");return}const before=b.currentPage;b.currentPage=Math.min(b.totalPages,b.currentPage+Math.max(0,pages));const completed=before<b.totalPages&&b.currentPage>=b.totalPages;if(completed){b.status="done";b.completed=localDateKey();}const x={id:uid(),bookId:id,dateKey:localDateKey(),minutes:min,pages:Math.max(0,pages),note:$("readNote")?.value.trim()||"",xpAward:Math.min(40,Math.max(10,Math.floor(min/15)*10))+(completed?300:0)};S.readingLogs.unshift(x);addXp(x.xpAward,"Разум",completed?"Книга закончена":"Чтение",`read:${x.id}`);if($("readNote"))$("readNote").value="";closeModal("readingModal");await save(completed?"Книга завершена • бонус 300 XP":"Чтение сохранено")}
+async function deleteBook(id){if(!confirm("Удалить книгу? История чтения останется."))return;S.books=S.books.filter(x=>x.id!==id);await save("Книга удалена")}
+
+function paymentToDebtThisMonth(i){const m=localMonthKey();return S.payments.filter(p=>p.debtIndex===i&&(p.monthKey||String(p.date||"").slice(0,7))===m).reduce((a,p)=>a+(+p.amount||0),0)}
+
+function openIncomeModal(){$("incomeDate").value=localDateKey();openModal("incomeModal")}
+async function addIncome(){
+  const dateKey=$("incomeDate").value||localDateKey(),amount=+$("incomeAmount").value||0;
+  if(amount<=0){toast("Укажи сумму поступления");return}
+  const x={id:uid(),dateKey,date:new Date().toISOString(),amount,source:$("incomeSource").value,note:$("incomeNote").value.trim()};
+  S.incomeLogs.unshift(x);
+  $("incomeAmount").value=$("incomeNote").value="";
+  closeModal("incomeModal");
+  await save(`Поступление ${rub(amount)} сохранено`);
+}
+async function deleteIncome(id){const i=S.incomeLogs.findIndex(x=>x.id===id);if(i<0)return;S.incomeLogs.splice(i,1);await save("Поступление удалено")}
+async function addExpense(){const amount=+$("expenseAmount").value||0;if(amount<=0){toast("Укажи сумму");return}const x={id:uid(),dateKey:localDateKey(),date:new Date().toISOString(),amount,category:$("expenseCategory").value,note:$("expenseNote").value.trim()};S.expenses.unshift(x);if(!dailyQuestState("expenses")){S.checks[localDateKey()]=S.checks[localDateKey()]||{};S.checks[localDateKey()].expenses=true;const q=DAILY_QUESTS.find(q=>q.id==="expenses");addXp(q.xp,q.stat,q.title,`daily:${localDateKey()}:expenses`)}$("expenseAmount").value=$("expenseNote").value="";closeModal("expenseModal");await save("Расход сохранён")}
+async function deleteExpense(id){const i=S.expenses.findIndex(x=>x.id===id);if(i<0)return;S.expenses.splice(i,1);await save("Расход удалён")}
+async function addPayment(){const i=+$("payDebt").value,amt=+$("payAmount").value||0;if(amt<=0)return;const d=S.debts[i];if(!d||d.balance<=0){toast("Этот долг уже закрыт");return}const used=Math.min(amt,d.balance);d.balance=Math.max(0,d.balance-used);const x={id:uid(),date:new Date().toISOString(),localDate:localDateKey(),monthKey:localMonthKey(),debtIndex:i,debt:d.name,amount:used,xpAward:Math.max(5,Math.floor(used/5000)*5),after:totalDebt()};S.payments.push(x);S.balanceHistory.push({date:x.localDate,total:x.after,type:"payment"});addXp(x.xpAward,"Финансы","Платёж по долгу",`payment:${x.id}`);$("payAmount").value="";closeModal("paymentModal");await save(amt>used?`Зачтено только ${rub(used)} — остаток закрыт`:`Платёж ${rub(used)} сохранён`)}
+async function undoPayment(id){const i=S.payments.findIndex(p=>p.id===id);if(i<0)return;const p=S.payments[i];if(p.debtIndex==null)return;S.payments.splice(i,1);S.debts[p.debtIndex].balance+=p.amount;removeXp(p.xpAward||0,"Финансы","Отмена платежа",`payment:${p.id}`);S.balanceHistory.push({date:localDateKey(),total:totalDebt(),type:"undo"});await save("Платёж отменён")}
+async function syncBalance(){const i=+$("syncDebt").value,b=+$("syncBalanceInput").value;if(!Number.isFinite(b)||b<0){toast("Укажи корректный остаток");return}S.debts[i].balance=b;S.balanceHistory.push({date:localDateKey(),total:totalDebt(),type:"sync"});$("syncBalanceInput").value="";closeModal("syncModal");await save("Остаток синхронизирован")}
+
+function simulateDebt(monthlyBudget,debts=S.debts,maxMonths=120){let arr=debts.map(d=>({b:+d.balance||0,r:+d.rate||0,min:+d.min||0,name:d.name})),interest=0,series=[arr.reduce((a,d)=>a+d.b,0)],months=0;if(monthlyBudget<=0)return {months:Infinity,interest:Infinity,series};while(arr.some(d=>d.b>0.01)&&months<maxMonths){months++;for(const d of arr){if(d.b>0){const it=d.b*d.r/100/12;d.b+=it;interest+=it}}let budget=monthlyBudget;for(const d of arr.filter(x=>x.b>0)){const p=Math.min(d.b,d.min,budget);d.b-=p;budget-=p;if(budget<=0)break}while(budget>0.01&&arr.some(d=>d.b>0.01)){const target=arr.filter(d=>d.b>0.01).sort((a,b)=>b.r-a.r)[0],p=Math.min(target.b,budget);target.b-=p;budget-=p}series.push(arr.reduce((a,d)=>a+d.b,0));if(months===maxMonths&&series.at(-1)>0)return {months:Infinity,interest,series}}return {months,interest,series}}
+function projectedDate(months){if(!Number.isFinite(months))return "не сходится";const d=new Date();d.setMonth(d.getMonth()+months);return d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}
+function bestDebt(){return S.debts.map((d,i)=>({...d,i})).filter(d=>d.balance>0).sort((a,b)=>b.rate-a.rate)[0]}
+function financialEvents(){const now=new Date(),events=[];for(let offset=0;offset<2;offset++){const y=now.getFullYear(),m=now.getMonth()+offset;for(const ev of S.settings.incomeEvents){const dt=new Date(y,m,ev.day,9);if(dt>=new Date(now.getFullYear(),now.getMonth(),now.getDate()))events.push({date:dt,type:"income",label:ev.label,amount:ev.amount})}S.debts.forEach((d,i)=>{if(d.balance<=0)return;const last=new Date(y,m+1,0).getDate(),dt=new Date(y,m,Math.min(d.dueDay,last),9);if(dt>=new Date(now.getFullYear(),now.getMonth(),now.getDate()))events.push({date:dt,type:"payment",label:d.name,amount:d.min,debtIndex:i})})}return events.sort((a,b)=>a.date-b.date).slice(0,10)}
+function nextDebtEvent(){return financialEvents().find(x=>x.type==="payment")}
+
+function renderToday(){
+  const l=level(),r=rank(l),xp=S.xpEarned%XP_PER_LEVEL,xpp=xp/XP_PER_LEVEL*100;$("lvl").textContent=l;$("rankText").textContent=r;$("headerRank").textContent=`Уровень ${l} • ${r}`;$("xpTotal").textContent=S.xpEarned.toLocaleString("ru-RU");$("xpText").textContent=`${xp} / ${XP_PER_LEVEL} XP • доступно ${availableXp()}`;$("xpPct").textContent=Math.round(xpp)+"%";$("xpProgress").style.width=xpp+"%";
+  const st7=stability(7),st30=stability(30);$("stabilityText").textContent=`${st7}/7`;$("stability30").textContent=`${st30} из 30 активных дней • серия ${calcStreak()}`;
+  const mp=monthPayments(),dp=debtPct();$("monthPaidText").textContent=rub(mp);$("monthProgress").style.width=clamp(mp/S.settings.monthlyDebtGoal*100,0,100)+"%";$("monthGoalSub").textContent=`Цель: ${rub(S.settings.monthlyDebtGoal)}`;$("debtTotalToday").textContent=rub(totalDebt());$("debtProgressToday").style.width=dp+"%";$("debtPctTextToday").textContent=`Погашено ${dp.toFixed(1)}%`;
+  $("statsListToday").innerHTML=statsHtml();$("todayQuestList").innerHTML=DAILY_QUESTS.map(q=>{const done=dailyQuestState(q.id);return `<div class="quest"><button class="check ${done?"done":""}" onclick="toggleDaily('${q.id}')">${done?"✓":""}</button><div class="qbody"><div class="qtitle">${escapeHtml(q.title)}</div><div class="qmeta">${q.stat}</div></div><div class="xp">+${q.xp} XP</div></div>`}).join("");renderPriorities();renderWeeklyReport();renderSeason();renderCalendar();renderAchievements()
+}
+function statsHtml(){return Object.entries(S.stats).map(([k,v])=>`<div class="stat-row"><div class="stat-name">${k}</div><div class="statbar"><i style="width:${clamp((v%500)/5,0,100)}%"></i></div><div class="stat-xp">${v}</div></div>`).join("")}
+function renderPriorities(){const items=[];const next=nextDebtEvent();if(next){const days=daysBetween(new Date(),next.date),paid=paymentToDebtThisMonth(next.debtIndex),need=Math.max(0,S.debts[next.debtIndex].min-paid);items.push({p:days<=1?"Обязательно":"Важно",t:`${next.label}: ${rub(need||next.amount)}`,m:`срок ${fmtDate(next.date)} • ${days===0?"сегодня":days===1?"завтра":`через ${days} дн.`}`})}const remain=Math.max(0,S.settings.monthlyDebtGoal-monthPayments());if(remain>0)items.push({p:"Важно",t:`До цели по долгам осталось ${rub(remain)}`,m:"месячный квест"});if(new Date().getDay()!==0&&new Date().getDay()!==6&&workWeek().contacts<20)items.push({p:"Работа",t:"Добавить новые целевые контакты",m:`на неделе ${workWeek().contacts}/20`});if(tennisWeek().sessions<3)items.push({p:"Теннис",t:"Запланировать тренировку",m:`на неделе ${tennisWeek().sessions}/3`});if(!S.readingLogs.some(x=>x.dateKey===localDateKey()))items.push({p:"Разум",t:"30 минут чтения",m:"ежедневная база"});$("todayPriorities").innerHTML=items.slice(0,5).map(x=>`<div class="quest"><div class="qbody"><span class="tag ${x.p==="Обязательно"?"bad":x.p==="Важно"?"warn":""}">${x.p}</span><div class="qtitle" style="margin-top:5px">${escapeHtml(x.t)}</div><div class="qmeta">${escapeHtml(x.m)}</div></div></div>`).join("")||'<div class="empty">На сегодня критичных задач нет.</div>'}
+function renderCalendar(){let d=new Date();d.setDate(d.getDate()-34);const a=[];for(let i=0;i<35;i++){const k=localDateKey(d),n=[...DAILY_QUESTS].filter(q=>dailyQuestState(q.id,k)).length+(S.workLogs.some(x=>x.date===k)?1:0)+(S.tennis.some(x=>x.dateKey===k)?1:0)+(S.readingLogs.some(x=>x.dateKey===k)?1:0),c=n>=6?"l4":n>=4?"l3":n>=2?"l2":n>=1?"l1":"";a.push(`<div class="day ${c}" title="${k}: ${n} активностей"></div>`);d.setDate(d.getDate()+1)}$("activityCalendar").innerHTML=a.join("")}
+function lastNDaysRange(n){const b=new Date(),a=addDays(b,-(n-1));return [localDateKey(a),localDateKey(b)]}
+function renderWeeklyReport(){const [a,b]=lastNDaysRange(7),p=S.payments.filter(x=>inRange(x.localDate||String(x.date).slice(0,10),a,b)).reduce((n,x)=>n+x.amount,0),t=S.tennis.filter(x=>inRange(x.dateKey,a,b)).length,r=S.readingLogs.filter(x=>inRange(x.dateKey,a,b)).reduce((n,x)=>n+x.minutes,0),w=aggregateWork(S.workLogs.filter(x=>inRange(x.date,a,b))),active=[...Array(7)].filter((_,i)=>activeDay(localDateKey(addDays(new Date(),-i)))).length;$("weeklyReport").innerHTML=[["Долги",rub(p)],["Теннис",`${t} сесс.`],["Чтение",`${r} мин`],["Новые контакты",w.contacts],["Продажи",compactRub(w.sales)],["Активные дни",`${active}/7`]].map(x=>`<div class="report-item"><div class="smallcaps">${x[0]}</div><div style="font-weight:900;margin-top:4px">${x[1]}</div></div>`).join("")}
+function currentSeason(){const start=parseLocal(S.settings.campaignStart),now=new Date(),idx=Math.max(0,Math.floor(daysBetween(start,now)/30)),a=addDays(start,idx*30),b=addDays(a,29);return {num:idx+1,start:a,end:b}}
+function renderSeason(){const s=currentSeason(),a=localDateKey(s.start),b=localDateKey(s.end),xp=S.xpEvents.filter(x=>inRange(localDateKey(new Date(x.date)),a,b)).reduce((n,x)=>n+x.xp,0),pay=S.payments.filter(x=>inRange(x.localDate||String(x.date).slice(0,10),a,b)).reduce((n,x)=>n+x.amount,0),tt=S.tennis.filter(x=>inRange(x.dateKey,a,b)).length,read=S.readingLogs.filter(x=>inRange(x.dateKey,a,b)).reduce((n,x)=>n+x.minutes,0);$("seasonCard").innerHTML=`<div class="season"><div class="smallcaps">Сезон ${s.num} • ${fmtDate(s.start)} — ${fmtDate(s.end)}</div><div class="report-grid" style="margin-top:10px"><div class="report-item"><b>${xp}</b><div class="sub">XP</div></div><div class="report-item"><b>${rub(pay)}</b><div class="sub">в долги</div></div><div class="report-item"><b>${tt}</b><div class="sub">теннис</div></div><div class="report-item"><b>${read}</b><div class="sub">мин чтения</div></div></div></div>`}
+
+function renderFinance(){const mp=monthPayments(),best=bestDebt();$("finDebt").textContent=rub(totalDebt());$("finIncome").textContent=rub(monthIncome());$("finMonth").textContent=rub(mp);$("finNeed").textContent=rub(Math.max(0,S.settings.monthlyDebtGoal-mp));$("finExpenses").textContent=rub(monthExpenses());$("finCash").textContent=rub(trackedCash());$("bossList").innerHTML=S.debts.map((d,i)=>{const hp=clamp(d.balance/d.initial*100,0,100);return `<div class="boss"><div class="boss-top"><div><div class="debt-name">${escapeHtml(d.name)}</div><div class="sub">${d.rate}% • мин. ${rub(d.min)} • ${d.dueDay}-е число</div></div><div class="right"><b>${rub(d.balance)}</b><div class="tag">HP ${hp.toFixed(0)}%</div></div></div><div class="boss-hp">${rub(d.initial-d.balance)} урона нанесено</div><div class="progress red"><i style="width:${hp}%"></i></div></div>`}).join("");
+  if(best){const remaining=Math.max(0,S.settings.monthlyDebtGoal-mp),interest=best.balance*best.rate/100/12;$("payoffRecommendation").innerHTML=`<div class="boss"><span class="tag bad">Цель №1</span><div class="section-title" style="font-size:19px;margin-top:6px">${escapeHtml(best.name)}</div><div class="qmeta">Самая высокая ставка среди открытых долгов: ${best.rate}%</div><div class="goal"><div class="goal-top"><span>Остаток</span><b>${rub(best.balance)}</b></div><div class="goal-top" style="margin-top:7px"><span>≈ проценты за месяц</span><b>${rub(interest)}</b></div><div class="goal-top" style="margin-top:7px"><span>Свободно до месячной цели</span><b>${rub(remaining)}</b></div></div></div>`}else $("payoffRecommendation").innerHTML='<div class="empty">Все долги закрыты.</div>';
+  const opts=S.debts.map((d,i)=>`<option value="${i}">${escapeHtml(d.name)}</option>`).join("");$("payDebt").innerHTML=opts;$("syncDebt").innerHTML=opts;renderIncomeFlow();renderCashAdvisor();renderEnvelopes();renderCashForecast();renderFinanceMonthlyReport();renderFinanceCalendar();renderScenarios();renderDebtChart();renderPaymentHistory();renderExpenses();calcExtraSavings()
+}
+
+function renderIncomeFlow(){
+  const actual=monthIncome(),planned=S.settings.monthlyIncome||plannedIncomeForMonth(),toDate=plannedIncomeToDate(),cash=trackedCash();
+  $("incomeSummary").innerHTML=`<div class="goal"><div class="goal-top"><span>Факт поступлений</span><b>${rub(actual)}</b></div><div class="goal-top" style="margin-top:7px"><span>План месяца</span><b>${rub(planned)}</b></div><div class="goal-top" style="margin-top:7px"><span>План к сегодняшней дате</span><b>${rub(toDate)}</b></div><div class="goal-top" style="margin-top:7px"><span>Учтённый остаток*</span><b class="${cash>=0?"income-good":"income-bad"}">${rub(cash)}</b></div></div>${planWarningHtml()}<div class="sub" style="margin-top:8px">* Поступления − записанные расходы − платежи по долгам. Это расчёт внутри приложения, а не банковский баланс.</div>`;
+  const arr=S.incomeLogs.filter(x=>x.dateKey?.startsWith(localMonthKey())).slice(0,10);
+  $("incomeHistory").innerHTML=arr.length?arr.map(x=>`<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(x.dateKey))} • ${escapeHtml(x.source)} • +${rub(x.amount)}</div>${x.note?`<div class="qmeta">${escapeHtml(x.note)}</div>`:""}<button class="btn ghost small" style="margin-top:7px" onclick="deleteIncome('${x.id}')">Удалить</button></div>`).join(""):'<div class="empty">Поступлений за месяц ещё не записано.</div>';
+}
+function renderCashAdvisor(){
+  const a=cashAdvice(),best=bestDebt(),nextText=a.next?`${fmtDate(a.next.date)} • ${escapeHtml(a.next.label)} • ${rub(a.next.amount)}`:"нет в расписании";
+  const mandatoryText=a.mandatory.length?a.mandatory.map(x=>`${escapeHtml(x.debt)} — ${rub(x.amount)} до ${fmtDate(x.date)}`).join("<br>"):"до следующего дохода обязательных платежей нет";
+  let headline=a.recommended>0?`${rub(a.recommended)}`:"0 ₽",cls=a.recommended>0?"income-good":"income-warn";
+  $("cashAdvisor").innerHTML=`<div class="cash-advisor"><div class="smallcaps">Рекомендуемая досрочка сейчас</div><div class="cash-number ${cls}">${headline}</div><div class="muted">${best?`в ${escapeHtml(best.name)} (${best.rate}%)`:"долги закрыты"}</div><div class="cash-lines"><div class="cash-line"><span>Учтённый остаток</span><b>${rub(a.cash)}</b></div><div class="cash-line"><span>Резерв на жизнь до следующего дохода</span><b>${rub(a.living)}</b></div><div class="cash-line"><span>Обязательные платежи до него</span><b>${rub(a.mandatorySum)}</b></div><div class="cash-line"><span>Безопасно свободно сверх резерва</span><b>${rub(a.safe)}</b></div><div class="cash-line"><span>Следующее ожидаемое поступление</span><b>${nextText}</b></div></div></div><div class="notice" style="margin-top:10px">${mandatoryText}</div>`;
+}
+function openEnvelopeEditor(){
+  $("envelopeEditor").innerHTML=Object.keys(S.envelopeLimits).map(cat=>`<div class="field"><label>${escapeHtml(cat)}, ₽/мес.</label><input data-envelope="${escapeHtml(cat)}" type="number" min="0" value="${+S.envelopeLimits[cat]||0}"></div>`).join("");
+  openModal("envelopeModal")
+}
+async function saveEnvelopeLimits(){document.querySelectorAll("[data-envelope]").forEach(el=>S.envelopeLimits[el.dataset.envelope]=Math.max(0,+el.value||0));closeModal("envelopeModal");await save("Лимиты конвертов сохранены")}
+function renderEnvelopes(){
+  $("envelopeList").innerHTML=Object.entries(S.envelopeLimits).map(([cat,lim])=>{const spent=monthCategorySpend(cat),pctv=lim>0?clamp(spent/lim*100,0,150):0;return `<div class="envelope"><div class="envelope-top"><b>${escapeHtml(cat)}</b><span>${rub(spent)}${lim>0?` / ${rub(lim)}`:" • лимит не задан"}</span></div>${lim>0?`<div class="progress ${pctv>100?"warn":"ok"}" style="margin-top:8px"><i style="width:${Math.min(100,pctv)}%"></i></div>`:""}</div>`}).join("")
+}
+function renderCashForecast(){
+  const rows=[30,60,90].map(days=>[days,cashForecast(days)]);
+  $("cashForecast").innerHTML=`<div class="forecast-grid">${rows.map(([d,x])=>`<div class="forecast-card"><div class="smallcaps">${d} дней</div><b class="${x.net>=0?"income-good":"income-bad"}">${rub(x.net)}</b><div class="sub">доход ${rub(x.income)}<br>жизнь ${rub(x.living)}<br>цель долгов ${rub(x.debtGoal)}</div></div>`).join("")}</div>`
+}
+function calcExtraSavings(){
+  const amount=Math.max(0,+$("extraCalcAmount").value||0),r=simulateWithImmediatePayment(amount);
+  if(!r||amount<=0){$("extraSavingsResult").innerHTML='<div class="empty">Укажи сумму.</div>';return}
+  const saved=Math.max(0,r.base.interest-r.alt.interest),months=(Number.isFinite(r.base.months)&&Number.isFinite(r.alt.months))?Math.max(0,r.base.months-r.alt.months):0;
+  $("extraSavingsResult").innerHTML=`<div class="goal"><div class="goal-top"><span>Направить в</span><b>${escapeHtml(r.debt.name)} • ${r.debt.rate}%</b></div><div class="goal-top" style="margin-top:7px"><span>Оценка экономии процентов</span><b class="income-good">${rub(saved)}</b></div><div class="goal-top" style="margin-top:7px"><span>Сокращение срока</span><b>${months} мес.</b></div></div><div class="sub" style="margin-top:8px">Приближённая оценка относительно текущей месячной цели.</div>`
+}
+function renderFinanceMonthlyReport(){
+  const r=currentMonthReport(),ratio=r.income>0?(r.payments/r.income*100):0;
+  $("financeMonthlyReport").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Доход</div><b>${rub(r.income)}</b></div><div class="report-item"><div class="smallcaps">В долги</div><b>${rub(r.payments)}</b></div><div class="report-item"><div class="smallcaps">Жизнь</div><b>${rub(r.expenses)}</b></div><div class="report-item"><div class="smallcaps">Остаток</div><b class="${r.cash>=0?"income-good":"income-bad"}">${rub(r.cash)}</b></div><div class="report-item"><div class="smallcaps">Доля дохода в долги</div><b>${pct(ratio,0)}</b></div></div>`
+}
+async function importBankCsv(file){
+  const text=await file.text(),lines=text.replace(/\r/g,"").split("\n").filter(x=>x.trim());if(lines.length<2)throw new Error("CSV пустой");
+  const delim=detectDelimiter(lines[0]),headers=splitCsvLine(lines[0],delim).map(x=>x.trim().toLowerCase());
+  const find=(patterns)=>headers.findIndex(h=>patterns.some(p=>h.includes(p)));
+  let di=find(["дата","date"]),ai=find(["сумма","amount","операц","руб"]),xi=find(["опис","назнач","description","merchant","детал"]);
+  let start=1;if(di<0||ai<0){di=0;xi=1;ai=2;start=0}
+  let addedIn=0,addedOut=0,dupes=0;
+  for(let n=start;n<Math.min(lines.length,5001);n++){
+    const cols=splitCsvLine(lines[n],delim);if(cols.length<=Math.max(di,ai,xi))continue;
+    const dateKey=parseCsvDate(cols[di]),amount=parseMoney(cols[ai]),desc=xi>=0?cols[xi]:"Импорт CSV";if(!dateKey||!amount)continue;
+    const fp=transactionFingerprint(dateKey,amount,desc);if(S.bankImportIds.includes(fp)){dupes++;continue}
+    S.bankImportIds.push(fp);
+    if(amount>0){S.incomeLogs.unshift({id:uid(),dateKey,date:new Date().toISOString(),amount,source:"Импорт CSV",note:String(desc||"").trim(),imported:true,fp});addedIn++}
+    else{S.expenses.unshift({id:uid(),dateKey,date:new Date().toISOString(),amount:Math.abs(amount),category:classifyImportedExpense(desc),note:String(desc||"").trim(),imported:true,fp});addedOut++}
+  }
+  await save(`Импортировано: доходов ${addedIn}, расходов ${addedOut}`);
+  $("bankImportStatus").innerHTML=`<span class="csv-ok">Доходов: ${addedIn} • расходов: ${addedOut}</span>${dupes?` • дублей пропущено: ${dupes}`:""}`
+}
+async function clearImportedTransactions(){if(!confirm("Удалить все операции, импортированные из CSV?"))return;S.incomeLogs=S.incomeLogs.filter(x=>!x.imported);S.expenses=S.expenses.filter(x=>!x.imported);S.bankImportIds=[];await save("Импортированные операции удалены")}
+
+function renderFinanceCalendar(){$("financeCalendar").innerHTML=financialEvents().map(e=>`<div class="event ${e.type}"><div class="date">${fmtDate(e.date)}</div><div><b>${escapeHtml(e.label)}</b><div class="sub">${e.type==="income"?"поступление":"обязательный платёж"}</div></div><b>${e.type==="income"?"+":"−"}${rub(e.amount)}</b></div>`).join("")}
+function renderScenarios(){const budgets=[110000,130000,S.settings.monthlyDebtGoal].filter((x,i,a)=>a.indexOf(x)===i).sort((a,b)=>a-b),base=simulateDebt(110000);$("scenarioList").innerHTML=budgets.map(b=>{const r=simulateDebt(b),save=Math.max(0,base.interest-r.interest);return `<div class="scenario"><div><b>${rub(b)}/мес.</b><div class="sub">${Number.isFinite(r.months)?`${r.months} мес. • ${projectedDate(r.months)}`:"не сходится"}</div></div><div class="hide-mobile">проценты <b>${Number.isFinite(r.interest)?rub(r.interest):"—"}</b></div><div class="hide-mobile">экономия <b>${b===110000?"—":rub(save)}</b></div><span class="tag ${b===S.settings.monthlyDebtGoal?"good":""}">${b===S.settings.monthlyDebtGoal?"текущий":"сценарий"}</span></div>`}).join("");const cur=simulateDebt(S.settings.monthlyDebtGoal);$("interestCurrent").textContent=Number.isFinite(cur.interest)?rub(cur.interest):"—";$("interestSaved").textContent=Number.isFinite(cur.interest)?rub(Math.max(0,base.interest-cur.interest)):"—"}
+function renderExpenses(){const spent=monthExpenses(),actual=monthIncome(),paid=monthPayments(),left=actual-spent-paid;$("expenseSummary").innerHTML=`<div class="goal"><div class="goal-top"><span>Фактически пришло</span><b>${rub(actual)}</b></div><div class="goal-top" style="margin-top:7px"><span>Ушло в долги</span><b>${rub(paid)}</b></div><div class="goal-top" style="margin-top:7px"><span>Расходы на жизнь</span><b>${rub(spent)}</b></div><div class="goal-top" style="margin-top:7px"><span>Учтённый остаток</span><b style="color:${left>=0?'#a7f3d0':'#fecdd3'}">${rub(left)}</b></div></div>`;$("expenseHistory").innerHTML=S.expenses.length?S.expenses.filter(x=>x.dateKey.startsWith(localMonthKey())).slice(0,8).map(x=>`<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(x.dateKey))} • ${escapeHtml(x.category)} • ${rub(x.amount)}</div>${x.note?`<div class="qmeta">${escapeHtml(x.note)}</div>`:""}<button class="btn ghost small" style="margin-top:7px" onclick="deleteExpense('${x.id}')">Удалить</button></div>`).join(""):'<div class="empty">Расходов в этом месяце ещё нет.</div>'}
+function renderPaymentHistory(){$("paymentHistory").innerHTML=S.payments.length?S.payments.slice().reverse().slice(0,8).map(p=>`<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(p.localDate||String(p.date).slice(0,10)))} • ${escapeHtml(p.debt)}</div><div class="score">${rub(p.amount)} • после платежа ${rub(p.after)}</div><button class="btn ghost small" style="margin-top:7px" onclick="undoPayment('${p.id}')">Отменить</button></div>`).join(""):'<div class="empty">Платежей пока нет.</div>'}
+function renderDebtChart(){const svg=$("debtChart"),W=900,H=210,pad=18,start=parseLocal(S.settings.campaignStart),plan=simulateDebt(S.settings.monthlyDebtGoal,DEFAULT_STATE.debts).series,maxMonths=Math.max(plan.length-1,S.settings.campaignMonths,10),max=START_DEBT;const pp=plan.slice(0,maxMonths+1).map((v,i)=>[pad+(W-2*pad)*i/maxMonths,H-pad-(H-2*pad)*v/max]);const monthActual=new Map();S.balanceHistory.forEach(x=>{const d=parseLocal(x.date),idx=clamp(monthDiff(start,d),0,maxMonths);monthActual.set(idx,x.total)});monthActual.set(0,monthActual.get(0)??START_DEBT);const aa=[...monthActual.entries()].sort((a,b)=>a[0]-b[0]).map(([i,v])=>[pad+(W-2*pad)*i/maxMonths,H-pad-(H-2*pad)*v/max]);const path=a=>a.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");svg.innerHTML=`<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#263c59"/><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#263c59"/><path d="${path(pp)}" fill="none" stroke="#8b5cf6" stroke-width="3"/><path d="${path(aa)}" fill="none" stroke="#22d3ee" stroke-width="4"/>`}
+
+function renderWork(){const m=workMonth(),plan=S.settings.workMonthlyPlan||0,p=plan?clamp(m.sales/plan*100,0,100):0;$("workPlanKpi").textContent=rub(plan);$("workSalesKpi").textContent=rub(m.sales);$("workPctKpi").textContent=pct(p,0);$("workProgress").style.width=p+"%";$("workProgressText").textContent=`${rub(m.sales)} / ${rub(plan)}`;$("workActivitySummary").innerHTML=[["Контакты",m.contacts],["Follow-up",m.followups],["ЛПР",m.lpr],["Встречи",m.meetings],["КП / расчёты",m.proposals],["Победы",m.wins],["Воронка",compactRub(m.pipeline)],["Продажи",compactRub(m.sales)]].map(x=>`<div class="report-item"><div class="smallcaps">${x[0]}</div><div style="font-weight:900;margin-top:4px">${x[1]}</div></div>`).join("");$("workQuests").innerHTML=renderQuestGroup(WORK_WEEKLY,"work")+renderMonthlyWorkQuest();renderWorkPace();renderWorkFunnel();$("workLogList").innerHTML=S.workLogs.length?S.workLogs.slice(0,8).map(x=>`<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(x.date))} • ${rub(x.sales)}</div><div class="score">контакты ${x.contacts} • follow-up ${x.followups} • ЛПР ${x.lpr} • КП ${x.proposals} • победы ${x.wins||0} • воронка ${compactRub(x.pipeline||0)}</div>${x.note?`<div class="qmeta">${escapeHtml(x.note)}</div>`:""}<button class="btn ghost small" style="margin-top:7px" onclick="deleteWork('${x.id}')">Удалить</button></div>`).join(""):'<div class="empty">Добавь первый рабочий день.</div>'}
+function renderWorkPace(){const m=workMonth(),remain=Math.max(0,S.settings.workMonthlyPlan-m.sales),days=Math.max(1,workingDaysLeft()),need=remain/days,logged=new Set(S.workLogs.filter(x=>x.date.startsWith(localMonthKey())).map(x=>x.date)).size,avg=logged?m.sales/logged:0;$("workPace").innerHTML=`<div class="goal"><div class="goal-top"><span>Осталось до плана</span><b>${rub(remain)}</b></div><div class="goal-top" style="margin-top:7px"><span>Рабочих дней осталось</span><b>${days}</b></div><div class="goal-top" style="margin-top:7px"><span>Нужно в среднем / рабочий день</span><b>${rub(need)}</b></div><div class="goal-top" style="margin-top:7px"><span>Текущий средний факт / записанный день</span><b>${rub(avg)}</b></div></div>`}
+function renderWorkFunnel(){const m=workMonth(),rows=[["Контакты",m.contacts,m.contacts],["ЛПР",m.lpr,m.contacts?m.lpr/m.contacts*100:0],["КП",m.proposals,m.lpr?m.proposals/m.lpr*100:0],["Победы",m.wins,m.proposals?m.wins/m.proposals*100:0]];$("workFunnel").innerHTML=`<div class="funnel">${rows.map((x,i)=>`<div class="funnel-row"><span>${x[0]}</span><div class="funnel-bar"><i style="width:${i===0?100:clamp(x[2],0,100)}%"></i></div><b>${i===0?x[1]:`${x[1]} • ${pct(x[2],0)}`}</b></div>`).join("")}</div><div class="status" style="margin-top:10px">Добавлено в воронку за месяц: <b>${rub(m.pipeline)}</b></div>`}
+function renderMonthlyWorkQuest(){const key=`work:monthly:${localMonthKey()}:salesplan`,done=!!S.questDone[key],ready=workMonth().sales>=S.settings.workMonthlyPlan;return `<div class="quest"><button class="check ${done?"done":""} ${!ready&&!done?"locked":""}" onclick="claimMonthlyWork()">${done?"✓":ready?"":"·"}</button><div class="qbody"><div class="qtitle">Выполнить месячный план продаж</div><div class="qmeta">Карьера • ${ready&&!done?"готово к получению":pct(clamp(workMonth().sales/S.settings.workMonthlyPlan*100,0,100),0)}</div></div><div class="xp">+600 XP</div></div>`}
+async function claimMonthlyWork(){const key=`work:monthly:${localMonthKey()}:salesplan`;if(S.questDone[key])return;if(workMonth().sales<S.settings.workMonthlyPlan){toast("План ещё не выполнен");return}S.questDone[key]=true;addXp(600,"Карьера","Выполнен месячный план",key);await save("План продаж закрыт • +600 XP")}
+
+function renderTennis(){const ss=S.tennis,mins=ss.reduce((a,x)=>a+(+x.min||0),0),w=ss.reduce((a,x)=>a+(+x.w||0),0),l=ss.reduce((a,x)=>a+(+x.l||0),0),month=ss.filter(x=>x.dateKey?.startsWith(localMonthKey())),last10=ss.slice(0,10),lw=last10.reduce((a,x)=>a+(+x.w||0),0),ll=last10.reduce((a,x)=>a+(+x.l||0),0);$("ttSessions").textContent=ss.length;$("ttHours").textContent=(mins/60).toFixed(1);$("ttWinRate").textContent=pct(w+l?w/(w+l)*100:0,0);$("ttMonthSessions").textContent=month.length;$("ttLast10").textContent=pct(lw+ll?lw/(lw+ll)*100:0,0);const sk={FH:0,BH:0,Подача:0,Приём:0,Ноги:0,Тактика:0};ss.forEach(x=>{if(sk[x.focus]!=null)sk[x.focus]+=Math.max(10,x.min/2);if(x.focus==="Смешанная")Object.keys(sk).forEach(k=>sk[k]+=x.min/12);sk.Подача+=x.serveMin/2;sk.Ноги+=x.footMin/2});$("tennisSkills").innerHTML=Object.entries(sk).map(([k,v])=>`<div class="stat-row"><div class="stat-name">${k}</div><div class="statbar"><i style="width:${clamp(v/5,0,100)}%"></i></div><div class="stat-xp">${Math.round(v)}</div></div>`).join("");$("tennisQuests").innerHTML=renderQuestGroup(TENNIS_WEEKLY,"tennis");renderOpponents();renderTennisMonthly();$("tennisLog").innerHTML=ss.length?ss.slice(0,12).map(x=>`<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(x.dateKey))} • ${escapeHtml(x.type)} • ${x.min} мин${x.opponent?` • ${escapeHtml(x.opponent)}`:""}</div><div class="score">${escapeHtml(x.focus)} • ${x.w}:${x.l}${x.score?` • счёт ${escapeHtml(x.score)}`:""} • нагрузка ${x.load}/10 • подача/приём ${x.serveMin||0} мин • ноги ${x.footMin||0} мин</div>${x.note?`<div class="qmeta">${escapeHtml(x.note)}</div>`:""}<button class="btn ghost small" style="margin-top:7px" onclick="deleteTennis('${x.id}')">Удалить</button></div>`).join(""):'<div class="empty">Пока нет сессий.</div>'}
+function renderOpponents(){const map={};S.tennis.filter(x=>x.opponent).forEach(x=>{const k=x.opponent.trim();map[k]=map[k]||{w:0,l:0,s:0};map[k].w+=+x.w||0;map[k].l+=+x.l||0;map[k].s++});const arr=Object.entries(map).sort((a,b)=>b[1].s-a[1].s).slice(0,10);$("opponentJournal").innerHTML=arr.length?arr.map(([name,v])=>`<div class="log-item"><div class="qtitle">${escapeHtml(name)}</div><div class="score">${v.s} сесс. • ${v.w}:${v.l} • win rate ${pct(v.w+v.l?v.w/(v.w+v.l)*100:0,0)}</div></div>`).join(""):'<div class="empty">Указывай соперника в сессии — здесь появится история.</div>'}
+function renderTennisMonthly(){const arr=S.tennis.filter(x=>x.dateKey?.startsWith(localMonthKey())),mins=arr.reduce((a,x)=>a+(+x.min||0),0),w=arr.reduce((a,x)=>a+(+x.w||0),0),l=arr.reduce((a,x)=>a+(+x.l||0),0),tour=arr.filter(x=>x.type==="Турнир").length,serve=arr.reduce((a,x)=>a+(+x.serveMin||0),0),foot=arr.reduce((a,x)=>a+(+x.footMin||0),0);$("tennisMonthlyReport").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Сессии</div><b>${arr.length}</b></div><div class="report-item"><div class="smallcaps">Часы</div><b>${(mins/60).toFixed(1)}</b></div><div class="report-item"><div class="smallcaps">Турниры</div><b>${tour}</b></div><div class="report-item"><div class="smallcaps">Win rate</div><b>${pct(w+l?w/(w+l)*100:0,0)}</b></div><div class="report-item"><div class="smallcaps">Подача/приём</div><b>${serve} мин</b></div><div class="report-item"><div class="smallcaps">Ноги</div><b>${foot} мин</b></div></div>`}
+function renderMore(){renderBooks();renderReadingDashboard();renderSkillTree();renderRewards();renderAchievements();renderSeasonHistory();renderMonthlyLifeReport();$("profileName").value=S.profile.name||"";$("profileGoal").value=S.profile.goal||"";$("settingWorkPlan").value=S.settings.workMonthlyPlan;$("settingIncome").value=S.settings.monthlyIncome;$("settingDebtGoal").value=S.settings.monthlyDebtGoal;$("settingDailySpend").value=S.settings.dailySpendLimit;$("notificationStatus").textContent=`Разрешение: ${("Notification" in window)?Notification.permission:"не поддерживается"}`;$("versionStatus").textContent=`Life RPG ${APP_VERSION} • схема данных v${S.version} • обновлено ${new Date(S.updated).toLocaleString("ru-RU")}`}
+
+function renderReadingDashboard(){const month=S.readingLogs.filter(x=>x.dateKey?.startsWith(localMonthKey())),mins=month.reduce((a,x)=>a+(+x.minutes||0),0),pages=month.reduce((a,x)=>a+(+x.pages||0),0),notes=S.readingLogs.filter(x=>x.note).slice(0,5);$("readingDashboard").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Минуты месяца</div><b>${mins}</b></div><div class="report-item"><div class="smallcaps">Страницы</div><b>${pages}</b></div><div class="report-item"><div class="smallcaps">Книг завершено</div><b>${S.books.filter(b=>b.status==="done").length}</b></div></div><div class="title" style="margin-top:14px">Последние тезисы</div>${notes.length?notes.map(x=>{const b=S.books.find(q=>q.id===x.bookId);return `<div class="log-item"><div class="qtitle">${escapeHtml(b?.title||"Книга")}</div><div class="qmeta">${escapeHtml(x.note)}</div></div>`}).join(""):'<div class="empty">Добавляй мысль после чтения — она появится здесь.</div>'}`}
+function renderMonthlyLifeReport(){const r=currentMonthReport(),active=stability(Math.min(new Date().getDate(),30));$("monthlyLifeReport").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Доход</div><b>${rub(r.income)}</b></div><div class="report-item"><div class="smallcaps">В долги</div><b>${rub(r.payments)}</b></div><div class="report-item"><div class="smallcaps">Продажи</div><b>${compactRub(r.work.sales)}</b></div><div class="report-item"><div class="smallcaps">Теннис</div><b>${r.tennis} сесс.</b></div><div class="report-item"><div class="smallcaps">Чтение</div><b>${r.readMinutes} мин</b></div><div class="report-item"><div class="smallcaps">Активность</div><b>${active} дн.</b></div></div>`}
+
+function renderBooks(){const active=S.books.filter(b=>b.status!=="done"),done=S.books.filter(b=>b.status==="done");$("readBook").innerHTML=active.length?active.map(b=>`<option value="${b.id}">${escapeHtml(b.title)}</option>`).join(""):'<option value="">Нет активной книги</option>';$("bookList").innerHTML=S.books.length?S.books.map(b=>{const p=clamp(b.currentPage/b.totalPages*100,0,100);return `<div class="book"><div class="book-head"><div><b>${escapeHtml(b.title)}</b><div class="sub">${escapeHtml(b.author||"")}</div></div><span class="tag ${b.status==="done"?"good":""}">${b.status==="done"?"прочитано":`${b.currentPage}/${b.totalPages}`}</span></div><div class="progress" style="margin-top:9px"><i style="width:${p}%"></i></div><div class="split" style="margin-top:9px"><button class="btn ghost small" onclick="openReadingFor('${b.id}')">+ Читать</button><button class="btn ghost small" onclick="deleteBook('${b.id}')">Удалить</button></div></div>`}).join(""):'<div class="empty">Добавь книгу и фиксируй чтение.</div>'}
+function openReadingFor(id){$("readBook").value=id;openModal("readingModal")}
+function renderSkillTree(){$("skillTree").innerHTML=Object.entries(SKILL_NODES).map(([stat,nodes])=>`<div><div class="qtitle" style="margin-bottom:7px">${stat} • ${S.stats[stat]} XP</div>${nodes.map(([need,title,desc])=>`<div class="skill-node ${S.stats[stat]>=need?"unlocked":""}"><div class="node-title">${S.stats[stat]>=need?"✓ ":"🔒 "}${title}</div><div class="qmeta">${desc} • ${need} XP</div></div>`).join("")}</div>`).join("")}
+function renderRewards(){$("rewardList").innerHTML=REWARDS.map(r=>{const gated=r.gate&&monthPayments()<S.settings.monthlyDebtGoal,closed=r.requiresClosedDebt&&S.debts.every(d=>d.balance>0),afford=availableXp()>=r.cost,locked=gated||closed||!afford;return `<div class="reward"><div><b>${escapeHtml(r.name)}</b><div class="qmeta">${r.cost} XP${r.paid?` • до ${rub(r.rub||0)}`:""}${gated?" • сначала выполни финансовую цель":""}</div></div><button class="btn ${locked?"ghost":"secondary"} small" onclick="buyReward('${r.id}')" ${locked?"disabled":""}>Взять</button></div>`}).join("")+`<div class="status">Доступно XP для наград: <b>${availableXp()}</b>. Уровень считается по заработанному XP и не снижается после покупки награды.</div>`}
+async function buyReward(id){const r=REWARDS.find(x=>x.id===id);if(!r)return;if(availableXp()<r.cost){toast("Недостаточно XP");return}if(r.gate&&monthPayments()<S.settings.monthlyDebtGoal){toast("Сначала выполни месячную финансовую цель");return}if(r.requiresClosedDebt&&S.debts.every(d=>d.balance>0)){toast("Сначала закрой хотя бы одного босса");return}S.xpSpent+=r.cost;S.rewardPurchases.push({id:uid(),rewardId:id,date:new Date().toISOString(),cost:r.cost});await save("Награда получена")}
+
+function achievementConditions(){const completedBooks=S.books.filter(b=>b.status==="done").length,m=workMonth();return {first_debt:S.debts.some(d=>d.balance<=0),debt100:debtPaid()>=100000,debt25:debtPct()>=25,debt50:debtPct()>=50,debt75:debtPct()>=75,debtfree:totalDebt()<=0,stable7:stability(7)>=7,stable20:stability(30)>=20,tennis12:S.tennis.length>=12,tourney4:S.tennis.filter(x=>x.type==="Турнир").length>=4,book1:completedBooks>=1,books3:completedBooks>=3,career500:S.stats.Карьера>=500,salesplan:m.sales>=S.settings.workMonthlyPlan,debtgoal:monthPayments()>=S.settings.monthlyDebtGoal}}
+function checkAchievements(){const c=achievementConditions();for(const [id,yes] of Object.entries(c))if(yes&&!S.achievements[id])S.achievements[id]=new Date().toISOString()}
+function achHtml(limit){const arr=[...ACHIEVEMENTS].sort((a,b)=>(S.achievements[b[0]]?1:0)-(S.achievements[a[0]]?1:0)).slice(0,limit||999);return arr.map(a=>{const open=!!S.achievements[a[0]];return `<div class="ach ${open?"":"locked"}"><div class="ach-ico">${a[3]}</div><div class="ach-title">${a[1]}</div><div class="ach-sub">${a[2]}</div>${open?`<div class="xp" style="display:inline-block;margin-top:8px">${fmtDate(new Date(S.achievements[a[0]]))}</div>`:""}</div>`}).join("")}
+function renderAchievements(){$("homeAchievements").innerHTML=achHtml(4);$("allAchievements").innerHTML=achHtml()}
+
+function renderSeasonHistory(){const start=parseLocal(S.settings.campaignStart),now=new Date(),count=Math.max(1,Math.floor(daysBetween(start,now)/30)+1),cards=[];for(let idx=Math.max(0,count-6);idx<count;idx++){const a=addDays(start,idx*30),b=addDays(a,29),ak=localDateKey(a),bk=localDateKey(b),xp=S.xpEvents.filter(x=>inRange(localDateKey(new Date(x.date)),ak,bk)).reduce((n,x)=>n+x.xp,0),pay=S.payments.filter(x=>inRange(x.localDate||String(x.date).slice(0,10),ak,bk)).reduce((n,x)=>n+x.amount,0),tt=S.tennis.filter(x=>inRange(x.dateKey,ak,bk)).length,read=S.readingLogs.filter(x=>inRange(x.dateKey,ak,bk)).reduce((n,x)=>n+x.minutes,0);cards.push(`<div class="season" style="margin-bottom:8px"><div class="smallcaps">Сезон ${idx+1} • ${fmtDate(a)} — ${fmtDate(b)}</div><div class="split" style="margin-top:8px"><span class="tag">${xp} XP</span><span class="tag">${rub(pay)} в долги</span><span class="tag">${tt} теннис</span><span class="tag">${read} мин чтения</span></div></div>`)}$("seasonHistory").innerHTML=cards.reverse().join("")}
+async function saveSettings(){S.profile.name=$("profileName").value.trim()||"Павел";S.profile.goal=$("profileGoal").value.trim();S.settings.workMonthlyPlan=Math.max(0,+$("settingWorkPlan").value||0);S.settings.monthlyIncome=Math.max(0,+$("settingIncome").value||0);S.settings.monthlyDebtGoal=Math.max(1,+$("settingDebtGoal").value||1);S.settings.dailySpendLimit=Math.max(0,+$("settingDailySpend").value||0);const ev=S.settings.incomeEvents||[],legacy=ev.length===4&&[5,15,20,25].every((d,i)=>Number(ev[i]?.day)===d)&&[75000,50000,25000,50000].every((a,i)=>Number(ev[i]?.amount)===a);if(S.settings.monthlyIncome===150000&&legacy)S.settings.incomeEvents=deepClone(DEFAULT_STATE.settings.incomeEvents);await save("Настройки сохранены")}
+
+function render(){checkAchievements();$("headerName").textContent=S.profile.name||"Павел";$("avatar").textContent=(S.profile.name||"P").trim().charAt(0).toUpperCase()||"P";renderToday();renderFinance();renderWork();renderTennis();renderMore();persist().catch(()=>{})}
+
+async function enableNotifications(){if(!("Notification" in window)){toast("Уведомления не поддерживаются");return}const p=await Notification.requestPermission();$("notificationStatus").textContent=`Разрешение: ${p}`;if(p==="granted"){toast("Уведомления включены");runReminderCheck(true)}}
+async function notifyOnce(tag,title,body,force=false){if(!("Notification" in window)||Notification.permission!=="granted")return;const key=`notif:${tag}`,day=localDateKey();if(!force&&localStorage.getItem(key)===day)return;localStorage.setItem(key,day);if(navigator.serviceWorker?.controller)navigator.serviceWorker.controller.postMessage({type:"NOTIFY",title,body,tag});else new Notification(title,{body,icon:"./icons/icon-192.png",tag})}
+function runReminderCheck(force=false){const now=new Date();S.debts.forEach((d,i)=>{if(d.balance<=0)return;const y=now.getFullYear(),m=now.getMonth(),last=new Date(y,m+1,0).getDate(),due=new Date(y,m,Math.min(d.dueDay,last),12),paid=paymentToDebtThisMonth(i),need=Math.max(0,d.min-paid),days=daysBetween(now,due);if(need>0&&days>=0&&days<=2)notifyOnce(`debt-${i}-${localMonthKey()}`,"Скоро обязательный платёж",`${d.name}: осталось ${rub(need)}, срок ${fmtDate(due)}`,force);if(need>0&&days<0)notifyOnce(`overdue-${i}-${localMonthKey()}`,"Проверь платёж",`${d.name}: по данным Life RPG не закрыт минимум ${rub(need)}`,force)});const remain=Math.max(0,S.settings.monthlyDebtGoal-monthPayments()),daysLeft=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate();if(remain>0&&daysLeft<=5)notifyOnce(`monthgoal-${localMonthKey()}`,"Финансовый квест месяца",`До цели осталось ${rub(remain)} и ${daysLeft} дн.`,force)}
+
+async function exportBackup(encrypted){const data=JSON.stringify(S);let blob,name;if(encrypted){const pass=$("backupPassword").value;if(!pass){toast("Укажи пароль");return}const enc=new TextEncoder(),salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["encrypt"]),cipher=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,enc.encode(data)),b64=a=>btoa(String.fromCharCode(...a));blob=new Blob([JSON.stringify({format:"life-rpg-encrypted-v1",salt:b64(salt),iv:b64(iv),data:b64(new Uint8Array(cipher))})],{type:"application/octet-stream"});name=`life-rpg-${localDateKey()}.lrpg`;closeModal("encryptedBackupModal")}else{blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});name=`life-rpg-${localDateKey()}.json`}const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+async function importBackupFile(file){const text=await file.text();let obj=JSON.parse(text);if(obj.format==="life-rpg-encrypted-v1"){const pass=prompt("Пароль от резервной копии:");if(!pass)throw new Error("Пароль не указан");const dec64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0)),enc=new TextEncoder(),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:dec64(obj.salt),iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["decrypt"]),plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:dec64(obj.iv)},key,dec64(obj.data));obj=JSON.parse(new TextDecoder().decode(plain))}S=normalizeState(obj);await persist(true);render();toast("Резервная копия восстановлена")}
+async function resetAll(){if(!confirm("Точно сбросить весь прогресс?"))return;S=deepClone(DEFAULT_STATE);await persist(true);render();toast("Прогресс сброшен")}
+
+function setupPwa(){if("serviceWorker" in navigator)window.addEventListener("load",async()=>{try{const reg=await navigator.serviceWorker.register("./sw.js");$("versionStatus").textContent=`Life RPG ${APP_VERSION} • PWA готова • данные v${STATE_VERSION}`;reg.update()}catch(e){$("versionStatus").textContent=`Life RPG ${APP_VERSION} • service worker не запущен`}});window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;$("installBtn").hidden=false});$("installBtn").addEventListener("click",async()=>{if(!deferredInstall)return;deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$("installBtn").hidden=true})}
+
+function initUi(){document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));$("bankCsvInput")?.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBankCsv(f)}catch(err){$("bankImportStatus").innerHTML=`<span class="csv-bad">${escapeHtml(err.message)}</span>`}e.target.value=""});document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open")}));$("importFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBackupFile(f)}catch(err){alert("Не удалось импортировать файл: "+err.message)}e.target.value=""});setupPwa()}
+
+initUi();loadState();
