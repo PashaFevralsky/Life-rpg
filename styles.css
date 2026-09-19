@@ -71,3 +71,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .ocr-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;padding:12px;border:1px solid #29405f;border-radius:16px;background:#0b1728;margin-bottom:9px;align-items:start}
 .ocr-row.ocr-low{border-color:#775d16}.ocr-check input{width:auto;margin-top:8px}.ocr-fields{min-width:0}
 @media(max-width:650px){.regular-row{grid-template-columns:1fr}.regular-row>.right{text-align:left}.ocr-row{grid-template-columns:auto 1fr}.ocr-row>.btn{grid-column:1 / -1}}
+
+
+/* Life RPG 6.0 */
+.account-row,.transaction-row,.debt-engine-row{display:grid;grid-template-columns:minmax(150px,1fr) auto minmax(100px,150px) auto auto;gap:8px;align-items:center;padding:11px 0;border-bottom:1px solid rgba(32,52,81,.72)}
+.transaction-row{grid-template-columns:minmax(180px,1fr) auto auto}.debt-engine-row{grid-template-columns:minmax(180px,1fr) auto auto}
+.crm-deal{padding:13px;border:1px solid #263e5e;background:#0b1728;border-radius:16px;margin-bottom:10px}.crm-deal.crm-overdue{border-color:#7f2938}.crm-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.analytics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.life-score{display:grid;grid-template-columns:130px 1fr;gap:16px;align-items:center}.life-score-bars{display:grid;gap:7px}.life-score-bars>div{display:grid;grid-template-columns:75px 1fr;gap:8px;align-items:center;font-size:11px;color:var(--muted)}.boss-mini{padding:10px 0;border-bottom:1px solid rgba(32,52,81,.7)}.boss-mini:last-child{border-bottom:0}.boss-mini .progress{margin:6px 0}
+@media(max-width:720px){.account-row{grid-template-columns:1fr auto}.account-row input,.account-row .btn{grid-column:1 / -1}.transaction-row,.debt-engine-row{grid-template-columns:1fr auto}.transaction-row .btn,.debt-engine-row .btn{grid-column:1 / -1}.analytics-grid{grid-template-columns:1fr 1fr}.life-score{grid-template-columns:1fr}}
+@media(max-width:420px){.analytics-grid{grid-template-columns:1fr}}

@@ -1,7 +1,7 @@
 {
-  "name": "Life RPG 5.2.2",
+  "name": "Life RPG 6.0",
   "short_name": "Life RPG",
-  "description": "Life OS 5.2.1: Money Engine с реальным денежным балансом, резервами, финансовыми фазами и автопилотом долгов.",
+  "description": "Life OS 6.0: финансы и счета, OCR-импорт, долговой движок, Smart Budget, CRM продаж, теннисная аналитика, база знаний и адаптивный Daily Engine.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
