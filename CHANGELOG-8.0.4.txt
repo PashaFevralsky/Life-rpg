@@ -1,0 +1,22 @@
+Life RPG 8.0.4 — Reading Queue
+================================
+
+- Added linear reading queue.
+- Added safe life-rpg-reading-list-v1 JSON import.
+- Queued books may have unknown page counts.
+- Queued books are not treated as active reading.
+- Starting a queued book asks for the page count of the user's actual edition when needed.
+- Duplicate author+title entries are skipped.
+- Reading-list import creates a safety snapshot.
+- Existing finance, CRM, tennis and other state are not replaced by reading-list import.
+- State schema remains v16.
+
+Included reading list:
+27 books in the exact user-provided order.
+
+Verification:
+- static checks: PASS
+- regression tests: PASS
+- operational tests: PASS
+- final-audit tests: PASS
+- reading-list tests: PASS

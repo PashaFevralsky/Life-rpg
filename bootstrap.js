@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.3 — Runtime bootstrap */
+/* Life RPG 8.0.4 — Runtime bootstrap */
 
 const ux7BaseRender=render;
 
