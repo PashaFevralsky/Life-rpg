@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.1 — Finance domain */
+/* Life RPG 8.0.2 — Finance domain */
 
 function totalDebt(){return S.debts.reduce((a,d)=>a+Math.max(0,Number(d.balance)||0),0)}
 

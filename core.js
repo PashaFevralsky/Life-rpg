@@ -1,8 +1,8 @@
 "use strict";
 
-/* Life RPG 8.0.1 — Core utilities and constants */
+/* Life RPG 8.0.2 — Core utilities and constants • UX cleanup */
 
-const APP_VERSION="8.0.1";
+const APP_VERSION="8.0.2";
 
 const STATE_VERSION=16;
 

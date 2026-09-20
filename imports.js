@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.1 — Bank, OCR and import engine */
+/* Life RPG 8.0.2 — Bank, OCR and import engine */
 
 let bankSyncSession={accountId:"",bankBalance:null,balanceConfidence:0,balanceLabel:"",balanceSource:"",baseExpected:0,wasVerified:false,importedNet:0,detectedAt:"",lastText:""};
 

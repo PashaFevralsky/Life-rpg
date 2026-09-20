@@ -1,0 +1,113 @@
+Life RPG 8.0.2 — UX Audit & Mobile Cleanup
+===========================================
+
+Base
+----
+Built on the published Life RPG 8.0.1.
+App version: 8.0.2
+State schema: v16 (unchanged)
+Existing IndexedDB data is preserved.
+
+UX findings fixed
+-----------------
+1. Today quick actions:
+   - “Work” switched to the Work section but could leave the entry form hidden on Overview.
+   - “Training” had the same problem in Tennis.
+   Both actions now open the correct subview before focusing the form.
+
+2. Money:
+   - “Now” mixed decisions, bank OCR, reconciliation, imports and account maintenance.
+   - Added a dedicated “Bank” subtab.
+   - Bank OCR, reconciliation, account balances, import rules, import batches and CSV import
+     are grouped there.
+   - “Now” remains focused on current financial state and decisions.
+   - Account management stays visible from both “Bank” and “Operations”.
+
+3. Work daily entry:
+   - The form exposed nine numeric fields at once on mobile.
+   - Date, sales, contacts, follow-ups and LPR remain visible.
+   - Meetings, proposals, wins and pipeline are placed under “Additional metrics”.
+   - No field IDs or saved data model changed.
+
+4. Tennis session entry:
+   - The form exposed match fields even for ordinary technique/training sessions.
+   - Core training fields remain visible.
+   - Wins/losses/opponent/rating/score are now under “Match data — if games were played”.
+   - No tennis state fields were removed.
+
+5. Settings:
+   - 15+ inputs were displayed as one uninterrupted wall.
+   - Settings are grouped into Finance, Work, and Tennis/Reading disclosure sections.
+   - Name and main goal stay immediately visible.
+   - All original input IDs and save behavior are preserved.
+
+6. Mobile touch targets:
+   - Main buttons, section tabs, bottom navigation, inputs and selects have a 44px minimum
+     touch height on mobile.
+   - Disclosure groups received clearer open/closed affordances.
+
+7. Dangerous zone:
+   - The reset card now explicitly states that a local safety snapshot is created first.
+
+Automated verification
+----------------------
+npm test: PASS
+
+Static:
+- 477 unique functions
+- 307 unique HTML ids
+- 59 inline handlers resolved
+- every runtime JS file passes node --check
+- no duplicate runtime function declarations
+- Finance “Bank” tab present
+- Work/Tennis quick actions route to their entry views
+- progressive-entry and grouped-settings markup present
+- app / HTML / manifest / service-worker versions aligned to 8.0.2
+
+Regression: PASS
+Operational: PASS
+
+Interface structure after cleanup
+---------------------------------
+Today:
+- Main: 4 cards
+- Progress: 6 cards
+
+Money:
+- Now: 5 cards (+ dynamic pulse)
+- Operations: 5 cards + shared Accounts card
+- Bank: 5 cards + shared Accounts card
+- Debts: 8 cards
+- Forecast: 10 cards
+- More: 5 cards
+
+Work:
+- Overview: 5 cards
+- Day: 2 cards
+- CRM: 3 cards
+
+Tennis:
+- Overview: 3 cards
+- Training: 2 cards
+- Analytics: 2 cards
+
+More:
+- Overview: 4 cards
+- Knowledge: 4 cards
+- Progress: 4 cards
+- Settings: 8 cards, with the largest settings form internally grouped
+
+Browser note
+------------
+A real 390×844 Chromium headless render was attempted again. The Chromium build in this
+container did not complete the run because of environment-level DBus/zygote failures.
+Therefore browser E2E is not claimed as completed. Static, regression and operational
+Node-VM tests passed.
+
+Recommended deployment
+----------------------
+Upload all files from the archive into the repository root with replacement.
+No data migration is required.
+Do not re-import the annual bank statement.
+After GitHub Pages deploys, fully close and reopen the installed PWA.
+Expected version: Life RPG 8.0.2 • schema v16.

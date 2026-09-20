@@ -201,3 +201,13 @@ body.ux7{background:radial-gradient(circle at 50% -20%,#11233d 0,#07111f 42%,#05
 
 /* 7.2 whole-app stabilization */
 .crm-details{border:1px solid rgba(148,163,184,.18);border-radius:12px;padding:10px 12px}.crm-details summary{cursor:pointer;font-weight:800}.modal.open{overscroll-behavior:contain}.log-item .tag{vertical-align:middle}.stat-xp{min-width:74px;text-align:right}.ux7 .qmeta,.ux7 .sub{font-size:12px}
+
+/* Life RPG 8.0.2 — mobile UX cleanup */
+.entry-details,.settings-group{border:1px solid rgba(148,163,184,.18);border-radius:14px;padding:10px 12px;background:rgba(8,18,32,.28)}
+.entry-details summary,.settings-group summary{cursor:pointer;font-weight:820;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px}
+.entry-details summary::-webkit-details-marker,.settings-group summary::-webkit-details-marker{display:none}
+.entry-details summary::after,.settings-group summary::after{content:"＋";font-size:18px;color:var(--muted);font-weight:700}
+.entry-details[open] summary::after,.settings-group[open] summary::after{content:"−"}
+.settings-group{margin-top:10px}
+.danger-zone{border-color:rgba(239,71,111,.25)}
+@media(max-width:850px){.btn:not(.small),.ux7-tab,.navbtn,input,select{min-height:44px}.ux7-tabs{scroll-padding-inline:8px}.settings-group,.entry-details{padding:11px}.ux7 .card{padding:15px}}

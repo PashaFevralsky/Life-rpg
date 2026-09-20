@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.1 — Quests, XP, rewards and life analytics */
+/* Life RPG 8.0.2 — Quests, XP, rewards and life analytics */
 
 const DAILY_QUESTS=[
   {id:"expenses",title:"Записать расходы",stat:"Дисциплина",xp:10},

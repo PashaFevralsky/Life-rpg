@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.1 — Work and CRM */
+/* Life RPG 8.0.2 — Work and CRM */
 
 const WORK_WEEKLY=[
   {id:"contacts20",title:()=>`${workTarget("contacts",20)} новых целевых контактов`,stat:"Карьера",xp:120,condition:()=>workWeek().contacts>=workTarget("contacts",20)},

@@ -1,6 +1,6 @@
 {
   "name": "life-rpg",
-  "version": "8.0.1",
+  "version": "8.0.2",
   "private": true,
   "scripts": {
     "test": "node static-check.js && node regression.test.js && node operational.test.js"

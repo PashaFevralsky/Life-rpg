@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.1 — State, persistence and migrations */
+/* Life RPG 8.0.2 — State, persistence and migrations */
 
 const DEFAULT_STATE={
   version:STATE_VERSION,
