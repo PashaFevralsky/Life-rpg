@@ -105,3 +105,93 @@ details summary{cursor:pointer;color:#c8d3e3;font-weight:750;font-size:13px}
 @media(max-width:720px){.health-grid,.forecast-os-grid{grid-template-columns:1fr 1fr}.decision-kpis{grid-template-columns:1fr}.mini-forecast{grid-template-columns:1fr 1fr 1fr}.asset-row{grid-template-columns:1fr auto}.asset-row .btn{grid-column:1 / -1}}
 @media(max-width:420px){.health-grid,.forecast-os-grid{grid-template-columns:1fr}.mini-forecast{grid-template-columns:1fr 1fr}.smart-proposal{grid-template-columns:1fr}.smart-proposal .btn{width:100%}}
 \n\n/* 6.2.1 OCR diagnostics */\n.ocr-debug pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;background:#07111f;border:1px solid #223657;border-radius:12px;padding:10px;margin:8px 0 0;font-size:10px;line-height:1.35;color:#b8c5d8}.ocr-debug summary{cursor:pointer}.ocr-row.ocr-low input[type="number"]{border-color:#775d16}\n
+
+/* ============================================================
+   Life RPG 7.0 — mobile-first UX shell
+   ============================================================ */
+body.ux7{background:radial-gradient(circle at 50% -20%,#11233d 0,#07111f 42%,#050d18 100%);}
+.ux7 .shell{max-width:1180px;margin:0 auto;padding-top:0}
+.ux7 .top{position:sticky;top:0;z-index:72;margin:0 -14px;padding:12px 14px;background:rgba(7,17,31,.92);backdrop-filter:blur(18px);border-bottom:1px solid rgba(46,69,101,.45)}
+.ux7 .section{padding-top:0}
+.ux7-section-head{position:sticky;top:65px;z-index:60;margin:0 -4px 12px;padding:10px 4px 9px;background:linear-gradient(180deg,rgba(7,17,31,.98) 0%,rgba(7,17,31,.94) 78%,rgba(7,17,31,0) 100%)}
+.ux7-head-copy{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ux7-head-copy h1{margin:0;font-size:26px;line-height:1;font-weight:950;letter-spacing:-.04em}
+.ux7-head-desc{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ux7-tabs{display:flex;gap:7px;overflow-x:auto;padding:1px 0 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.ux7-tabs::-webkit-scrollbar{display:none}
+.ux7-tab{flex:0 0 auto;min-height:44px;border:1px solid #29405f;background:#0c1829;color:#91a1b8;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:820;box-shadow:none}
+.ux7-tab.active{background:#e8eef9;color:#0a1424;border-color:#e8eef9}
+.ux7-card.ux7-hidden{display:none!important}
+.ux7 .card{border-radius:19px;border-color:rgba(43,66,96,.72);box-shadow:0 10px 30px rgba(0,0,0,.14)}
+.ux7 .grid{gap:11px}
+.ux7 .card .title{margin-bottom:10px}
+.ux7 .section-title{font-size:21px}
+.ux7 .kpi-row{gap:8px}
+.ux7 .kpi{padding:11px;border-radius:14px}
+.ux7 .kpi .num{font-size:20px}
+.ux7 .hero{gap:10px;margin-bottom:11px}
+.ux7 .hero-main,.ux7 .streak{min-height:154px}
+.ux7 .level{font-size:48px}
+
+.ux7-pulse{background:linear-gradient(150deg,#10243b,#0d1b2e);border-color:#315579!important}
+.ux7-pulse-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.ux7-pulse-main{font-size:35px;font-weight:950;letter-spacing:-.045em;margin:3px 0}
+.ux7-pulse-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.ux7-pulse-grid>div{padding:10px;border-radius:13px;background:rgba(6,15,27,.52);border:1px solid rgba(47,75,108,.55)}
+.ux7-pulse-grid span,.ux7-pulse-grid small{display:block;color:var(--muted);font-size:10px}
+.ux7-pulse-grid b{display:block;font-size:15px;margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ux7-today-pulse{padding:13px 15px}
+.ux7-today-line{display:grid;grid-template-columns:1fr 1fr 1.25fr auto;align-items:center;gap:12px}
+.ux7-today-line>div{min-width:0}.ux7-today-line b{display:block;margin-top:4px;font-size:16px}.ux7-today-line small{display:block;color:var(--muted);font-size:10px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ux7-status-good{color:#a7f3d0}.ux7-status-warn{color:#fde68a}.ux7-status-bad{color:#fecdd3}
+
+.ux7-fab{position:fixed;right:max(18px,calc((100vw - 1180px)/2 + 18px));bottom:max(91px,calc(env(safe-area-inset-bottom) + 91px));z-index:76;width:58px;height:58px;border:0;border-radius:19px;background:#f4f7fc;color:#091525;font-size:34px;line-height:1;box-shadow:0 16px 40px rgba(0,0,0,.42);font-weight:400}
+.ux7-sheet .modal-card{padding-bottom:max(18px,env(safe-area-inset-bottom))}
+.ux7-action-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.ux7-action-grid button{min-height:78px;border:1px solid #2a4263;border-radius:16px;background:#0b1728;color:#eef3fb;padding:12px;text-align:left;display:flex;gap:11px;align-items:center;font-weight:800}
+.ux7-action-grid button b{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:#172a45;font-size:20px}
+.ux7-action-grid button span{font-size:13px}
+
+.ux7-editor-toggle{margin:-3px 0 10px}
+.ux7-editor-collapsed>*:not(.title):not(.eyebrow):not(.section-title):not(.ux7-editor-toggle){display:none!important}
+.ux7-editor-collapsed{padding-bottom:9px!important}
+
+.ux7 .bottom{width:min(680px,calc(100% - 20px));padding:6px;border-radius:19px;background:rgba(7,16,29,.96)}
+.ux7 .navbtn{padding:8px 4px;font-size:10px}.ux7 .navbtn b{font-size:18px;margin-bottom:3px}.ux7 .navbtn.active{background:#e8eef9;color:#091525}
+.ux7 .modal-card{border-radius:24px 24px 20px 20px}
+.ux7 .smart-proposal,.ux7 .transaction-row,.ux7 .account-row,.ux7 .debt-engine-row{border-radius:12px}
+
+@media(max-width:850px){
+  .ux7 .shell{padding:0 12px 108px}
+  .ux7 .top{margin:0 -12px;padding-left:12px;padding-right:12px}
+  .ux7-section-head{top:62px;margin-left:-1px;margin-right:-1px}
+  .ux7 .hero{grid-template-columns:1.35fr .65fr}
+  .ux7 .hero-main,.ux7 .streak{min-height:136px}
+  .ux7-today-line{grid-template-columns:1fr 1fr}.ux7-today-line>div:nth-child(3){grid-column:1/-1}.ux7-today-line>.btn{grid-column:1/-1;width:100%}
+}
+@media(max-width:560px){
+  .ux7-head-copy h1{font-size:24px}.ux7-head-desc{font-size:11px;max-width:52%}
+  .ux7 .hero{grid-template-columns:1fr 118px}.ux7 .streak{padding:13px}.ux7 .fire{font-size:31px}.ux7 .streak .big{font-size:24px}.ux7 .level{font-size:42px}
+  .ux7-pulse-grid{grid-template-columns:1fr 1fr}.ux7-pulse-grid>div:last-child{grid-column:1/-1}
+  .ux7-pulse-main{font-size:30px}
+  .ux7 .quick{grid-template-columns:repeat(3,1fr)}.ux7 .quick button{min-height:62px;font-size:11px}.ux7 .quick b{font-size:18px}
+  .ux7-fab{right:16px;width:54px;height:54px;border-radius:18px;font-size:31px}
+  .ux7 .kpi-row{grid-template-columns:1fr 1fr!important}
+}
+@media(max-width:370px){
+  .ux7 .shell{padding-left:9px;padding-right:9px}.ux7 .top{margin-left:-9px;margin-right:-9px}.ux7-head-desc{display:none}.ux7 .hero{grid-template-columns:1fr}.ux7 .streak{display:grid;grid-template-columns:auto 1fr;align-items:center;min-height:auto}.ux7-pulse-grid{grid-template-columns:1fr}.ux7-pulse-grid>div:last-child{grid-column:auto}.ux7 .quick{grid-template-columns:repeat(2,1fr)}
+}
+
+.ux7-debt-controls{margin:-2px 0 10px}
+.ux7-debt-editor-panel{margin-top:12px;padding-top:12px;border-top:1px solid rgba(43,66,96,.72)}
+.ux7-debt-form-hidden .ux7-debt-editor-panel{display:none!important}
+.ux7 #debtEditorList{margin-top:4px!important}
+
+.ux7-quests-details{margin-top:14px;border-top:1px solid rgba(43,66,96,.72);padding-top:10px}
+.ux7-quests-details summary{cursor:pointer;font-weight:850;font-size:14px;color:#dce5f2;min-height:42px;display:flex;align-items:center}
+.ux7-quests-details[open] summary{margin-bottom:4px}
+
+.ux7-inline-toggle{margin-top:10px;width:100%}
+.ux7-inline-editor{margin-top:10px;padding-top:10px;border-top:1px solid rgba(43,66,96,.72)}
+.ux7-inline-editor-hidden{display:none!important}
+.ux7-inline-editor>.btn,.ux7-inline-editor>.split{margin-top:10px!important}

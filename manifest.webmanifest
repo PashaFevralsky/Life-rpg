@@ -1,7 +1,7 @@
 {
-  "name": "Life RPG 6.2.1",
+  "name": "Life RPG 7.0",
   "short_name": "Life RPG",
-  "description": "Life RPG 6.2.1 — Financial OS OCR Hotfix: resilient bank screenshot parsing, review-safe amounts and diagnostics",
+  "description": "Life RPG 7.0 — streamlined Life OS with Financial Inbox and mobile-first navigation",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

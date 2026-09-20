@@ -1,5 +1,5 @@
 "use strict";
-const APP_VERSION="6.2.1";
+const APP_VERSION="7.0.0";
 const STATE_VERSION=14;
 const DB_NAME="life-rpg-db";
 const DB_VERSION=7;
@@ -1128,6 +1128,187 @@ function renderScreenshotQueue(){
   const hi=screenshotImportQueue.filter(x=>x.confidence>=.82&&!x.needsReview).length,mid=screenshotImportQueue.filter(x=>x.confidence>=.65&&x.confidence<.82&&!x.needsReview).length,low=screenshotImportQueue.filter(x=>x.confidence<.65||x.needsReview).length;
   box.innerHTML=`<div class="status">Уверенность: высокая ${hi} • средняя ${mid} • проверить ${low}</div>`+screenshotImportQueue.map(x=>`<div class="ocr-row ${(x.confidence<.65||x.needsReview)?"ocr-low":""}"><label class="ocr-check"><input type="checkbox" ${x.include?"checked":""} onchange="updateScreenshotCandidate('${x.id}','include',this.checked)"></label><div class="ocr-fields"><div class="formgrid"><div class="field"><label>Дата</label><input type="date" value="${escapeHtml(x.dateKey)}" onchange="updateScreenshotCandidate('${x.id}','dateKey',this.value)"></div><div class="field"><label>Сумма, ₽</label><input type="number" min="0" step="0.01" value="${Number(x.amount||0)}" onchange="updateScreenshotCandidate('${x.id}','amount',this.value)"></div><div class="field"><label>Тип</label><select onchange="updateScreenshotCandidate('${x.id}','type',this.value)">${screenshotTypeOptions(x.type)}</select></div><div class="field"><label>Категория</label><select ${x.type!=="expense"?"disabled":""} onchange="updateScreenshotCandidate('${x.id}','category',this.value)">${screenshotCategoryOptions(x.category)}</select></div><div class="field"><label>Счёт</label><select onchange="updateScreenshotCandidate('${x.id}','accountId',this.value)">${accountOptions(x.accountId||defaultAccountId())}</select></div></div><div class="field" style="margin-top:8px"><label>Описание</label><input value="${escapeHtml(x.desc)}" onchange="updateScreenshotCandidate('${x.id}','desc',this.value)"></div>${x.needsReview?`<div class="notice" style="margin-top:8px">OCR потерял разделитель суммы. Предложено <b>${ocrMoneyDisplay(x.amount)}</b> из «${escapeHtml(x.rawAmount||"")}». Проверь сумму по скриншоту; строка пока не выбрана для импорта.</div>`:""}<div class="qmeta">уверенность OCR: ${Math.round((x.confidence||0)*100)}% • ${escapeHtml(x.sourceName||"")}${x.rawAmount?` • raw: ${escapeHtml(x.rawAmount)}`:""}</div><div class="split" style="margin-top:7px"><button class="btn ghost small" onclick="learnScreenshotRule('${x.id}')">Запомнить правило</button></div></div><button class="btn ghost small" onclick="removeScreenshotCandidate('${x.id}')">×</button></div>`).join("");
 }
+
+
+
+/* ============================================================
+   Life RPG 7.0 UX shell
+   Presentation-only redesign. Financial/data schema remains v14.
+   ============================================================ */
+const UX7_STORAGE_KEY="life-rpg-ux7";
+const UX7_DEFAULTS={today:"focus",finance:"overview",work:"overview",tennis:"overview",more:"overview",advanced:false};
+let UX7_PREFS={...UX7_DEFAULTS};
+
+function ux7LoadPrefs(){try{UX7_PREFS={...UX7_DEFAULTS,...JSON.parse(localStorage.getItem(UX7_STORAGE_KEY)||"{}")}}catch{UX7_PREFS={...UX7_DEFAULTS}}}
+function ux7SavePrefs(){try{localStorage.setItem(UX7_STORAGE_KEY,JSON.stringify(UX7_PREFS))}catch{}}
+function ux7NormalizeText(v){return String(v||"").toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim()}
+function ux7CardText(card){return ux7NormalizeText(card?.textContent||"")}
+function ux7DateTitle(){return new Intl.DateTimeFormat("ru-RU",{weekday:"long",day:"numeric",month:"long"}).format(new Date()).replace(/^./,m=>m.toUpperCase())}
+
+const UX7_META={
+  today:{title:"Сегодня",desc:()=>ux7DateTitle(),tabs:[["focus","Главное"],["progress","Прогресс"]]},
+  finance:{title:"Деньги",desc:()=>"Состояние → решение → действие",tabs:[["overview","Обзор"],["inbox","Обновить"],["operations","Операции"],["debts","Долги"],["plan","План"],["analysis","Аналитика"],["reports","Отчёты"],["assets","Активы"]]},
+  work:{title:"Работа",desc:()=>"Продажи, действия и сделки",tabs:[["overview","Обзор"],["crm","CRM"],["log","День"]]},
+  tennis:{title:"Теннис",desc:()=>"Тренировки и прогресс",tabs:[["overview","Обзор"],["training","Тренировки"],["analytics","Аналитика"]]},
+  more:{title:"Ещё",desc:()=>"Знания, прогресс и настройки",tabs:[["overview","Обзор"],["knowledge","Знания"],["rewards","Прогресс"],["settings","Настройки"]]}
+};
+
+function ux7ViewsForCard(sectionId,card,index){
+  const t=ux7CardText(card);
+  if(sectionId==="today"){
+    if(/быстрые действия/.test(t))return "utility";
+    if(/daily engine|план дня|главные цели месяца|что сделать сегодня/.test(t))return "focus";
+    if(/главный квест/.test(t))return "progress";
+    return "progress";
+  }
+  if(sectionId==="finance"){
+    if(/финансовый центр/.test(t))return "inbox";
+    if(/обновить данные из банка/.test(t))return "inbox";
+    if(/правила авторазбора|пакеты импорта|связь с этим проектом chatgpt|импорт банковской выписки csv/.test(t))return "inbox";
+    if(/денежный поток|расходы месяца|регулярные обязательные платежи|добавить регулярный платеж|единый журнал операций/.test(t))return "operations";
+    if(/transaction engine/.test(t))return "operations assets";
+    if(/долги-боссы|следующее действие|история платежей|debt engine/.test(t))return "debts";
+    if(/сценарии погашения|долг → ноль|проценты|avalanche vs snowball/.test(t))return "reports";
+    if(/net worth|активы и чистый капитал/.test(t))return "assets";
+    if(/financial health|decision engine/.test(t))return "overview";
+    if(/кампания против долгов/.test(t))return "debts";
+    if(/money engine|реальный денежный баланс/.test(t))return "overview plan";
+    if(/что делать с деньгами сейчас/.test(t))return "plan";
+    if(/90-day forecast|calendar center|как распределить деньги сейчас|динамический бюджет|конверты расходов/.test(t))return "plan";
+    if(/cash-flow по дням|прогноз денег 30 \/ 60 \/ 90|отдельный резерв|лаборатория «что если|smart budget|рекомендованный бюджет/.test(t))return "analysis";
+    if(/финансовый отчет месяца|закрытие месяца/.test(t))return "reports";
+    return "analysis";
+  }
+  if(sectionId==="work"){
+    if(/work crm|карточка сделки|сделки и следующие шаги/.test(t))return "crm";
+    if(/добавить рабочий день|последние записи/.test(t))return "log";
+    return "overview";
+  }
+  if(sectionId==="tennis"){
+    if(/добавить сессию|история тренировок/.test(t))return "training";
+    if(/tennis analytics|соперники/.test(t))return "analytics";
+    return "overview";
+  }
+  if(sectionId==="more"){
+    if(/библиотека|навыки \/ skill tree|чтение и знания|база знаний/.test(t))return "knowledge";
+    if(/магазин наград|xp: процесс|история сезонов/.test(t))return "rewards";
+    if(/уведомления|график ожидаемых доходов|локальные снимки|профиль и настройки|облако и android|данные, версия|опасная зона|журнал изменений/.test(t))return "settings";
+    return "overview";
+  }
+  return "overview";
+}
+
+function ux7BuildSectionHeader(sectionId){
+  const section=$(sectionId),meta=UX7_META[sectionId];if(!section||!meta||section.querySelector(":scope > .ux7-section-head"))return;
+  const head=document.createElement("div");head.className="ux7-section-head";head.innerHTML=`<div class="ux7-head-copy"><h1>${meta.title}</h1><div class="ux7-head-desc" id="ux7-desc-${sectionId}"></div></div><div class="ux7-tabs" role="tablist" aria-label="${meta.title}">${meta.tabs.map(([id,label])=>`<button type="button" class="ux7-tab" data-section="${sectionId}" data-view="${id}" role="tab">${label}</button>`).join("")}</div>`;
+  section.insertBefore(head,section.firstChild);
+  head.querySelector(`#ux7-desc-${sectionId}`).textContent=meta.desc();
+  head.querySelectorAll(".ux7-tab").forEach(b=>b.addEventListener("click",()=>ux7SetView(sectionId,b.dataset.view,true)));
+}
+
+function ux7TagCards(sectionId){
+  const section=$(sectionId);if(!section)return;let i=0;
+  section.querySelectorAll(".card").forEach(card=>{if(card.closest(".modal"))return;card.dataset.ux7View=ux7ViewsForCard(sectionId,card,i++);card.classList.add("ux7-card")});
+}
+
+function ux7SetView(sectionId,view,scrollTop=false){
+  const section=$(sectionId);if(!section)return;UX7_PREFS[sectionId]=view;ux7SavePrefs();
+  section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view))});
+  if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
+  requestAnimationFrame(()=>ux7UpdateSubViewMetrics(sectionId,view));
+}
+
+function ux7UpdateSubViewMetrics(sectionId,view){
+  const section=$(sectionId);if(!section)return;const visible=[...section.querySelectorAll(".ux7-card:not(.ux7-hidden)")];section.dataset.ux7VisibleCards=String(visible.length);
+}
+
+function ux7SetupFinancePulse(){
+  const section=$("finance");if(!section||$("ux7FinancePulse"))return;
+  const grid=section.querySelector(":scope > .grid");if(!grid)return;const card=document.createElement("div");card.id="ux7FinancePulse";card.className="card span-12 ux7-card ux7-pulse";card.dataset.ux7View="overview";grid.insertBefore(card,grid.firstChild);
+}
+function ux7NextMoneyEvent(){
+  try{const start=new Date(),end=addDays(start,90),events=[...debtEventsBetween(start,end),...regularEventsBetween(start,end)].filter(x=>(+x.amount||0)>0).sort((a,b)=>a.date-b.date);return events[0]||null}catch{return null}
+}
+function renderUx7FinancePulse(){
+  const box=$("ux7FinancePulse");if(!box||!S)return;const next=ux7NextMoneyEvent(),cash=operatingCashBalance(),free=freeCashBalance(),worth=netWorth();
+  box.innerHTML=`<div class="ux7-pulse-head"><div><div class="eyebrow">Сейчас</div><div class="ux7-pulse-main">${rub(free)}</div><div class="muted">свободно из ${rub(cash)} на счетах</div></div><button class="btn secondary small" onclick="ux7OpenInbox()">Обновить банк</button></div><div class="ux7-pulse-grid"><div><span>Ближайшее</span><b>${next?escapeHtml(next.label):"Нет"}</b><small>${next?`${fmtDate(next.date)} • ${rub(next.amount)}`:"на 90 дней"}</small></div><div><span>Долги</span><b>${rub(totalDebt())}</b><small>${S.debts.filter(d=>d.balance>0).length} активных</small></div><div><span>Чистый капитал</span><b class="${worth>=0?"income-good":"income-bad"}">${rub(worth)}</b><small>с учётом активов</small></div></div>`;
+}
+
+function ux7SetupTodayPulse(){
+  const section=$("today");if(!section||$("ux7TodayPulse"))return;const grid=section.querySelector(":scope > .grid");if(!grid)return;const card=document.createElement("div");card.id="ux7TodayPulse";card.className="card span-12 ux7-card ux7-today-pulse";card.dataset.ux7View="focus";grid.insertBefore(card,grid.firstChild);
+}
+function renderUx7TodayPulse(){
+  const box=$("ux7TodayPulse");if(!box||!S)return;let next=null;try{next=ux7NextMoneyEvent()}catch{}const free=freeCashBalance(),over=overdueMinimums?.()||[];let status="Стабильно",cls="good";if(over.length){status="Есть просрочка",cls="bad"}else if(free<0){status="Кассовый разрыв",cls="bad"}else if(free<Math.max(3000,dynamicDailyBudget()*3)){status="Нужна осторожность",cls="warn"}
+  box.innerHTML=`<div class="ux7-today-line"><div><div class="smallcaps">Финансовый статус</div><b class="ux7-status-${cls}">${status}</b></div><div><div class="smallcaps">Свободно</div><b>${rub(free)}</b></div><div><div class="smallcaps">Следующий платёж</div><b>${next?rub(next.amount):"—"}</b><small>${next?`${fmtDate(next.date)} • ${escapeHtml(next.label)}`:"нет данных"}</small></div><button class="btn secondary small" onclick="ux7Go('finance','overview')">Открыть деньги</button></div>`;
+}
+
+function ux7CreateQuickSheet(){if($("ux7QuickSheet"))return;const m=document.createElement("div");m.className="modal ux7-sheet";m.id="ux7QuickSheet";m.innerHTML=`<div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Быстрое действие</div><div class="title">Что добавить?</div></div><button class="close" onclick="closeModal('ux7QuickSheet')">×</button></div><div class="ux7-action-grid"><button onclick="closeModal('ux7QuickSheet');openModal('expenseModal')"><b>−</b><span>Расход</span></button><button onclick="closeModal('ux7QuickSheet');openIncomeModal()"><b>+</b><span>Доход</span></button><button onclick="closeModal('ux7QuickSheet');openModal('paymentModal')"><b>₽</b><span>Платёж долга</span></button><button onclick="closeModal('ux7QuickSheet');ux7OpenInbox(true)"><b>▣</b><span>Скрин банка</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('work','log');setTimeout(()=>document.getElementById('workContacts')?.focus(),250)"><b>↗</b><span>Рабочий день</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('tennis','training');setTimeout(()=>document.getElementById('ttMinutes')?.focus(),250)"><b>🏓</b><span>Тренировка</span></button><button onclick="closeModal('ux7QuickSheet');openModal('readingModal')"><b>⌁</b><span>Чтение</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('finance','overview');setTimeout(()=>document.getElementById('decisionSpendAmount')?.focus(),250)"><b>?</b><span>Можно потратить?</span></button></div></div>`;document.body.appendChild(m);m.addEventListener("click",e=>{if(e.target===m)closeModal("ux7QuickSheet")});
+  const fab=document.createElement("button");fab.id="ux7Fab";fab.className="ux7-fab";fab.type="button";fab.setAttribute("aria-label","Добавить");fab.textContent="＋";fab.onclick=()=>openModal("ux7QuickSheet");document.body.appendChild(fab)
+}
+function ux7OpenInbox(triggerFile=false){ux7Go("finance","inbox");if(triggerFile)setTimeout(()=>$("smartInboxInput")?.click(),300)}
+function ux7Go(sectionId,view){switchTab(sectionId);setTimeout(()=>ux7SetView(sectionId,view,true),0)}
+
+
+
+function ux7SetupTodayQuests(){
+  const list=$("todayQuestList");if(!list||list.closest("details.ux7-quests-details"))return;const card=list.closest(".card"),titles=card?[...card.querySelectorAll(":scope > .title")]:[],secondary=titles.find(x=>/ежедневные квесты/i.test(x.textContent||""));if(!card||!secondary)return;
+  const d=document.createElement("details");d.className="ux7-quests-details";const sm=document.createElement("summary");sm.textContent="Ежедневные квесты";d.appendChild(sm);secondary.replaceWith(d);d.appendChild(list)
+}
+
+function ux7SetupDebtEditor(){
+  const card=$("debtEditorCard");if(!card||card.dataset.ux7Prepared==="1")return;card.dataset.ux7Prepared="1";
+  const list=$("debtEditorList"),title=card.querySelector(".title"),panel=document.createElement("div");panel.className="ux7-debt-editor-panel";
+  const movable=[...card.children].filter(el=>el!==list&&!el.classList.contains("eyebrow")&&!el.classList.contains("title"));movable.forEach(el=>panel.appendChild(el));
+  const controls=document.createElement("div");controls.className="split ux7-debt-controls";controls.innerHTML='<button type="button" class="btn secondary small" id="ux7NewDebtBtn">+ Новый долг</button><button type="button" class="btn ghost small" id="ux7ToggleDebtForm">Показать форму</button>';
+  title?.after(controls);controls.after(list);list.after(panel);card.classList.add("ux7-debt-form-hidden");
+  $("ux7NewDebtBtn").onclick=()=>{clearDebtForm();card.classList.remove("ux7-debt-form-hidden");$("ux7ToggleDebtForm").textContent="Скрыть форму";setTimeout(()=>$("debtName")?.focus(),50)};
+  $("ux7ToggleDebtForm").onclick=()=>{const hidden=card.classList.toggle("ux7-debt-form-hidden");$("ux7ToggleDebtForm").textContent=hidden?"Показать форму":"Скрыть форму"};
+}
+function ux7OpenDebtForm(){const card=$("debtEditorCard");if(!card)return;card.classList.remove("ux7-debt-form-hidden");if($("ux7ToggleDebtForm"))$("ux7ToggleDebtForm").textContent="Скрыть форму"}
+
+
+function ux7SetupFinanceEditors(){
+  const assetName=$("assetName"),assetList=$("assetList");if(assetName&&assetList&&!$("ux7AssetForm")){
+    const card=assetName.closest(".card"),form=assetName.closest(".formgrid"),toggle=card?.querySelector("#assetAvailable")?.closest("label"),button=[...card?.querySelectorAll("button")||[]].find(b=>/addAsset\(/.test(b.getAttribute("onclick")||"")),panel=document.createElement("div");panel.id="ux7AssetForm";panel.className="ux7-inline-editor ux7-inline-editor-hidden";if(form)panel.appendChild(form);if(toggle)panel.appendChild(toggle);if(button)panel.appendChild(button);const open=document.createElement("button");open.type="button";open.className="btn ghost small ux7-inline-toggle";open.textContent="+ Добавить / обновить актив";open.onclick=()=>{panel.classList.toggle("ux7-inline-editor-hidden");open.textContent=panel.classList.contains("ux7-inline-editor-hidden")?"+ Добавить / обновить актив":"Скрыть форму"};assetList.after(open,panel)
+  }
+  const accountName=$("accountName"),accountList=$("accountList");if(accountName&&accountList&&!$("ux7AccountForm")){
+    const card=accountName.closest(".card"),form=accountName.closest(".formgrid"),split=form?.nextElementSibling,panel=document.createElement("div");panel.id="ux7AccountForm";panel.className="ux7-inline-editor ux7-inline-editor-hidden";if(form)panel.appendChild(form);if(split&&split.classList.contains("split"))panel.appendChild(split);const open=document.createElement("button");open.type="button";open.className="btn ghost small ux7-inline-toggle";open.textContent="Управление счетами";open.onclick=()=>{panel.classList.toggle("ux7-inline-editor-hidden");open.textContent=panel.classList.contains("ux7-inline-editor-hidden")?"Управление счетами":"Скрыть управление"};accountList.after(open,panel)
+  }
+  const regular=[...$("finance")?.querySelectorAll(".card")||[]].find(c=>/добавить регулярный платеж/.test(ux7CardText(c)));if(regular&&!regular.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Открыть форму";btn.onclick=()=>ux7ToggleEditor(regular);regular.querySelector(".title")?.after(btn);regular.classList.add("ux7-editor-collapsed")}
+}
+
+function ux7SetupEditors(){
+  // CRM editor starts compact. Debt editor remains visible because its debt list lives inside the same card.
+  const crm=$("crmEditorCard");if(crm&&!crm.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Показать форму";btn.onclick=()=>ux7ToggleEditor(crm);const title=crm.querySelector(".title");title?.after(btn);crm.classList.add("ux7-editor-collapsed")}
+  const workCard=[...$("work")?.querySelectorAll(".card")||[]].find(c=>/добавить рабочий день/.test(ux7CardText(c)));if(workCard&&!workCard.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Открыть форму дня";btn.onclick=()=>ux7ToggleEditor(workCard);workCard.querySelector(".title")?.after(btn);workCard.classList.add("ux7-editor-collapsed")}
+  const ttCard=[...$("tennis")?.querySelectorAll(".card")||[]].find(c=>/добавить сессию/.test(ux7CardText(c)));if(ttCard&&!ttCard.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Открыть форму тренировки";btn.onclick=()=>ux7ToggleEditor(ttCard);ttCard.querySelector(".title")?.after(btn);ttCard.classList.add("ux7-editor-collapsed")}
+}
+function ux7ToggleEditor(card,force){if(!card)return;const shouldOpen=force===true?true:force===false?false:card.classList.contains("ux7-editor-collapsed");card.classList.toggle("ux7-editor-collapsed",!shouldOpen);const btn=card.querySelector(".ux7-editor-toggle");if(btn)btn.textContent=shouldOpen?"Скрыть форму":"Показать форму"}
+
+function ux7PatchEditorActions(){
+  if(typeof editCrmDeal==="function"&&!editCrmDeal.__ux7){const base=editCrmDeal;const wrapped=function(id){ux7Go("work","crm");ux7ToggleEditor($("crmEditorCard"),true);return base(id)};wrapped.__ux7=true;editCrmDeal=wrapped}
+  if(typeof editDebt==="function"&&!editDebt.__ux7){const base=editDebt;const wrapped=function(id){ux7Go("finance","debts");ux7OpenDebtForm();return base(id)};wrapped.__ux7=true;editDebt=wrapped}
+}
+
+function ux7RefreshHeaders(){for(const [id,meta] of Object.entries(UX7_META)){const d=$(`ux7-desc-${id}`);if(d)d.textContent=meta.desc()}}
+function ux7UpdateActiveNavLabel(sectionId){const labels={today:"Сегодня",finance:"Деньги",work:"Работа",tennis:"Теннис",more:"Ещё"};document.querySelectorAll('.navbtn').forEach(b=>{if(b.dataset.tab===sectionId){const strong=b.querySelector('b');const icon=strong?.outerHTML||'';b.innerHTML=icon+labels[sectionId]}})}
+
+function ux7InstallShell(){
+  document.body.classList.add("ux7");ux7LoadPrefs();
+  for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
+  ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupTodayQuests();ux7SetupDebtEditor();ux7SetupFinanceEditors();ux7SetupEditors();ux7PatchEditorActions();
+  for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);
+  const financeNav=document.querySelector('.navbtn[data-tab="finance"]');if(financeNav){const b=financeNav.querySelector('b')?.outerHTML||'<b>₽</b>';financeNav.innerHTML=b+'Деньги'}
+  renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();
+}
+
+// Wrap key render/navigation functions without changing the data model.
+const ux7BaseRender=render;render=function(){ux7BaseRender();requestAnimationFrame(()=>{renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false)})};
+const ux7BaseSwitchTab=switchTab;switchTab=function(id){ux7BaseSwitchTab(id);requestAnimationFrame(()=>{ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);ux7RefreshHeaders()})};
+
+ux7InstallShell();
+
 
 initUi();
 loadState();
