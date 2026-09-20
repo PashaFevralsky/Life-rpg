@@ -1,7 +1,7 @@
 {
-  "name": "Life RPG 6.2",
+  "name": "Life RPG 6.2.1",
   "short_name": "Life RPG",
-  "description": "Life RPG 6.2 — Financial OS: unified finance, smart inbox, decisions, forecast, assets and AI Bridge",
+  "description": "Life RPG 6.2.1 — Financial OS OCR Hotfix: resilient bank screenshot parsing, review-safe amounts and diagnostics",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

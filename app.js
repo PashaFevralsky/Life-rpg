@@ -1,5 +1,5 @@
 "use strict";
-const APP_VERSION="6.2.0";
+const APP_VERSION="6.2.1";
 const STATE_VERSION=14;
 const DB_NAME="life-rpg-db";
 const DB_VERSION=7;
@@ -907,6 +907,226 @@ function initUi(){if($("crmNextDate"))$("crmNextDate").value=localDateKey();
   $("smartInboxInput")?.addEventListener("change",async e=>{const fs=e.target.files;if(fs?.length)await recognizeSmartInbox(fs);e.target.value=""});
   $("aiImportInput")?.addEventListener("change",async e=>{const f=e.target.files?.[0];if(f)await handleAiImportFile(f);e.target.value=""});
   document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open")}));$("importFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBackupFile(f)}catch(err){alert("Не удалось импортировать файл: "+err.message)}e.target.value=""});setupPwa()
+}
+
+
+/* Life RPG 6.2.1 OCR Hotfix — resilient bank screenshot parsing */
+let ocrHotfixDebugRuns=[];
+
+function normalizeOcrFinancialText(text){
+  return String(text||"")
+    .replace(/\r/g,"")
+    .replace(/[\u2212\u2012\u2013\u2014]/g,"-")
+    .replace(/\u00A0/g," ")
+    .replace(/([+\-]?\s*\d[\d .,]{0,18})\s*[PРBВ](?=\s|$|[•·])/gi,"$1 ₽")
+    .replace(/([+\-]?\s*\d[\d .,]{0,18})\s*(?:руб(?:\.|ля|лей)?|р\.)(?=\s|$|[•·])/gi,"$1 ₽");
+}
+
+function isOcrDateHeaderLine(line){
+  const s=String(line||"").trim().toLowerCase().replace(/ё/g,"е");
+  if(!s)return false;
+  if(/^(?:сегодня|вчера|позавчера)(?:\s|$)/.test(s))return true;
+  return /^\d{1,2}\s+(?:январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)/i.test(s);
+}
+
+function parseRelaxedOcrMoney(rawToken){
+  const original=String(rawToken||"").trim();
+  const sign=(original.match(/[+\-−]/)||[""])[0].replace("−","-");
+  let body=original.replace(/[+\-−]/g,"").replace(/(?:₽|руб(?:\.|ля|лей)?|р\.?|[PРBВ])\s*$/i,"").trim();
+  body=body.replace(/\u00A0/g," ").replace(/(?<=\d)[oOоО](?=\d)/g,"0").replace(/(?<=\d)[lI|](?=\d)/g,"1");
+  body=body.replace(/[^\d., ]/g,"").replace(/\s+/g," ").trim();
+  if(!/\d/.test(body))return null;
+  let needsReview=false, inferredDecimal=false, amount=NaN;
+  const explicit=body.match(/^(.*?)[.,](\d{1,2})$/);
+  if(explicit){
+    const whole=explicit[1].replace(/[ .,]/g,"")||"0", cents=explicit[2].padEnd(2,"0");
+    amount=Number(`${whole}.${cents}`);
+  }else{
+    const groups=body.split(" ").filter(Boolean);
+    if(groups.length>1 && groups.slice(1).every(g=>/^\d{3}$/.test(g))){
+      amount=Number(groups.join(""));
+    }else if(groups.length>1 && /^\d{4,6}$/.test(groups.at(-1))){
+      const digits=groups.join("");
+      amount=Number(digits.slice(0,-2)+"."+digits.slice(-2));
+      needsReview=true;inferredDecimal=true;
+    }else{
+      const digits=body.replace(/[ .,]/g,"");
+      if(/^\d{5,7}$/.test(digits) && !digits.endsWith("00")){
+        amount=Number(digits.slice(0,-2)+"."+digits.slice(-2));
+        needsReview=true;inferredDecimal=true;
+      }else amount=Number(digits);
+    }
+  }
+  if(!Number.isFinite(amount)||amount<=0||amount>100000000)return null;
+  return {amount,sign,needsReview,inferredDecimal,raw:original};
+}
+
+function relaxedMoneyMatches(line){
+  const src=String(line||"").replace(/\u00A0/g," "),out=[];
+  const currency=/([+\-−]\s*\d[\d .,]{0,18}?)\s*(₽|руб(?:\.|ля|лей)?|р\.?|[PРBВ])(?=\s|$|[•·])/ig;
+  let m;
+  while((m=currency.exec(src))){const p=parseRelaxedOcrMoney(m[0]);if(p)out.push({...p,currencySeen:true,index:m.index});}
+  if(!out.length){
+    const signed=/([+\-−]\s*(?:\d{1,3}(?:[ ]\d{3})+(?:[.,]\d{1,2})?|\d{1,7}(?:[.,]\d{1,2})?))(?=\s|$)/g;
+    while((m=signed.exec(src))){const p=parseRelaxedOcrMoney(m[0]);if(p)out.push({...p,currencySeen:false,index:m.index});}
+  }
+  if(out.length>1 && /(?:дебетов|black\s*premium|мир\s*танков|карта)/i.test(src)){
+    const meaningful=out.filter(x=>!(x.sign==="+"&&x.amount<=200&&!x.currencySeen));
+    if(meaningful.length)return meaningful;
+  }
+  return out;
+}
+
+function financialTextScore(text){
+  const raw=String(text||""),norm=normalizeOcrFinancialText(raw),lines=norm.split("\n");
+  let signed=0,currency=0,keywords=0,dates=0;
+  for(const line of lines){signed+=relaxedMoneyMatches(line).length;if(/[₽]|руб|\d\s*[PРBВ](?:\s|$)/i.test(line))currency++;if(isOcrDateHeaderLine(line))dates++;}
+  const s=norm.toLowerCase().replace(/ё/g,"е");
+  for(const re of [/операци/,/траты/,/доходы/,/перевод/,/пополн/,/магазин|кафе|ресторан|аптек|азс|супермаркет/,/кредит|задолжен/,/инвесткопил/])if(re.test(s))keywords++;
+  return signed*4+currency+keywords*2+dates*2;
+}
+
+async function preprocessFinancialScreenshot(file){
+  try{
+    const bitmap=await createImageBitmap(file),maxW=1500,maxH=3000;
+    let scale=Math.max(1,Math.min(2,1200/Math.max(1,bitmap.width)));
+    if(bitmap.width*scale>maxW)scale=maxW/bitmap.width;if(bitmap.height*scale>maxH)scale=Math.min(scale,maxH/bitmap.height);
+    const w=Math.max(1,Math.round(bitmap.width*scale)),h=Math.max(1,Math.round(bitmap.height*scale)),canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(bitmap,0,0,w,h);bitmap.close?.();
+    const im=ctx.getImageData(0,0,w,h),d=im.data;let lumSum=0,samples=0,step=Math.max(4,Math.floor(Math.sqrt((w*h)/18000))*4);
+    for(let i=0;i<d.length;i+=step){lumSum+=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];samples++;}
+    const dark=(lumSum/Math.max(1,samples))<118;
+    for(let i=0;i<d.length;i+=4){let y=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];if(dark)y=255-y;y=Math.max(0,Math.min(255,(y-128)*1.45+128));d[i]=d[i+1]=d[i+2]=y;d[i+3]=255;}
+    ctx.putImageData(im,0,0);
+    const blob=await new Promise(res=>canvas.toBlob(res,"image/png",.95));return {image:blob||file,dark,width:w,height:h};
+  }catch(e){return {image:file,dark:false,width:0,height:0,error:String(e?.message||e)}}
+}
+
+async function runFinancialOcr(file,onProgress=()=>{}){
+  const prepared=await preprocessFinancialScreenshot(file),primary=prepared.image||file;
+  const rec=async(img,label)=>Tesseract.recognize(img,"rus+eng",{logger:m=>{if(m.status==="recognizing text")onProgress(Math.round((m.progress||0)*100),label)}});
+  let r1=await rec(primary,prepared.image!==file?"контраст":"оригинал"),t1=r1?.data?.text||"",score1=financialTextScore(t1),best={text:t1,score:score1,mode:prepared.image!==file?"контраст":"оригинал",prepared};
+  if(score1<18 && primary!==file){
+    const r2=await rec(file,"оригинал"),t2=r2?.data?.text||"",score2=financialTextScore(t2);if(score2>best.score)best={text:t2,score:score2,mode:"оригинал",prepared};
+  }
+  return best;
+}
+
+function isOcrLoyaltyMetaLine(line){const ms=relaxedMoneyMatches(line);return ms.length>0&&ms.every(x=>x.sign==="+"&&x.amount<=200&&!x.currencySeen)&&/(?:дебетов|black\s*premium|мир\s*танков|карта)/i.test(String(line||""))}
+function ocrContextLines(lines,index){
+  const picked=[lines[index]];let meaningful=0;
+  for(let j=index-1;j>=0&&index-j<=7;j--){if(isOcrDateHeaderLine(lines[j]))break;const ms=relaxedMoneyMatches(lines[j]);if(ms.length&&!isOcrLoyaltyMetaLine(lines[j]))break;if(isOcrLoyaltyMetaLine(lines[j]))continue;picked.unshift(lines[j]);meaningful++;if(meaningful>=2)break;}
+  return picked;
+}
+
+function cleanOcrDescription(lines,index,rawAmount=""){
+  const ctx=ocrContextLines(lines,index),moneyRx=/[+\-−]\s*\d[\d .,]{0,18}\s*(?:₽|руб(?:\.|ля|лей)?|р\.?|[PРBВ])?/ig;
+  const cleaned=[];
+  for(let x of ctx){
+    x=String(x||"").replace(rawAmount,"").replace(moneyRx,"").replace(/\b(?:дебетовая\s+карта|black\s+premium|мир\s+танков)\b/ig,"").replace(/^\s*[+]?\d{1,3}\s*$/g,"").replace(/\s+/g," ").trim();
+    if(!x||isOcrDateHeaderLine(x)||/^(?:траты|доходы|счета и карты|без переводов)$/i.test(x))continue;
+    cleaned.push(x);
+  }
+  return [...new Set(cleaned)].join(" • ").slice(0,180)||"Операция со скриншота";
+}
+
+function detectImportedType(context,sign=""){
+  const s=String(context||"").toLowerCase().replace(/ё/g,"е"),rule=(S.importRules||[]).find(r=>r.active!==false&&r.type&&String(r.keyword||"").trim()&&s.includes(String(r.keyword).toLowerCase()));
+  if(rule?.type)return rule.type;
+  if(/между своими|между собственными|свой счет|свой счёт|на свой|себе в другой банк|внутренн.*перевод|инвесткопил|брокерск.*счет|брокерск.*счёт/.test(s))return "transfer";
+  if(/переводы|перевод на карту|перевод\s+(?:денежных\s+)?средств/.test(s)&&!/аванс|зарплат|преми|зачислен.*доход/.test(s))return "transfer";
+  if(sign==="+"||/перевод\s+от(?:\s|$)|получен\w*\s+перевод|входящ\w*\s+перевод|зачисл|поступл|пополн|зарплат|аванс|преми|возврат|кэшбэк|cashback|входящ/.test(s))return "income";
+  return "expense";
+}
+
+function extractScreenshotTransactions(text,meta={}){
+  const rawText=normalizeOcrFinancialText(text),fallback=meta.dateKey||localDateKey(),lines=rawText.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean),out=[],occ=new Map();
+  let currentDate=fallback;
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    if(isOcrDateHeaderLine(line)){currentDate=dateFromOcrText(line,fallback);continue;}
+    const matches=relaxedMoneyMatches(line);if(!matches.length)continue;
+    const contextLines=ocrContextLines(lines,i),context=contextLines.join(" ");
+    if(/(?:баланс|остаток|доступно|кредитн.*лимит)/i.test(context)&&!/покупк|оплат|списан|зачисл|поступл|перевод|погашен|инвесткопил/i.test(context))continue;
+    for(const m of matches){
+      if(m.sign==="+"&&m.amount<=200&&!m.currencySeen&&/(?:дебетов|black\s*premium|карта)/i.test(context))continue;
+      let dateKey=currentDate;if(hasExplicitOcrDate(context)&&!isOcrDateHeaderLine(line))dateKey=dateFromOcrText(context,currentDate);
+      const time=timeFromOcrText(context),occurredAt=time?`${dateKey}T${time}:00`:"",desc=cleanOcrDescription(lines,i,m.raw),type=detectImportedType(context,m.sign),key=`${dateKey}|${m.amount}|${type}|${desc}`,n=(occ.get(key)||0)+1;occ.set(key,n);
+      const explicit=/зачисл|поступл|пополн|покупк|оплат|списан|перевод|зарплат|аванс|преми|погашен|инвесткопил|супермаркет|ресторан|фастфуд|аптек|заправ/i.test(context),confidence=clamp(.52+(m.currencySeen?.15:0)+(m.sign?.1:0)+(explicit?.12:0)+(dateKey!==fallback?.06:0)-(m.needsReview?.25:0),0,.98);
+      const candidate=refineFinancialCandidate({id:uid(),include:!m.needsReview,dateKey,occurredAt,amount:m.amount,type,suggestedType:type,category:type==="expense"?classifyImportedExpense(desc):"Другое",suggestedCategory:type==="expense"?classifyImportedExpense(desc):"Другое",accountId:meta.accountId||defaultAccountId(),ocrSign:m.sign,desc,confidence,needsReview:!!m.needsReview,amountInferred:!!m.inferredDecimal,rawAmount:m.raw,sourceName:meta.name||"скриншот",imageHash:meta.hash||"",fp:importFingerprint(dateKey,m.amount,type,desc,n)});
+      out.push(candidate);
+    }
+  }
+  return out.slice(0,60);
+}
+
+function classifyFinancialScreenshot(text){
+  const norm=normalizeOcrFinancialText(text),s=norm.toLowerCase().replace(/ё/g,"е"),tx=extractScreenshotTransactions(norm,{dateKey:localDateKey()}),operationShell=/\bопераци[ияй]|счета и карты|без переводов|\bтраты\b.*\bдоходы\b|\bдоходы\b.*\bтраты\b/.test(s);
+  if(operationShell||tx.length>=2)return "operations";
+  if(/минимальн.*платеж|задолженность|кредитн.*лимит|процентн.*ставк/.test(s))return "debt";
+  if(/инвесткопил|действующ.*стратег|фонд денежного рынка|брокерск.*счет/.test(s))return "asset";
+  if(extractBankBalance(norm))return "balance";
+  if(tx.length)return "operations";
+  return "unknown";
+}
+
+function ocrMoneyDisplay(n){return Number(n||0).toLocaleString("ru-RU",{minimumFractionDigits:0,maximumFractionDigits:2})+" ₽"}
+
+function ocrDebugHtml(){
+  if(!ocrHotfixDebugRuns.length)return "";
+  return `<details class="ocr-debug" style="margin-top:10px"><summary>OCR-диагностика (${ocrHotfixDebugRuns.length})</summary>${ocrHotfixDebugRuns.map(x=>`<div class="status" style="margin-top:8px"><b>${escapeHtml(x.file)}</b> • ${escapeHtml(x.mode)} • score ${x.score}<pre>${escapeHtml(String(x.text||"").slice(0,6500))}</pre></div>`).join("")}</details>`;
+}
+
+function renderSmartInbox(){
+  const box=$("smartInboxResults");if(!box)return;
+  const proposals=smartInboxProposals.length?smartInboxProposals.map(p=>{if(p.kind==="balance")return `<div class="smart-proposal"><div><b>Баланс • ${escapeHtml(p.file)}</b><div class="sub">${escapeHtml(accountName(p.accountId))}: ${rub(p.amount)} • уверенность ${Math.round((p.confidence||0)*100)}%</div></div><button class="btn secondary small" onclick="applySmartProposal('${p.id}')">Открыть сверку</button></div>`;if(p.kind==="debt")return `<div class="smart-proposal"><div><b>Долг • ${escapeHtml(p.debtName||"не удалось сопоставить")}</b><div class="sub">${p.balance!=null?`остаток ${rub(p.balance)} • `:""}${p.minPay!=null?`платёж ${rub(p.minPay)} • `:""}${p.date?`до ${fmtDate(parseLocal(p.date))} • `:""}${p.rate!=null?`${p.rate}%`:""}</div></div><button class="btn secondary small" onclick="applySmartProposal('${p.id}')" ${p.debtId?"":"disabled"}>Применить</button></div>`;if(p.kind==="asset")return `<div class="smart-proposal"><div><b>Актив • ${escapeHtml(p.name||"не распознан")}</b><div class="sub">${p.amount!=null?rub(p.amount):"сумма не найдена"}</div></div><button class="btn secondary small" onclick="applySmartProposal('${p.id}')" ${p.name&&p.amount!=null?"":"disabled"}>Применить</button></div>`;return `<div class="smart-proposal"><div><b>Не удалось определить • ${escapeHtml(p.file)}</b><div class="sub">Открой OCR-диагностику ниже: теперь сырой текст не теряется.</div></div></div>`}).join(""):"";
+  box.innerHTML=proposals+ocrDebugHtml();
+}
+
+async function recognizeSmartInbox(files){
+  const list=[...files].slice(0,20),status=$("smartInboxStatus");if(!list.length)return;if(!window.Tesseract){status.innerHTML='<span class="csv-bad">OCR-модуль не загрузился. Нужен интернет.</span>';return}
+  smartInboxProposals=[];screenshotImportQueue=[];ocrHotfixDebugRuns=[];let operationCount=0,reviewCount=0;
+  for(let i=0;i<list.length;i++){
+    const file=list[i];status.textContent=`Разбор ${i+1}/${list.length}: ${file.name}`;
+    try{
+      const ocr=await runFinancialOcr(file,(p,mode)=>status.textContent=`${file.name}: ${p}% • ${mode}`),text=ocr.text||"",kind=classifyFinancialScreenshot(text),hash=await hashFile(file),dateKey=file.lastModified?localDateKey(new Date(file.lastModified)):localDateKey();ocrHotfixDebugRuns.push({file:file.name,text,mode:ocr.mode,score:ocr.score});
+      if(kind==="operations"){
+        const items=extractScreenshotTransactions(text,{name:file.name,hash,dateKey,accountId:$("smartInboxAccount")?.value||defaultAccountId()});screenshotImportQueue.push(...items);operationCount+=items.length;reviewCount+=items.filter(x=>x.needsReview).length;if(!items.length)smartInboxProposals.push({id:uid(),kind:"unknown",file:file.name});
+      }else if(kind==="balance"){const b=extractBankBalance(text);if(b)smartInboxProposals.push({id:uid(),kind:"balance",file:file.name,amount:b.amount,label:b.label,accountId:$("smartInboxAccount")?.value||defaultAccountId(),confidence:b.confidence});}
+      else if(kind==="debt")smartInboxProposals.push({id:uid(),kind:"debt",file:file.name,...extractDebtSnapshot(text)});
+      else if(kind==="asset"){const a=extractAssetSnapshot(text);smartInboxProposals.push({id:uid(),kind:"asset",file:file.name,...(a||{})});}
+      else smartInboxProposals.push({id:uid(),kind:"unknown",file:file.name});
+    }catch(e){smartInboxProposals.push({id:uid(),kind:"unknown",file:file.name,error:String(e.message||e)});}
+  }
+  renderSmartInbox();renderScreenshotQueue();if(operationCount)$("screenshotImportStatus").innerHTML=`Из универсального входа найдено операций: <b>${operationCount}</b>${reviewCount?` • <span class="csv-warn">проверить суммы: ${reviewCount}</span>`:""}. Проверь строки перед импортом.`;
+  status.innerHTML=`Разобрано файлов: <b>${list.length}</b>. Операций: <b>${operationCount}</b>, предложений: <b>${smartInboxProposals.length}</b>${reviewCount?` • требуют проверки: <b>${reviewCount}</b>`:""}.`;
+}
+
+async function recognizeBankScreenshots(files,accountId=defaultAccountId()){
+  const list=[...files].slice(0,20);if(!list.length)return;if(!window.Tesseract){$("screenshotImportStatus").innerHTML='<span class="csv-bad">OCR-модуль не загрузился. Для распознавания нужен интернет.</span>';return}
+  screenshotImportQueue=[];ocrHotfixDebugRuns=[];let done=0;
+  for(const file of list){const hash=await hashFile(file);$("screenshotImportStatus").textContent=`OCR: ${done+1}/${list.length} • ${file.name}`;try{const ocr=await runFinancialOcr(file,(p,mode)=>$("screenshotImportStatus").textContent=`${file.name}: ${p}% • ${mode}`),dateKey=file.lastModified?localDateKey(new Date(file.lastModified)):localDateKey(),items=extractScreenshotTransactions(ocr.text||"",{name:file.name,hash,dateKey,accountId});ocrHotfixDebugRuns.push({file:file.name,text:ocr.text||"",mode:ocr.mode,score:ocr.score});screenshotImportQueue.push(...items)}catch(e){ocrHotfixDebugRuns.push({file:file.name,text:String(e.message||e),mode:"ошибка",score:0})}done++}
+  renderScreenshotQueue();const found=screenshotImportQueue.filter(x=>x.amount>0),review=found.filter(x=>x.needsReview).length;$("screenshotImportStatus").innerHTML=found.length?`Найдено операций: <b>${found.length}</b>${review?` • <span class="csv-warn">проверь суммы: ${review}</span>`:""}. Перед импортом проверь дату, сумму и тип.`:`<span class="csv-warn">Операции не найдены автоматически.</span>${ocrDebugHtml()}`;
+}
+
+async function recognizeBankBalanceScreenshot(file){
+  if(!file)return;if(!window.Tesseract){$("bankSyncStatus").innerHTML='<span class="csv-bad">OCR-модуль не загрузился. Нужен интернет.</span>';return}const id=selectedBankSyncAccountId(),a=S.accounts.find(x=>x.id===id);$("bankSyncStatus").textContent=`Распознаю баланс • ${file.name}`;try{const ocr=await runFinancialOcr(file,(p,mode)=>$("bankSyncStatus").textContent=`Баланс: ${p}% • ${mode}`),text=ocr.text||"",b=extractBankBalance(normalizeOcrFinancialText(text));ocrHotfixDebugRuns=[{file:file.name,text,mode:ocr.mode,score:ocr.score}];if(!b){$("bankSyncStatus").innerHTML='<span class="csv-warn">Не нашёл текущий баланс.</span>'+ocrDebugHtml();return}bankSyncSession={accountId:id,bankBalance:b.amount,balanceConfidence:b.confidence,balanceLabel:b.label,balanceSource:file.name,baseExpected:accountBalanceById(id),wasVerified:!!a?.verifiedAt,importedNet:0,detectedAt:new Date().toISOString(),lastText:text};screenshotImportQueue=[];renderScreenshotQueue();renderBankSync()}catch(e){$("bankSyncStatus").innerHTML=`<span class="csv-bad">Не удалось распознать баланс: ${escapeHtml(e.message||String(e))}</span>`}
+}
+
+
+function updateScreenshotCandidate(id,field,value){
+  const x=screenshotImportQueue.find(z=>z.id===id);if(!x)return;
+  if(field==="amount"){x.amount=Math.max(0,+value||0);x.needsReview=false;x.amountInferred=false;x.include=true;x.confidence=Math.max(x.confidence||0,.72)}
+  else if(field==="include")x.include=!!value;else x[field]=value;
+  if(field==="desc"||field==="amount"){const y=refineFinancialCandidate(x);Object.assign(x,y)}
+  if(field==="type"&&value==="debt_payment"&&!x.debtId)x.debtId=matchDebtPaymentCandidate(x.desc,x.amount)?.id||"";
+  if(field==="type"&&value==="asset_transfer"&&!x.assetId)x.assetId=matchAssetByDescription(x.desc)?.id||"";
+  renderScreenshotQueue(false);renderBankSync();
+}
+function renderScreenshotQueue(){
+  const box=$("screenshotImportQueue");if(!box)return;if(!screenshotImportQueue.length){box.innerHTML='<div class="empty">После распознавания здесь появятся найденные операции.</div>';return}
+  const hi=screenshotImportQueue.filter(x=>x.confidence>=.82&&!x.needsReview).length,mid=screenshotImportQueue.filter(x=>x.confidence>=.65&&x.confidence<.82&&!x.needsReview).length,low=screenshotImportQueue.filter(x=>x.confidence<.65||x.needsReview).length;
+  box.innerHTML=`<div class="status">Уверенность: высокая ${hi} • средняя ${mid} • проверить ${low}</div>`+screenshotImportQueue.map(x=>`<div class="ocr-row ${(x.confidence<.65||x.needsReview)?"ocr-low":""}"><label class="ocr-check"><input type="checkbox" ${x.include?"checked":""} onchange="updateScreenshotCandidate('${x.id}','include',this.checked)"></label><div class="ocr-fields"><div class="formgrid"><div class="field"><label>Дата</label><input type="date" value="${escapeHtml(x.dateKey)}" onchange="updateScreenshotCandidate('${x.id}','dateKey',this.value)"></div><div class="field"><label>Сумма, ₽</label><input type="number" min="0" step="0.01" value="${Number(x.amount||0)}" onchange="updateScreenshotCandidate('${x.id}','amount',this.value)"></div><div class="field"><label>Тип</label><select onchange="updateScreenshotCandidate('${x.id}','type',this.value)">${screenshotTypeOptions(x.type)}</select></div><div class="field"><label>Категория</label><select ${x.type!=="expense"?"disabled":""} onchange="updateScreenshotCandidate('${x.id}','category',this.value)">${screenshotCategoryOptions(x.category)}</select></div><div class="field"><label>Счёт</label><select onchange="updateScreenshotCandidate('${x.id}','accountId',this.value)">${accountOptions(x.accountId||defaultAccountId())}</select></div></div><div class="field" style="margin-top:8px"><label>Описание</label><input value="${escapeHtml(x.desc)}" onchange="updateScreenshotCandidate('${x.id}','desc',this.value)"></div>${x.needsReview?`<div class="notice" style="margin-top:8px">OCR потерял разделитель суммы. Предложено <b>${ocrMoneyDisplay(x.amount)}</b> из «${escapeHtml(x.rawAmount||"")}». Проверь сумму по скриншоту; строка пока не выбрана для импорта.</div>`:""}<div class="qmeta">уверенность OCR: ${Math.round((x.confidence||0)*100)}% • ${escapeHtml(x.sourceName||"")}${x.rawAmount?` • raw: ${escapeHtml(x.rawAmount)}`:""}</div><div class="split" style="margin-top:7px"><button class="btn ghost small" onclick="learnScreenshotRule('${x.id}')">Запомнить правило</button></div></div><button class="btn ghost small" onclick="removeScreenshotCandidate('${x.id}')">×</button></div>`).join("");
 }
 
 initUi();
