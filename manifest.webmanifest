@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 7.0.2",
+  "name": "Life RPG 7.1.0",
   "short_name": "Life RPG",
-  "description": "Life RPG 7.0.2 — cache-safe UX Rebuild with Financial Inbox and mobile-first navigation",
-  "start_url": "./?v=7.0.2",
+  "description": "Life RPG 7.1.0 — stabilized financial core, reversible statement imports and simplified mobile navigation",
+  "start_url": "./?v=7.1.0",
   "scope": "./",
   "display": "standalone",
   "background_color": "#07111f",

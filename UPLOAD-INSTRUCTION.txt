@@ -1,4 +1,4 @@
-Life RPG 7.0.2 — Statement Import Engine
+Life RPG 7.1.0 — Statement Import Engine
 
 Что нового:
 - безопасный массовый импорт банковской выписки из подготовленного пакета ChatGPT;
@@ -17,7 +17,10 @@ Life RPG 7.0.2 — Statement Import Engine
 4. Add file → Upload files.
 5. Выбери все 8 файлов ВНУТРИ папки.
 6. Замени файлы в корне репозитория.
-7. Commit message: Update Life RPG to 7.0.2 Statement Import Engine
+7. Commit message: Update Life RPG to 7.1.0 Statement Import Engine
 8. Подожди публикацию Pages и полностью перезапусти PWA.
-9. Проверь Life RPG 7.0.2 • данные v14.
+9. Проверь Life RPG 7.1.0 • данные v14.
 10. Деньги → Обновить → AI Bridge → Импорт пакета ChatGPT → выбери файл life-rpg-tbank-statement-import-2025-09-20_to_2026-09-20.json.
+
+
+7.1: после обновления открой «Деньги → Сейчас», проверь основной счёт и выполни сверку банка.
