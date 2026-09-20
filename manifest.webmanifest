@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 7.1.1",
-  "short_name": "Life RPG",
-  "description": "Life RPG 7.1.1 — legacy statement dedupe migration and safer support context",
-  "start_url": "./?v=7.1.1",
+  "name": "Life RPG 8.0.0",
+  "short_name": "Life RPG 8.0",
+  "description": "Life RPG 8.0 — modular core with stabilized finance, work, tennis, knowledge and gamification",
+  "start_url": "./?v=8.0.0",
   "scope": "./",
   "display": "standalone",
   "background_color": "#07111f",

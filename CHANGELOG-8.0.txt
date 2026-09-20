@@ -1,0 +1,79 @@
+Life RPG 8.0.0 — Core Refactor
+=================================
+
+BASE
+----
+Built from the already stabilized Life RPG 7.2.0 working tree.
+
+ARCHITECTURE
+------------
+The old ~365 KB monolithic app.js runtime has been replaced by:
+- core.js
+- state.js
+- finance.js
+- imports.js
+- work.js
+- tennis.js
+- knowledge.js
+- gamification.js
+- pwa.js
+- ui.js
+- bootstrap.js
+
+app.js remains only as a tiny compatibility shim and contains no application logic.
+No bundler or build step is required: GitHub Pages loads the scripts directly.
+
+DUPLICATE CLEANUP
+-----------------
+The source was parsed with Acorn AST before refactoring.
+- 61 obsolete FunctionDeclaration nodes removed.
+- 50 duplicate function names eliminated.
+- 472 unique top-level functions remain.
+- No duplicate function declarations remain across runtime files.
+
+DATA COMPATIBILITY
+------------------
+App version: 8.0.0
+State schema: v16
+The state schema is intentionally unchanged from 7.2.
+Existing IndexedDB data is preserved; no additional migration is required.
+
+AUTOMATED CHECKS
+----------------
+npm test: PASS
+
+Static checks:
+- every runtime JS file passes node --check
+- 472 unique function declarations
+- 307 unique HTML ids
+- no duplicate HTML ids
+- all 59 inline HTML handlers resolve to functions
+- all static $("...") references resolve except the known UX elements created dynamically
+- index.html loads all 11 runtime modules in the expected order
+- index.html does not load legacy app.js
+- service-worker cache version is life-rpg-v8.0.0-modular-core
+- manifest/app/HTML/PWA versions aligned to 8.0.0
+
+Regression checks:
+- zero targets do not unlock false achievements
+- Weekly Review uses actual week boundaries
+- CRM monthly forecast excludes undated and other-month deals
+- work targets are configurable
+- tennis Elo calculation is pure during read/render
+- reading base-XP daily cap works
+- actual partial income closes the matched planned income event
+- debt budget below required minimums is marked infeasible
+- render() does not persist state
+
+BROWSER CHECK
+-------------
+A real Chromium smoke run was attempted in the container, but this Chromium build
+did not complete headless DOM dumping in the environment. This is therefore not
+claimed as a completed browser-E2E test. Runtime modules were executed sequentially
+inside a shared Node VM context, and the static/regression suite passed.
+
+UPLOAD
+------
+Upload every file in the ZIP to the repository root, including the new modular JS files.
+Replace the old app.js with the small app.js from this archive.
+Do not re-import the annual bank statement after the update.

@@ -198,3 +198,6 @@ body.ux7{background:radial-gradient(circle at 50% -20%,#11233d 0,#07111f 42%,#05
 
 /* 7.1 usability */
 .ux7 .muted,.ux7 .sub,.ux7 .qmeta{line-height:1.45}.ux7 button:focus-visible,.ux7 input:focus-visible,.ux7 select:focus-visible,.ux7 textarea:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+
+/* 7.2 whole-app stabilization */
+.crm-details{border:1px solid rgba(148,163,184,.18);border-radius:12px;padding:10px 12px}.crm-details summary{cursor:pointer;font-weight:800}.modal.open{overscroll-behavior:contain}.log-item .tag{vertical-align:middle}.stat-xp{min-width:74px;text-align:right}.ux7 .qmeta,.ux7 .sub{font-size:12px}
