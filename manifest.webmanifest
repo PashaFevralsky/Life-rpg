@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 7.0",
+  "name": "Life RPG 7.0.1",
   "short_name": "Life RPG",
-  "description": "Life RPG 7.0 — streamlined Life OS with Financial Inbox and mobile-first navigation",
-  "start_url": "./",
+  "description": "Life RPG 7.0.1 — cache-safe UX Rebuild with Financial Inbox and mobile-first navigation",
+  "start_url": "./?v=7.0.1",
   "scope": "./",
   "display": "standalone",
   "background_color": "#07111f",
