@@ -49,4 +49,30 @@ let ds=run('simulateDebtStrategy(5000)'); assert.equal(ds.feasible,false); asser
 // Persist is the only place that synchronizes achievements; render itself is pure with respect to persistence.
 assert.equal(run('render.toString().includes("persist(")'),false);
 
-console.log('OK — Life RPG 8.0 regression tests passed');
+
+
+// 8.0.1: activity records cannot be created in the future.
+assert.equal(run('validActivityDate(localDateKey())'),true);
+assert.equal(run('validActivityDate(localDateKey(addDays(new Date(),1)))'),false);
+
+// Weekly Review counts unique reading days, not sessions.
+run(`S=deepClone(DEFAULT_STATE); const wb2=weekBounds(); S.readingLogs=[{id:'a',dateKey:wb2[0],minutes:10},{id:'b',dateKey:wb2[0],minutes:20}];`);
+assert.equal(run('weeklyReviewData().readDays'),1);
+
+// Daily engine keeps reading visible until the configured minute target is actually met.
+run(`S=deepClone(DEFAULT_STATE); S.settings.readingDailyMin=30; S.readingLogs=[{id:'r',dateKey:localDateKey(),minutes:5}];`);
+assert.equal(run('dailyEngineItems().some(x=>x.area==="Разум")'),true);
+run(`S.readingLogs=[{id:'r',dateKey:localDateKey(),minutes:30}];`);
+assert.equal(run('dailyEngineItems().some(x=>x.area==="Разум")'),false);
+
+// Tennis mixed sessions contribute evenly instead of producing an arbitrary zero-count focus.
+run(`S=deepClone(DEFAULT_STATE); S.tennis=[{id:'t',dateKey:localDateKey(),createdAt:'2026-09-20T12:00:00',min:60,focus:'Смешанная',serveMin:0,footMin:0}];`);
+assert.ok(['FH','BH','Подача','Приём','Ноги','Тактика'].includes(run('tennisFocusRecommendation()')));
+
+// Cleanup undo restores exact records without restoring the whole application state.
+run(`S=deepClone(DEFAULT_STATE); S.incomeLogs=[{id:'old',dateKey:'2026-09-20',amount:10,imported:'screenshot',fp:'oldfp'}]; S.bankImportIds=['oldfp'];`);
+run(`var cu=cleanupStatementPrerequisites({cleanup:{removeImportedSources:['screenshot'],dateFrom:'2026-09-01'}});`);
+assert.equal(run('cu.count'),1); assert.equal(run('S.incomeLogs.length'),0);
+run('restoreStatementCleanupUndo(cu.undo)'); assert.equal(run('S.incomeLogs.length'),1); assert.equal(run('S.bankImportIds.includes("oldfp")'),true);
+
+console.log('OK — Life RPG 8.0.1 regression tests passed');

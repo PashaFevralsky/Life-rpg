@@ -1,10 +1,10 @@
-# Life RPG 8.0.0
+# Life RPG 8.0.1
 
 Life RPG is a local-first personal operating system for finance, work/CRM, table tennis, reading/knowledge and gamification.
 
 ## Architecture
 
-Version 8.0 replaces the former monolithic `app.js` runtime with classic browser modules that share one global application context and require no build step:
+Version 8.0 introduced the former monolithic `app.js` runtime with classic browser modules that share one global application context and require no build step:
 
 - `core.js` — utilities and constants
 - `state.js` — state normalization, IndexedDB, backups
@@ -27,3 +27,7 @@ Data remains local in IndexedDB. State schema remains **v16**, so upgrading from
 ## Tests
 
 Run `npm test` if Node.js is available. The test suite has no third-party dependencies.
+
+## 8.0.1 operational fixes
+
+8.0.1 focuses on safe rollback/backup behavior, exact debt-payment undo, zero-value settings and forecast scenarios, activity-date validation, PWA update checking, and small Today/Work/Tennis/Reading consistency fixes.

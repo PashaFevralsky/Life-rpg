@@ -1,8 +1,8 @@
 "use strict";
 
-/* Life RPG 8.0 — Core utilities and constants */
+/* Life RPG 8.0.1 — Core utilities and constants */
 
-const APP_VERSION="8.0.0";
+const APP_VERSION="8.0.1";
 
 const STATE_VERSION=16;
 
@@ -55,5 +55,9 @@ function inRange(dateKey,a,b){return dateKey>=a&&dateKey<=b}
 function lastNDaysRange(n){const b=new Date(),a=addDays(b,-(n-1));return [localDateKey(a),localDateKey(b)]}
 
 function validDateKey(s){return /^\d{4}-\d{2}-\d{2}$/.test(String(s||""))}
+
+function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
+
+function finiteNumberOr(v,fallback=0){if(v==null||String(v).trim()==="")return fallback;const n=Number(v);return Number.isFinite(n)?n:fallback}
 
 function addMonthsDate(d,n){const x=new Date(d);const day=x.getDate();x.setDate(1);x.setMonth(x.getMonth()+n);x.setDate(Math.min(day,new Date(x.getFullYear(),x.getMonth()+1,0).getDate()));return x}

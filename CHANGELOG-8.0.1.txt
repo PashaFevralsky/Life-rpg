@@ -1,0 +1,92 @@
+Life RPG 8.0.1 — Operational Audit & Hotfix
+================================================
+
+Base
+----
+Audited from the published 8.0.0 modular build.
+App version: 8.0.1
+State schema: v16 (unchanged)
+Existing IndexedDB data is preserved.
+
+What was tested
+---------------
+Five user-facing areas were reviewed as operational scenarios:
+1. Today
+2. Money
+3. Work / CRM
+4. Tennis
+5. More / Reading / PWA
+
+Automated verification:
+- static checks: PASS
+- regression tests: PASS
+- operational tests: PASS
+- every runtime JS file passes node --check
+- 477 unique function declarations
+- 307 unique HTML ids
+- 59 inline handlers resolved
+- no duplicate runtime function declarations
+
+Important fixes in 8.0.1
+------------------------
+
+TODAY
+- Weekly Review now displays unique reading DAYS rather than number of reading sessions.
+- Daily Engine keeps the reading action visible until the configured daily minute target is actually reached.
+- A zero monthly debt goal no longer renders as 100% complete; it shows that the goal is not configured.
+
+MONEY / SAFETY
+- Forecast scenario now accepts 0% planned income. Previously 0 was silently replaced by 100%.
+- Bank reconciliation tolerance can now really be set to 0.
+- High-interest threshold can now really be set to 0 if desired.
+- Manual debt-payment undo now restores the exact pre-payment balance, including credit-card balances above the original balance.
+- Undo restores the previous next-payment date and amount.
+- Undo removes the matching balance-history point.
+- Undo removes XP awarded for that payment.
+- An older payment cannot be undone before a later payment on the same debt.
+- Manual debt balance reconciliation now updates balanceVerifiedAt, so historical payment classification has a correct baseline.
+- Statement rollback no longer restores the entire pre-import application snapshot by default.
+  It removes only the selected import and preserves later Work/Tennis/Reading/etc. changes.
+- New statement imports store inverse metadata for cleanup operations so cleaned test imports can be restored safely on rollback.
+- Statement account anchor/settings are restored only when no newer account reconciliation has superseded the import anchor.
+- Rollback/clear is blocked when an imported debt payment has already been locked by a newer bank reconciliation.
+- Full import cleanup creates a pre-action snapshot first.
+- Backup-file import creates a snapshot of the current state before replacing it.
+- Full application reset creates a snapshot of the current state before resetting it.
+
+WORK / CRM
+- Work records cannot be added in a future date.
+- Weekly Work targets can now actually be set to 0; zero no longer falls back to default values.
+- Deleting a work record requires confirmation because the operation also removes its XP.
+
+TENNIS
+- Tennis sessions cannot be added in a future date.
+- “Least represented in last 5” no longer treats Mixed sessions as if all six categories had zero exposure.
+  Mixed sessions contribute evenly, and explicit serve/footwork minutes contribute to their categories.
+- Deleting a tennis session requires confirmation because Elo and XP are recalculated.
+
+READING / MORE
+- Reading sessions cannot be added in a future date.
+- Local snapshot description now matches actual behavior: it refers to the last local snapshots, including safety snapshots before destructive actions.
+
+PWA / UPDATE FLOW
+- “Check for update” now reads core.js, where APP_VERSION lives in the modular architecture.
+  In 8.0.0 it still checked app.js, which is only an empty compatibility shim.
+- Visible Financial OS / Life OS / Debt Engine labels were updated from 7.2 to 8.0.1.
+- PWA, HTML, manifest and service-worker versions are aligned to 8.0.1.
+
+Operational debt intentionally not claimed as solved
+----------------------------------------------------
+- No cloud sync is connected.
+- Background notifications are not guaranteed when the PWA is fully closed.
+- Tennis Elo remains an internal app metric, not an official federation rating.
+- Debt-interest forecasts remain estimates.
+- A full real-device automated browser E2E suite is still not present; this release uses static,
+  regression and Node-VM operational scenario tests.
+
+Recommended upload
+------------------
+Upload every file in the archive to the repository root and replace files with the same names.
+Do not re-import the annual bank statement after updating.
+After GitHub Pages deploys, fully close the installed PWA and reopen it.
+Expected status: Life RPG 8.0.1 • data schema v16.
