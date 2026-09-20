@@ -74,7 +74,18 @@ function ux7SetView(sectionId,view,scrollTop=false){
   section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view))});
   if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
-  requestAnimationFrame(()=>ux7UpdateSubViewMetrics(sectionId,view));
+  requestAnimationFrame(()=>{ux7UpdateSubViewMetrics(sectionId,view);ui81SyncChrome(sectionId,view)});
+}
+
+
+function ui81SyncChrome(sectionId,view){
+  const active=document.querySelector?.(".section.active")?.id||sectionId;
+  if(sectionId!==active)return;
+  if(document.body?.dataset){document.body.dataset.section=sectionId;document.body.dataset.view=view}
+  const fab=$("ux7Fab"),hideFab=(sectionId==="more"&&view==="settings")||(sectionId==="finance"&&view==="analysis")||(sectionId==="today"&&view==="progress");
+  fab?.classList.toggle("ui81-fab-hidden",hideFab);
+  const tab=document.querySelector?.(`#${sectionId} .ux7-tab[data-view="${view}"]`);
+  try{tab?.scrollIntoView?.({block:"nearest",inline:"center",behavior:"smooth"})}catch{}
 }
 
 function ux7UpdateSubViewMetrics(sectionId,view){
@@ -155,10 +166,10 @@ function ux7UpdateActiveNavLabel(sectionId){const labels={today:"Сегодня"
 function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m=>{m.setAttribute("role","dialog");m.setAttribute("aria-modal","true")});document.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});document.querySelectorAll(".iconbtn").forEach((b,i)=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label",b.title||b.textContent.trim()||`Действие ${i+1}`)})}
 
 function ux7InstallShell(){
-  document.body.classList.add("ux7");ux7LoadPrefs();
+  document.body.classList.add("ux7","ui81");ux7LoadPrefs();
   for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
   ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupTodayQuests();ux7SetupDebtEditor();ux7SetupFinanceEditors();ux7SetupEditors();ux7PatchEditorActions();ux7EnhanceAccessibility();
   for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);
   const financeNav=document.querySelector('.navbtn[data-tab="finance"]');if(financeNav){const b=financeNav.querySelector('b')?.outerHTML||'<b>₽</b>';financeNav.innerHTML=b+'Деньги'}
-  renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();
+  renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();ui81SyncChrome("today",UX7_PREFS.today||UX7_DEFAULTS.today);
 }

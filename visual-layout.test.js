@@ -1,0 +1,13 @@
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");
+const root=__dirname,css=fs.readFileSync(path.join(root,"styles.css"),"utf8"),ui=fs.readFileSync(path.join(root,"ui.js"),"utf8"),boot=fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),html=fs.readFileSync(path.join(root,"index.html"),"utf8");
+assert.ok(css.includes("Life RPG 8.1.0 — Modern Visual System"),"8.1 visual layer missing");
+assert.ok(css.includes(".ui81 .ux7-tab.active::after"),"modern tab indicator missing");
+assert.ok(css.includes(".ui81 .navbtn.active::after"),"modern bottom nav indicator missing");
+assert.ok(css.includes(".ui81 .ux7-fab.ui81-fab-hidden"),"contextual FAB rule missing");
+assert.ok(css.includes("@media(max-width:850px)"),"mobile layout rules missing");
+assert.ok(ui.includes('classList.add("ux7","ui81")'),"ui81 body class missing");
+assert.ok(ui.includes("function ui81SyncChrome"),"chrome sync helper missing");
+assert.ok(boot.includes("ui81SyncChrome"),"main nav does not sync modern chrome");
+assert.ok(html.includes('name="theme-color" content="#090b10"'),"modern theme color missing");
+console.log("OK — Life RPG 8.1.0 visual-layout tests passed");

@@ -1,0 +1,18 @@
+Life RPG 8.1.0 — Modern Visual System
+=====================================
+
+- visual-only redesign on top of 8.0.4 business logic;
+- quieter dark palette with one primary accent;
+- removed gradient-heavy/button-heavy dashboard feel;
+- flatter cards and nested surfaces;
+- modern underline sub-tabs instead of large pills;
+- redesigned bottom navigation with restrained active state;
+- mobile global profile header now scrolls away; section navigation stays sticky;
+- fixed translucent sticky-header content bleed;
+- contextual FAB hides on Settings, Forecast and Today/Progress;
+- improved safe-area spacing;
+- modern bottom-sheet modals;
+- stronger form focus states and larger mobile controls;
+- simplified progress bars, tags, KPI tiles and quick actions;
+- reading queue/import remains intact;
+- state schema stays v16.

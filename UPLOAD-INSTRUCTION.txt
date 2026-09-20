@@ -1,16 +1,9 @@
-Life RPG 8.0.4 — очередь чтения и импорт списка
+Life RPG 8.1.0 — Modern UI
 
-1. Перед обновлением сделай обычный JSON backup в Life RPG.
-2. Распакуй ZIP.
-3. Загрузи ВСЕ файлы из распакованной папки в корень PashaFevralsky/Life-rpg с заменой существующих.
-4. Commit message: Life RPG 8.0.4 reading queue
-5. Дождись успешного GitHub Pages deployment.
-6. Полностью закрой PWA и открой снова.
-7. Проверь: Life RPG 8.0.4 • схема данных v16.
-8. Открой Ещё → Знания → Библиотека и очередь чтения.
-9. Нажми «Импорт списка» и выбери файл READING-LIST-27.json.
-10. После импорта нажми «Начать» у книги №1 и введи количество страниц именно своего издания.
-
-Импорт списка чтения НЕ заменяет весь backup и не трогает финансы, CRM, теннис и другие разделы.
-Повторный импорт того же списка не создаёт дубликаты по совпадающим автору + названию.
-Схема данных остаётся v16.
+1. Export a normal JSON backup from the current app.
+2. Upload every file from this archive to the repository root with replacement.
+3. Commit message: Life RPG 8.1.0 modern UI
+4. Wait for GitHub Pages success.
+5. Fully close and reopen the installed PWA.
+6. Verify: Life RPG 8.1.0 • schema data v16.
+7. No data migration and no bank-statement re-import are required.

@@ -1,5 +1,5 @@
-const CACHE="life-rpg-v8.0.4-reading-queue";
-const ASSETS=["./","./index.html","./styles.css?v=8.0.4","./core.js?v=8.0.4","./state.js?v=8.0.4","./finance.js?v=8.0.4","./imports.js?v=8.0.4","./work.js?v=8.0.4","./tennis.js?v=8.0.4","./knowledge.js?v=8.0.4","./gamification.js?v=8.0.4","./pwa.js?v=8.0.4","./ui.js?v=8.0.4","./bootstrap.js?v=8.0.4","./manifest.webmanifest?v=8.0.4","./icon-192.png","./icon-512.png"];
+const CACHE="life-rpg-v8.1.0-modern-ui";
+const ASSETS=["./","./index.html","./styles.css?v=8.1.0","./core.js?v=8.1.0","./state.js?v=8.1.0","./finance.js?v=8.1.0","./imports.js?v=8.1.0","./work.js?v=8.1.0","./tennis.js?v=8.1.0","./knowledge.js?v=8.1.0","./gamification.js?v=8.1.0","./pwa.js?v=8.1.0","./ui.js?v=8.1.0","./bootstrap.js?v=8.1.0","./manifest.webmanifest?v=8.1.0","./icon-192.png","./icon-512.png"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;const url=new URL(e.request.url);if(url.origin!==self.location.origin)return;e.respondWith(fetch(e.request).then(resp=>{if(resp&&resp.ok){const copy=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return resp}).catch(()=>caches.match(e.request).then(cached=>cached||(e.request.mode==="navigate"?caches.match("./index.html"):undefined))))});

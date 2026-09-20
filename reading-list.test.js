@@ -50,5 +50,5 @@ function run(code){return new vm.Script(code).runInContext(context)}
   assert.equal(run('S.books.find(b=>b.title==="Book B").status'),'queued');
   assert.ok(run('lastToast.includes("Сначала заверши текущую книгу")'));
 
-  console.log('OK — Life RPG 8.0.4 reading-list tests passed');
+  console.log('OK — Life RPG 8.1.0 reading-list tests passed');
 })().catch(e=>{console.error(e);process.exit(1)});
