@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.2 — Table tennis */
+/* Life RPG 8.0.3 — Table tennis */
 
 const TENNIS_WEEKLY=[
   {id:"sessions3",title:"3 тренировки за неделю",stat:"Теннис",xp:180,condition:()=>tennisWeek().sessions>=3},
@@ -14,7 +14,7 @@ function tennisWeek(){const [a,b]=weekBounds(),arr=S.tennis.filter(x=>inRange(x.
 
 function tennisSessionsDesc(){return (S.tennis||[]).slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||""))||String(b.createdAt||"").localeCompare(String(a.createdAt||"")))}
 
-function computeTennisElo(){let r=Math.max(0,+S.settings.tennisBaseElo||1000),history=[];const rows=tennisSessionsDesc().slice().reverse();for(const x of rows){const before=r,opp=+x.opponentRating||before;r=eloAfterSession(before,opp,Math.max(0,+x.w||0),Math.max(0,+x.l||0));history.push({id:x.id,before,after:r})}return {rating:r,history}}
+function computeTennisElo(){let r=Math.max(0,finiteNumberOr(S.settings.tennisBaseElo,1000)),history=[];const rows=tennisSessionsDesc().slice().reverse();for(const x of rows){const before=r,opp=+x.opponentRating||before;r=eloAfterSession(before,opp,Math.max(0,+x.w||0),Math.max(0,+x.l||0));history.push({id:x.id,before,after:r})}return {rating:r,history}}
 
 async function addTennis(){const dateKey=$("ttDate")?.value||localDateKey();if(!validActivityDate(dateKey)){toast("Тренировку можно добавить только за сегодня или прошедшую дату");return}const min=Math.max(0,+$("ttMinutes").value||0),load=clamp(+$("ttLoad").value||0,1,10),w=Math.max(0,Math.round(+$(("ttW")).value||0)),l=Math.max(0,Math.round(+$(("ttL")).value||0)),serveMin=Math.max(0,+$("ttServe").value||0),footMin=Math.max(0,+$("ttFoot").value||0);if(min<=0){toast("Укажи длительность");return}if(serveMin+footMin>min){toast("Подача/приём + ноги не могут быть дольше всей сессии");return}const x={id:uid(),dateKey,date:parseLocal(dateKey).toLocaleDateString("ru-RU"),createdAt:new Date().toISOString(),type:$("ttType").value,min,focus:$("ttFocus").value,load,w,l,serveMin,footMin,opponent:$("ttOpponent").value.trim(),opponentRating:Math.max(0,+$("ttOpponentRating")?.value||0),score:$("ttScore").value.trim(),note:$("ttNote").value.trim()};x.xpAward=Math.min(60,Math.floor(min/30)*15)+(x.type==="Турнир"?50:0)+Math.min(25,x.w*5)+(x.serveMin>=20?15:0)+(x.footMin>=15?10:0);S.tennis.unshift(x);recomputeTennisElo();const sx=S.tennis.find(z=>z.id===x.id);addXp(x.xpAward,"Теннис","Теннисная сессия",`tennis:${x.id}`,"process",dateKey);$("ttNote").value=$("ttOpponent").value=$("ttScore").value="";if($("ttOpponentRating"))$("ttOpponentRating").value="";if($("ttDate"))$("ttDate").value=localDateKey();audit("Теннис","sport",`${x.type} • Elo ${sx?.eloBefore??"—"}→${sx?.eloAfter??"—"}`);await save(`Сессия сохранена • текущий Elo ${S.settings.tennisElo}`)}
 

@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.2 — Reading and knowledge */
+/* Life RPG 8.0.3 — Reading and knowledge */
 
 function readingDaysThisWeek(){const wk=isoWeekKey();return new Set(S.readingLogs.filter(x=>isoWeekKey(parseLocal(x.dateKey))===wk).map(x=>x.dateKey)).size}
 

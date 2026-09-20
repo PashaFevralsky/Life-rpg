@@ -1,0 +1,137 @@
+Life RPG 8.0.3 — FINAL PRE-USE AUDIT
+=========================================
+
+RELEASE
+-------
+App version: 8.0.3
+State schema: v16 (unchanged)
+Existing IndexedDB data is preserved.
+Do not re-import the annual bank statement.
+
+AUDIT SCOPE
+-----------
+- business logic and calculations;
+- state/data integrity;
+- imports, reconciliation, rollback and backups;
+- Today / Money / Work / CRM / Tennis / Reading / Gamification;
+- mobile usability and navigation;
+- PWA/update mechanics.
+
+HIGH-IMPACT ISSUES FIXED
+------------------------
+1. Overdue mandatory payments are now included in day-0 cash-flow projections,
+   safe-to-spend calculations, Autopilot reserves and 30/90-day forecasts.
+2. Editing debt metadata no longer falsely marks the debt balance as bank-verified.
+3. Payment undo/reconciliation locking is isolated to the same debt.
+4. Import historical cutoffs use the actual account's verification timestamp.
+5. Negative calculated account balances are no longer hidden as 0 ₽.
+6. Historical debt imports preserve the real payment amount and do not consume current reservations.
+7. Debt payments can be attributed to their actual due period across month boundaries.
+8. Large encrypted backups use chunked base64 encoding instead of a single huge spread operation.
+9. A zero Work weekly target disables the quest instead of making 0 >= 0 instantly claimable.
+10. Restoring deleted imported expenses restores reservation/compensation symmetrically.
+11. Manually backdated income uses its occurrence date for historical-import logic.
+12. ChatGPT action-package application creates a pre-action safety snapshot.
+13. Explicit zero values remain valid for high-interest threshold and Tennis base Elo.
+14. normalizeState preserves original created/updated timestamps and no longer fabricates
+    debt verification timestamps from state.updated.
+15. Creating an account with a blank starting balance creates an unverified account;
+    explicit 0 still creates a verified zero balance.
+
+ADDITIONAL CONSISTENCY FIXES
+----------------------------
+- Fixed-loan stale dates project the next estimated recurring payment.
+- Same-day future planned income no longer eliminates today's living reserve.
+- Primary-account verification is used by Money Engine/Autopilot.
+- Snapshot cards show their real safety labels.
+- “Open bank import” opens the dedicated Bank view.
+- Tesseract.js is pinned to exact v5.1.1 instead of floating @5.
+
+DATA DIAGNOSTICS
+----------------
+Added More → Settings → Data Diagnostics.
+
+It checks:
+- invalid primary account;
+- active unverified accounts;
+- negative calculated account balances;
+- missing/past next-payment dates;
+- duplicate IDs;
+- payments referencing missing debts;
+- future-dated factual records.
+
+Diagnostics are also included in “Context for ChatGPT”.
+Debt balanceVerifiedAt is included in that context for final data verification.
+
+AUTOMATED VERIFICATION
+----------------------
+npm test: PASS
+
+Suites:
+1. static-check.js
+2. regression.test.js
+3. operational.test.js
+4. final-audit.test.js
+
+Expected final-package metrics:
+- 489 unique runtime function declarations;
+- no duplicate runtime function declarations;
+- 308 unique HTML IDs;
+- no duplicate HTML IDs;
+- 59 inline HTML handlers, all resolved;
+- all runtime JavaScript files pass node --check;
+- core / HTML / manifest / service worker aligned to 8.0.3;
+- cache: life-rpg-v8.0.3-final-audit.
+
+BOUNDARY SCENARIOS EXPLICITLY TESTED
+------------------------------------
+- overdue payment affects day-0 projection;
+- next fixed-loan recurrence after stale due date;
+- same-debt vs other-debt reconciliation locking;
+- exact balance-verification behavior when editing debts;
+- multi-account historical cutoff;
+- negative ledger balance;
+- activity date vs creation timestamp;
+- zero Work target;
+- zero high-interest threshold;
+- zero Tennis base Elo;
+- historical debt import larger than current balance;
+- historical import does not consume current reservations;
+- reservation/compensation restore;
+- month-boundary due-period allocation;
+- 1 MiB base64 backup round-trip;
+- normalization of created/updated and debt-verification timestamps;
+- AI import has a pre-action safety snapshot.
+
+BROWSER TEST LIMITATION
+-----------------------
+A real Chromium 144 headless run at 390×844 was attempted against a local HTTP server.
+The container Chromium did not complete DOM dumping because the environment lacks required
+DBus/zygote facilities. A browser-E2E pass is therefore NOT claimed.
+
+KNOWN NON-BLOCKING PRODUCT LIMITATIONS
+--------------------------------------
+- No cloud sync; cross-device transfer is via backup.
+- Background notifications are not guaranteed while the PWA is fully closed.
+- OCR requires internet and an external Tesseract.js CDN resource.
+- Internal Tennis Elo is a Life RPG metric, not an official federation rating.
+- Debt interest/payoff scenarios are estimates rather than bank amortization statements.
+- Life Score is a heuristic dashboard metric.
+- The exact IndexedDB state on the user's phone cannot be inspected remotely.
+
+FINAL PRE-USE PROCEDURE
+-----------------------
+1. Export one normal JSON backup from the currently installed app.
+2. Deploy every file from this 8.0.3 archive to the repository root.
+3. Wait for GitHub Pages deployment success.
+4. Fully close and reopen the installed PWA.
+5. Confirm: Life RPG 8.0.3 • schema v16.
+6. Open More → Settings → Data Diagnostics.
+7. If diagnostics is clean, export “Context for ChatGPT” once for final local-state verification.
+8. Do NOT re-import the annual bank statement.
+
+ASSESSMENT
+----------
+At source-code/business-logic level, no known blocking defect remains after 8.0.3.
+Regular use should begin after the deployed 8.0.3 artifact is verified and the local
+Data Diagnostics / ChatGPT-context check shows no unresolved legacy-state warning.

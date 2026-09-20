@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 8.0.2",
+  "name": "Life RPG 8.0.3",
   "short_name": "Life RPG",
-  "description": "Life RPG 8.0.2 — modular core with mobile UX cleanup and safer daily flows",
-  "start_url": "./?v=8.0.2",
+  "description": "Life RPG 8.0.3 — final logic, data-integrity and usability audit",
+  "start_url": "./?v=8.0.3",
   "scope": "./",
   "display": "standalone",
   "background_color": "#07111f",

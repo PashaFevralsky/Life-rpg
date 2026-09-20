@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 8.0.2 — Quests, XP, rewards and life analytics */
+/* Life RPG 8.0.3 — Quests, XP, rewards and life analytics */
 
 const DAILY_QUESTS=[
   {id:"expenses",title:"Записать расходы",stat:"Дисциплина",xp:10},
@@ -85,9 +85,9 @@ function questKey(group,id,period="weekly"){return `${group}:${period==="monthly
 
 function questTitle(q){return typeof q?.title==="function"?q.title():String(q?.title||"")}
 
-async function claimQuest(group,id){let list=group==="general"?GENERAL_WEEKLY:group==="work"?WORK_WEEKLY:TENNIS_WEEKLY;const q=list.find(x=>x.id===id);if(!q)return;const key=questKey(group,id);if(S.questDone[key])return;if(q.condition&&!q.condition()){toast("Условие ещё не выполнено");return}S.questDone[key]=true;const title=questTitle(q);addXp(q.xp,q.stat,title,key);await save(`+${q.xp} XP`)}
+async function claimQuest(group,id){let list=group==="general"?GENERAL_WEEKLY:group==="work"?WORK_WEEKLY:TENNIS_WEEKLY;const q=list.find(x=>x.id===id);if(!q)return;if(q.enabled&&!q.enabled()){toast("Этот квест отключён нулевой целью");return}const key=questKey(group,id);if(S.questDone[key])return;if(q.condition&&!q.condition()){toast("Условие ещё не выполнено");return}S.questDone[key]=true;const title=questTitle(q);addXp(q.xp,q.stat,title,key);await save(`+${q.xp} XP`)}
 
-function renderQuestGroup(list,group){return list.map(q=>{const key=questKey(group,q.id),done=!!S.questDone[key],ready=!q.condition||q.condition(),title=questTitle(q);return `<div class="quest"><button class="check ${done?"done":""} ${!ready&&!done?"locked":""}" onclick="claimQuest('${group}','${q.id}')">${done?"✓":ready?"":"·"}</button><div class="qbody"><div class="qtitle">${escapeHtml(title)}</div><div class="qmeta">${escapeHtml(q.stat)}${ready&&!done?" • готово к получению":""}</div></div><div class="xp">+${q.xp} XP</div></div>`}).join("")}
+function renderQuestGroup(list,group){return list.filter(q=>!q.enabled||q.enabled()).map(q=>{const key=questKey(group,q.id),done=!!S.questDone[key],ready=!q.condition||q.condition(),title=questTitle(q);return `<div class="quest"><button class="check ${done?"done":""} ${!ready&&!done?"locked":""}" onclick="claimQuest('${group}','${q.id}')">${done?"✓":ready?"":"·"}</button><div class="qbody"><div class="qtitle">${escapeHtml(title)}</div><div class="qmeta">${escapeHtml(q.stat)}${ready&&!done?" • готово к получению":""}</div></div><div class="xp">+${q.xp} XP</div></div>`}).join("")}
 
 function monthMetrics(mk){const wl=S.workLogs.filter(x=>x.date?.startsWith(mk)),tt=S.tennis.filter(x=>x.dateKey?.startsWith(mk)),rr=S.readingLogs.filter(x=>x.dateKey?.startsWith(mk));return {income:monthIncome(mk),expenses:monthExpenses(mk),payments:monthPayments(mk),sales:wl.reduce((a,x)=>a+(+x.sales||0),0),tennis:tt.length,read:rr.reduce((a,x)=>a+(+x.minutes||0),0)}}
 

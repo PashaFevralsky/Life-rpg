@@ -211,3 +211,5 @@ body.ux7{background:radial-gradient(circle at 50% -20%,#11233d 0,#07111f 42%,#05
 .settings-group{margin-top:10px}
 .danger-zone{border-color:rgba(239,71,111,.25)}
 @media(max-width:850px){.btn:not(.small),.ux7-tab,.navbtn,input,select{min-height:44px}.ux7-tabs{scroll-padding-inline:8px}.settings-group,.entry-details{padding:11px}.ux7 .card{padding:15px}}
+
+.diagnostic-bad{border-color:#7f2938!important;background:#2b1218!important;color:#fecdd3!important}

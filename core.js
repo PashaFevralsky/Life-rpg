@@ -1,8 +1,8 @@
 "use strict";
 
-/* Life RPG 8.0.2 — Core utilities and constants • UX cleanup */
+/* Life RPG 8.0.3 — Core utilities and constants • final audit */
 
-const APP_VERSION="8.0.2";
+const APP_VERSION="8.0.3";
 
 const STATE_VERSION=16;
 
@@ -59,5 +59,9 @@ function validDateKey(s){return /^\d{4}-\d{2}-\d{2}$/.test(String(s||""))}
 function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
 
 function finiteNumberOr(v,fallback=0){if(v==null||String(v).trim()==="")return fallback;const n=Number(v);return Number.isFinite(n)?n:fallback}
+
+function bytesToBase64(bytes){bytes=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes||0);let out="",chunk=32768;for(let i=0;i<bytes.length;i+=chunk)out+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(out)}
+
+function base64ToBytes(s){return Uint8Array.from(atob(String(s||"")),c=>c.charCodeAt(0))}
 
 function addMonthsDate(d,n){const x=new Date(d);const day=x.getDate();x.setDate(1);x.setMonth(x.getMonth()+n);x.setDate(Math.min(day,new Date(x.getFullYear(),x.getMonth()+1,0).getDate()));return x}

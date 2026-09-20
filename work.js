@@ -1,13 +1,13 @@
 "use strict";
 
-/* Life RPG 8.0.2 — Work and CRM */
+/* Life RPG 8.0.3 — Work and CRM */
 
 const WORK_WEEKLY=[
-  {id:"contacts20",title:()=>`${workTarget("contacts",20)} новых целевых контактов`,stat:"Карьера",xp:120,condition:()=>workWeek().contacts>=workTarget("contacts",20)},
-  {id:"follow10",title:()=>`${workTarget("followups",10)} follow-up`,stat:"Карьера",xp:100,condition:()=>workWeek().followups>=workTarget("followups",10)},
-  {id:"lpr3",title:()=>`${workTarget("lpr",3)} разговора с ЛПР`,stat:"Карьера",xp:150,condition:()=>workWeek().lpr>=workTarget("lpr",3)},
-  {id:"meetings3",title:()=>`${workTarget("meetings",3)} встречи / созвона`,stat:"Карьера",xp:120,condition:()=>workWeek().meetings>=workTarget("meetings",3)},
-  {id:"proposals3",title:()=>`${workTarget("proposals",3)} качественных КП / расчёта`,stat:"Карьера",xp:120,condition:()=>workWeek().proposals>=workTarget("proposals",3)},
+  {id:"contacts20",title:()=>`${workTarget("contacts",20)} новых целевых контактов`,stat:"Карьера",xp:120,enabled:()=>workTarget("contacts",20)>0,condition:()=>workWeek().contacts>=workTarget("contacts",20)},
+  {id:"follow10",title:()=>`${workTarget("followups",10)} follow-up`,stat:"Карьера",xp:100,enabled:()=>workTarget("followups",10)>0,condition:()=>workWeek().followups>=workTarget("followups",10)},
+  {id:"lpr3",title:()=>`${workTarget("lpr",3)} разговора с ЛПР`,stat:"Карьера",xp:150,enabled:()=>workTarget("lpr",3)>0,condition:()=>workWeek().lpr>=workTarget("lpr",3)},
+  {id:"meetings3",title:()=>`${workTarget("meetings",3)} встречи / созвона`,stat:"Карьера",xp:120,enabled:()=>workTarget("meetings",3)>0,condition:()=>workWeek().meetings>=workTarget("meetings",3)},
+  {id:"proposals3",title:()=>`${workTarget("proposals",3)} качественных КП / расчёта`,stat:"Карьера",xp:120,enabled:()=>workTarget("proposals",3)>0,condition:()=>workWeek().proposals>=workTarget("proposals",3)},
   {id:"crm",title:"CRM без просроченных следующих шагов",stat:"Дисциплина",xp:150,condition:()=>S.crmDeals.some(d=>!["Выиграно","Проиграно"].includes(d.stage))&&crmOverdue().length===0}
 ];
 
