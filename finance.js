@@ -2,7 +2,7 @@
 
 /* Life RPG 8.0.3 — Finance domain */
 
-function totalDebt(){return S.debts.reduce((a,d)=>a+Math.max(0,Number(d.balance)||0),0)}
+function totalDebt(){return moneyFromCents(S.debts.reduce((a,d)=>a+Math.max(0,moneyCents(d.balance)),0))}
 
 function startingDebt(){return S.debts.reduce((a,d)=>a+Math.max(0,Number(d.initial??d.balance)||0),0)}
 
@@ -10,29 +10,29 @@ function debtPaid(){return Math.max(0,startingDebt()-totalDebt())}
 
 function debtPct(){const start=startingDebt();return start>0?clamp(debtPaid()/start*100,0,100):0}
 
-function monthPayments(month=localMonthKey()){return S.payments.filter(p=>(p.monthKey||String(p.date||"").slice(0,7))===month).reduce((a,p)=>a+(Number(p.amount)||0),0)}
+function monthPayments(month=localMonthKey()){return moneySum(S.payments.filter(p=>(p.monthKey||String(p.date||"").slice(0,7))===month).map(p=>p.amount))}
 
-function monthExpenses(month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)).reduce((a,x)=>a+(+x.amount||0),0)}
+function monthExpenses(month=localMonthKey()){return moneySum(S.expenses.filter(x=>x.dateKey?.startsWith(month)).map(x=>x.amount))}
 
 function monthLivingExpenses(month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)&&!x.regularPaymentId).reduce((a,x)=>a+(+x.amount||0),0)}
 
 function monthRegularExpenses(month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)&&!!x.regularPaymentId).reduce((a,x)=>a+(+x.amount||0),0)}
 
-function monthIncome(month=localMonthKey()){return S.incomeLogs.filter(x=>x.dateKey?.startsWith(month)).reduce((a,x)=>a+(+x.amount||0),0)}
+function monthIncome(month=localMonthKey()){return moneySum(S.incomeLogs.filter(x=>x.dateKey?.startsWith(month)).map(x=>x.amount))}
 
 function trackedCash(month=localMonthKey()){return monthIncome(month)-monthExpenses(month)-monthPayments(month)}
 
-function totalLoggedIncome(){return S.incomeLogs.reduce((a,x)=>a+(+x.amount||0),0)}
+function totalLoggedIncome(){return moneySum(S.incomeLogs.map(x=>x.amount))}
 
-function totalLoggedExpenses(){return S.expenses.reduce((a,x)=>a+(+x.amount||0),0)}
+function totalLoggedExpenses(){return moneySum(S.expenses.map(x=>x.amount))}
 
-function totalLoggedPayments(){return S.payments.reduce((a,x)=>a+(+x.amount||0),0)}
+function totalLoggedPayments(){return moneySum(S.payments.map(x=>x.amount))}
 
-function cashAdjustmentTotal(){return (S.cashAdjustments||[]).reduce((a,x)=>a+(+x.delta||0),0)}
+function cashAdjustmentTotal(){return moneySum((S.cashAdjustments||[]).map(x=>x.delta))}
 
 function fundCashDelta(){return (S.fundTransfers||[]).reduce((a,x)=>a+(x.direction==="fromFund"?+x.amount||0:-(+x.amount||0)),0)}
 
-function legacyOperatingCashBalance(){return totalLoggedIncome()-totalLoggedExpenses()-totalLoggedPayments()+cashAdjustmentTotal()+fundCashDelta()}
+function legacyOperatingCashBalance(){return moneyAdd(totalLoggedIncome(),-totalLoggedExpenses(),-totalLoggedPayments(),cashAdjustmentTotal(),fundCashDelta())}
 
 function activeAccounts(){return (S.accounts||[]).filter(a=>a.active!==false)}
 
@@ -45,9 +45,9 @@ function accountsModeActive(){return activeAccounts().some(a=>a.verifiedAt&&a.ve
 
 function eventTs(x){const occurred=Date.parse(x?.occurredAt||"");if(Number.isFinite(occurred))return occurred;const d=x?.dateKey||x?.localDate||"",dateRaw=String(x?.date||""),dateTs=Date.parse(dateRaw||x?.createdAt||"");if(validDateKey(d)){const dateKeyFromRaw=/^\d{4}-\d{2}-\d{2}/.test(dateRaw)?dateRaw.slice(0,10):"";if(!Number.isFinite(dateTs)||(dateKeyFromRaw&&dateKeyFromRaw!==d))return Date.parse(`${d}T12:00:00`)}return Number.isFinite(dateTs)?dateTs:0}
 
-function accountBalanceById(id){const a=(S.accounts||[]).find(x=>x.id===id);if(!a)return 0;if(a.verifiedAt&&a.verifiedBalance!=null){const t=Date.parse(a.verifiedAt)||0;return (+a.verifiedBalance||0)+accountDeltaAfter(a.id,t)}if(a.id===defaultAccountId()&&!accountsModeActive())return legacyOperatingCashBalance();return 0}
+function accountBalanceById(id){const a=(S.accounts||[]).find(x=>x.id===id);if(!a)return 0;if(a.verifiedAt&&a.verifiedBalance!=null){const t=Date.parse(a.verifiedAt)||0;return moneyAdd(a.verifiedBalance,accountDeltaAfter(a.id,t))}if(a.id===defaultAccountId()&&!accountsModeActive())return legacyOperatingCashBalance();return 0}
 
-function operatingCashBalance(){return accountsModeActive()?activeAccounts().reduce((sum,a)=>sum+accountBalanceById(a.id),0):legacyOperatingCashBalance()}
+function operatingCashBalance(){return accountsModeActive()?moneySum(activeAccounts().map(a=>accountBalanceById(a.id))):legacyOperatingCashBalance()}
 
 function accountName(id){return (S.accounts||[]).find(a=>a.id===id)?.name||"Основной счёт"}
 
@@ -69,9 +69,9 @@ async function deleteTransfer(id){const i=S.bankTransfers.findIndex(x=>x.id===id
 
 function activeReservations(){return (S.reservations||[]).filter(x=>x.status==="active"&&(+x.remaining||0)>0.009)}
 
-function reservedCashTotal(){return activeReservations().reduce((a,x)=>a+(+x.remaining||0),0)}
+function reservedCashTotal(){return moneySum(activeReservations().map(x=>x.remaining))}
 
-function freeCashBalance(){return operatingCashBalance()-reservedCashTotal()}
+function freeCashBalance(){return moneySub(operatingCashBalance(),reservedCashTotal())}
 
 function reservationAmount(type,debtIndex=null){return activeReservations().filter(x=>x.type===type&&(debtIndex==null||x.debtIndex===debtIndex)).reduce((a,x)=>a+(+x.remaining||0),0)}
 
@@ -462,13 +462,13 @@ function renderFinancialControlCalendar(){const box=$("financialControlCalendar"
 
 function assetValueById(id){const a=(S.assets||[]).find(x=>x.id===id);if(!a)return 0;let value=+a.verifiedValue||0;if(a.verifiedAt){const t=Date.parse(a.verifiedAt)||0;for(const x of S.assetTransfers||[]){if(x.assetId!==id||eventTs(x)<=t)continue;value+=x.direction==="toAsset"?(+x.amount||0):-(+x.amount||0)}}return Math.max(0,value)}
 
-function totalAssetValue(){return (S.assets||[]).filter(a=>a.active!==false).reduce((s,a)=>s+assetValueById(a.id),0)}
+function totalAssetValue(){return moneySum((S.assets||[]).filter(a=>a.active!==false).map(a=>assetValueById(a.id)))}
 
 function liquidAssetValue(){return (S.assets||[]).filter(a=>a.active!==false&&a.liquid).reduce((s,a)=>s+assetValueById(a.id),0)}
 
-function availableAssetValue(){return (S.assets||[]).filter(a=>a.active!==false&&a.available).reduce((s,a)=>s+assetValueById(a.id),0)}
+function availableAssetValue(){return moneySum((S.assets||[]).filter(a=>a.active!==false&&a.available).map(a=>assetValueById(a.id)))}
 
-function netWorth(){return operatingCashBalance()+totalAssetValue()+(+S.settings.emergencyFundBalance||0)-totalDebt()}
+function netWorth(){return moneyAdd(operatingCashBalance(),totalAssetValue(),S.settings.emergencyFundBalance,-totalDebt())}
 
 function renderAssets(){const sum=$("netWorthSummary"),list=$("assetList");if(!sum||!list)return;sum.innerHTML=`<div class="money-balance-grid"><div class="money-balance"><div class="smallcaps">Деньги</div><b>${rub(operatingCashBalance())}</b></div><div class="money-balance"><div class="smallcaps">Активы</div><b>${rub(totalAssetValue())}</b></div><div class="money-balance"><div class="smallcaps">Долги</div><b>${rub(totalDebt())}</b></div><div class="money-balance"><div class="smallcaps">Чистый капитал</div><b class="${netWorth()>=0?"income-good":"income-bad"}">${rub(netWorth())}</b></div></div>`;list.innerHTML=(S.assets||[]).filter(a=>a.active!==false).length?(S.assets||[]).filter(a=>a.active!==false).map(a=>`<div class="asset-row"><div><b>${escapeHtml(a.name)}</b><div class="qmeta">${escapeHtml(a.type)} • ${a.liquid?"ликвидный":"неликвидный"}${a.available?" • доступен Money Engine":" • не тратить автоматически"}</div></div><b>${rub(assetValueById(a.id))}</b><button class="btn ghost small" onclick="archiveAsset('${a.id}')">Скрыть</button></div>`).join(""):'<div class="empty">Добавь Инвесткопилку, накопления или другие активы.</div>'}
 
@@ -536,6 +536,6 @@ function renderUx7FinancePulse(){
   box.innerHTML=`<div class="ux7-pulse-head"><div><div class="eyebrow">Сейчас</div><div class="ux7-pulse-main">${rub(free)}</div><div class="muted">свободно из ${rub(cash)} на счетах</div></div><button class="btn secondary small" onclick="ux7OpenInbox()">Обновить банк</button></div><div class="ux7-pulse-grid"><div><span>Ближайшее</span><b>${next?escapeHtml(next.label):"Нет"}</b><small>${next?`${fmtDate(next.date)} • ${rub(next.amount)}`:"на 90 дней"}</small></div><div><span>Долги</span><b>${rub(totalDebt())}</b><small>${S.debts.filter(d=>d.balance>0).length} активных</small></div><div><span>Чистый капитал</span><b class="${worth>=0?"income-good":"income-bad"}">${rub(worth)}</b><small>с учётом активов</small></div></div>`;
 }
 
-function accountDeltaAfter(accountId,sinceTs){let n=0;for(const x of S.incomeLogs||[])if((x.accountId||defaultAccountId())===accountId&&eventTs(x)>sinceTs)n+=+x.amount||0;for(const x of S.expenses||[])if((x.accountId||defaultAccountId())===accountId&&eventTs(x)>sinceTs)n-=+x.amount||0;for(const x of S.payments||[])if((x.accountId||defaultAccountId())===accountId&&eventTs(x)>sinceTs&&!x.historicalOnly)n-=+x.amount||0;for(const x of S.bankTransfers||[]){if(eventTs(x)<=sinceTs)continue;if(x.syncAccountId===accountId&&Number.isFinite(+x.syncEffect))n+=+x.syncEffect||0;else{if(x.fromAccountId===accountId)n-=+x.amount||0;if(x.toAccountId===accountId)n+=+x.amount||0}}for(const x of S.assetTransfers||[]){if(eventTs(x)<=sinceTs||(x.accountId||defaultAccountId())!==accountId)continue;n+=x.direction==="fromAsset"?(+x.amount||0):-(+x.amount||0)}for(const x of S.fundTransfers||[]){if(eventTs(x)<=sinceTs)continue;const a=x.accountId||defaultAccountId();if(a!==accountId)continue;n+=x.direction==="fromFund"?(+x.amount||0):-(+x.amount||0)}for(const x of S.cashAdjustments||[]){if(eventTs(x)<=sinceTs)continue;if((x.accountId||defaultAccountId())===accountId)n+=+x.delta||0}return n}
+function accountDeltaAfter(accountId,sinceTs){let cents=0;const add=v=>{cents+=moneyCents(v)},sub=v=>{cents-=moneyCents(v)};for(const x of S.incomeLogs||[])if((x.accountId||defaultAccountId())===accountId&&eventTs(x)>sinceTs)add(x.amount);for(const x of S.expenses||[])if((x.accountId||defaultAccountId())===accountId&&eventTs(x)>sinceTs)sub(x.amount);for(const x of S.payments||[])if((x.accountId||defaultAccountId())===accountId&&eventTs(x)>sinceTs&&!x.historicalOnly)sub(x.amount);for(const x of S.bankTransfers||[]){if(eventTs(x)<=sinceTs)continue;if(x.syncAccountId===accountId&&Number.isFinite(+x.syncEffect))add(x.syncEffect);else{if(x.fromAccountId===accountId)sub(x.amount);if(x.toAccountId===accountId)add(x.amount)}}for(const x of S.assetTransfers||[]){if(eventTs(x)<=sinceTs||(x.accountId||defaultAccountId())!==accountId)continue;(x.direction==="fromAsset"?add:sub)(x.amount)}for(const x of S.fundTransfers||[]){if(eventTs(x)<=sinceTs)continue;const a=x.accountId||defaultAccountId();if(a!==accountId)continue;(x.direction==="fromFund"?add:sub)(x.amount)}for(const x of S.cashAdjustments||[]){if(eventTs(x)<=sinceTs)continue;if((x.accountId||defaultAccountId())===accountId)add(x.delta)}return moneyFromCents(cents)}
 
 function renderPaymentHistory(){const box=$("paymentHistory");if(!box)return;box.innerHTML=S.payments.length?S.payments.slice().reverse().slice(0,12).map(p=>p.historicalOnly?`<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(p.localDate||String(p.date).slice(0,10)))} • ${escapeHtml(p.debt)}</div><div class="score">${rub(p.amount)}</div><span class="tag">исторический • остаток долга не менялся</span></div>`:`<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(p.localDate||String(p.date).slice(0,10)))} • ${escapeHtml(p.debt)}</div><div class="score">${rub(p.amount)} • после платежа ${rub(p.after)}</div>${paymentLockedBySync(p)?'<span class="tag">зафиксировано сверкой банка</span>':`<button class="btn ghost small" style="margin-top:7px" onclick="undoPayment('${p.id}')">Отменить</button>`}</div>`).join(""):'<div class="empty">Платежей пока нет.</div>'}

@@ -10,7 +10,7 @@ for(const m of [...modules,'app']){
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(new Set(ids).size,ids.length,'Duplicate HTML ids detected');
-const expectedScripts=modules.map(m=>`./${m}.js?v=8.1.0`);
+const expectedScripts=modules.map(m=>`./${m}.js?v=9.0.0`);
 for(const s of expectedScripts)assert.ok(html.includes(`src="${s}"`),`Missing script ${s}`);
 assert.ok(!html.includes('src="./app.js?v='),'index.html must not load legacy app.js');
 const js=[...modules,'app'].map(m=>fs.readFileSync(path.join(root,m+'.js'),'utf8')).join('\n');
@@ -23,9 +23,9 @@ const refs=new Set([...js.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1]));
 const dynamic=new Set(['statementReviewAck','ux7AccountForm','ux7AssetForm','ux7FinancePulse','ux7Fab','ux7NewDebtBtn','ux7QuickSheet','ux7TodayPulse','ux7ToggleDebtForm']);
 const idSet=new Set(ids); const missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));
 assert.deepEqual(missing,[],'Unexpected missing DOM ids: '+missing.join(', '));
-assert.ok(fs.readFileSync(path.join(root,'sw.js'),'utf8').includes('life-rpg-v8.1.0-modern-ui'),'Wrong SW cache');
-assert.ok(fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8').includes('Life RPG 8.1.0'),'Wrong manifest version');
-assert.ok(fs.readFileSync(path.join(root,'core.js'),'utf8').includes('APP_VERSION="8.1.0"'),'Wrong app version');
+assert.ok(fs.readFileSync(path.join(root,'sw.js'),'utf8').includes('life-rpg-v9.0.0-full-redesign'),'Wrong SW cache');
+assert.ok(fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8').includes('Life RPG 9.0.0'),'Wrong manifest version');
+assert.ok(fs.readFileSync(path.join(root,'core.js'),'utf8').includes('APP_VERSION="9.0.0"'),'Wrong app version');
 assert.ok(!html.includes('Financial OS 7.2')&&!html.includes('Life OS 7.2')&&!html.includes('Debt Engine 7.2'),'Stale visible version labels');
 assert.ok(fs.readFileSync(path.join(root,'pwa.js'),'utf8').includes('fetch(`./core.js?check='),'Update checker must read core.js version');
 assert.ok(fs.readFileSync(path.join(root,'state.js'),'utf8').includes('STATE_VERSION')===false || true); // STATE_VERSION lives in core.js by design.
@@ -41,6 +41,7 @@ assert.ok(html.includes('class="settings-group"'),'Grouped settings missing');
 assert.ok(html.includes('id="systemDiagnostics"'),'Data diagnostics card missing');
 assert.ok(html.includes('tesseract.js@5.1.1/dist/tesseract.min.js'),'Tesseract.js must be pinned to 5.1.1');
 assert.ok(fs.existsSync(path.join(root,'final-audit.test.js')),'Final audit test missing');
+assert.ok(fs.existsSync(path.join(root,'visual-system.test.js')),'Full visual-system test missing');
 
 const knowledge=fs.readFileSync(path.join(root,'knowledge.js'),'utf8');
 assert.ok(html.includes('id="readingListImport"'),'Reading-list import input missing');

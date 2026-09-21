@@ -51,7 +51,7 @@ assert.equal(run('render.toString().includes("persist(")'),false);
 
 
 
-// 8.1.0: activity records cannot be created in the future.
+// 9.0.0: activity records cannot be created in the future.
 assert.equal(run('validActivityDate(localDateKey())'),true);
 assert.equal(run('validActivityDate(localDateKey(addDays(new Date(),1)))'),false);
 
@@ -75,4 +75,4 @@ run(`var cu=cleanupStatementPrerequisites({cleanup:{removeImportedSources:['scre
 assert.equal(run('cu.count'),1); assert.equal(run('S.incomeLogs.length'),0);
 run('restoreStatementCleanupUndo(cu.undo)'); assert.equal(run('S.incomeLogs.length'),1); assert.equal(run('S.bankImportIds.includes("oldfp")'),true);
 
-console.log('OK — Life RPG 8.1.0 regression tests passed');
+console.log('OK — Life RPG 9.0.0 regression tests passed');

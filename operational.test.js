@@ -40,5 +40,5 @@ function run(code){return new vm.Script(code).runInContext(context)}
   assert.equal(run('S.debts[0].balance'),90);
   assert.ok(run('Date.parse(S.debts[0].balanceVerifiedAt)>0'));
 
-  console.log('OK — Life RPG 8.1.0 operational tests passed');
+  console.log('OK — Life RPG 9.0.0 operational tests passed');
 })().catch(e=>{console.error(e);process.exit(1)});

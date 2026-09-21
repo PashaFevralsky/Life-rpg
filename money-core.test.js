@@ -1,0 +1,15 @@
+"use strict";
+const fs=require("fs"),vm=require("vm"),path=require("path"),assert=require("assert");
+const root=__dirname;
+const context=vm.createContext({console,Date,Math,JSON,Intl,Number,Promise,setTimeout:()=>0,clearTimeout:()=>{},setInterval:()=>0,structuredClone:global.structuredClone,crypto:global.crypto,document:{getElementById:()=>null,querySelectorAll:()=>[],addEventListener:()=>{},body:{classList:{add(){},remove(){}}}},window:{addEventListener:()=>{},scrollTo:()=>{},location:{reload:()=>{}}},navigator:{},location:{reload:()=>{}},localStorage:{getItem:()=>null,setItem:()=>{},removeItem:()=>{}},Notification:function(){},confirm:()=>true,prompt:()=>'',Blob:global.Blob,URL:global.URL});
+context.window.window=context.window;context.window.document=context.document;
+for(const file of ["core.js","state.js","finance.js"])new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context);
+const run=x=>new vm.Script(x).runInContext(context);
+assert.equal(run('moneyAdd(0.1,0.2)'),0.3);
+assert.equal(run('moneyAdd(7532.10,47815.07,-1305490.82)'),-1250143.65);
+assert.equal(run('moneySub(100,33.33,33.33,33.34)'),0);
+assert.equal(run('moneySum([22909.29,73017.30,48000.41])'),143927);
+run(`S=deepClone(DEFAULT_STATE);S.accounts=[{id:'a',name:'A',verifiedBalance:7532.10,verifiedAt:new Date().toISOString(),active:true}];S.settings.primaryAccountId='a';S.assets=[{id:'x',active:true,available:false,verifiedValue:47815.07,verifiedAt:new Date().toISOString()}];S.debts=[{id:'d1',balance:792387.81,active:true},{id:'d2',balance:450702.80,active:true},{id:'d3',balance:44856.57,active:true},{id:'d4',balance:17543.64,active:true}];`);
+assert.equal(run('totalDebt()'),1305490.82);
+assert.equal(run('netWorth()'),-1250143.65);
+console.log("OK — Life RPG 9.0.0 money core tests passed");

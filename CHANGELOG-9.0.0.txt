@@ -1,0 +1,10 @@
+Life RPG 9.0.0 — Technical Foundation
+
+- Vite 8.3.0 build path
+- GitHub Actions -> Vite -> GitHub Pages deployment
+- Workbox PWA generation through vite-plugin-pwa 1.3.0
+- Zod 4.6.5 validation for backup, reading-list and AI/statement JSON imports
+- Lucide 1.47.0 icon layer with zero-dependency fallback
+- exact-cent helpers for key financial aggregates
+- full 8.2.0 visual redesign preserved
+- state schema remains v16; no re-import required

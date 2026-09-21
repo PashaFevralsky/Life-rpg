@@ -1,9 +1,7 @@
-Life RPG 8.1.0 — Modern UI
+Life RPG 9.0.0
 
-1. Export a normal JSON backup from the current app.
-2. Upload every file from this archive to the repository root with replacement.
-3. Commit message: Life RPG 8.1.0 modern UI
-4. Wait for GitHub Pages success.
-5. Fully close and reopen the installed PWA.
-6. Verify: Life RPG 8.1.0 • schema data v16.
-7. No data migration and no bank-statement re-import are required.
+1. Сделай JSON backup в приложении.
+2. Загрузи все корневые файлы из пакета в репозиторий с заменой.
+3. Один раз настрой .github/workflows/deploy-pages.yml и GitHub Pages -> Source -> GitHub Actions по PHONE-SETUP-GUIDE.txt.
+4. После успешного Actions deployment полностью перезапусти PWA.
+5. Не удаляй PWA, не очищай данные сайта, не переимпортируй годовую выписку.

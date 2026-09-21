@@ -1,12 +1,12 @@
 {
-  "name": "Life RPG 8.1.0",
+  "name": "Life RPG 9.0.0",
   "short_name": "Life RPG",
-  "description": "Life RPG 8.1.0 — modern visual system, reading queue and safe imports",
-  "start_url": "./?v=8.1.0",
+  "description": "Life RPG 9.0.0 — Vite, Workbox, Zod, Lucide, exact money core and full visual redesign",
+  "start_url": "./?v=9.0.0",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#090b10",
-  "theme_color": "#090b10",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
   "lang": "ru",
   "orientation": "portrait-primary",
   "icons": [

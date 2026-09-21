@@ -1,0 +1,8 @@
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");const root=__dirname;
+const read=n=>fs.readFileSync(path.join(root,n),"utf8");
+const pkg=JSON.parse(read("package.json")),html=read("index.html"),vite=read("vite.config.mjs"),workflow=read(".github/workflows/deploy-pages.yml"),platform=read("platform.vite.mjs"),pwa=read("pwa.js");
+assert.equal(pkg.version,"9.0.0");assert.equal(pkg.dependencies.zod,"4.6.5");assert.equal(pkg.dependencies.lucide,"1.47.0");assert.equal(pkg.devDependencies.vite,"8.3.0");assert.equal(pkg.devDependencies["vite-plugin-pwa"],"1.3.0");assert.equal(pkg.devDependencies["workbox-build"],"7.4.1");assert.equal(pkg.devDependencies["workbox-window"],"7.4.1");
+assert.ok(html.includes('type="module" src="./platform.vite.mjs"'));assert.ok(vite.includes('VitePWA'));assert.ok(vite.includes('strategies:"generateSW"'));assert.ok(vite.includes('injectRegister:null'));assert.ok(workflow.includes('npm run build'));assert.ok(workflow.includes('actions/deploy-pages@v4'));assert.ok(platform.includes('safeParse'));assert.ok(platform.includes('createIcons'));assert.ok(platform.includes('CreditCard'));assert.ok(platform.includes('BookOpen'));assert.ok(pwa.includes('register("./sw.js"'));
+for(const n of ["platform.js","platform.vite.mjs","vite.config.mjs","DEPLOY-PAGES-WORKFLOW.yml"])assert.ok(fs.existsSync(path.join(root,n)),`${n} missing`);
+console.log("OK — Life RPG 9.0.0 architecture tests passed");

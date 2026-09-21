@@ -1,0 +1,10 @@
+Life RPG 8.2.0 — Full Visual Redesign
+====================================
+
+- Unified every major UI component family under one modern design system.
+- Rebuilt Today quick actions as a compact 3×2 mobile shortcut grid with consistent SVG icons.
+- Hidden redundant floating + button on Today.
+- Removed legacy 5.x/6.x gradients and nested-card chrome from Finance, Autopilot, Money Engine, CRM, OCR, Reading, Achievements and analytics.
+- Unified metric groups, lists, forms, alerts, progress bars, chips, modals and navigation.
+- Made sticky section header fully opaque to prevent text bleed-through.
+- Kept state schema v16 and all 8.0.4/8.1.0 business logic unchanged.

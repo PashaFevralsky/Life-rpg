@@ -1,8 +1,8 @@
 "use strict";
 
-/* Life RPG 8.1.0 — Core utilities and constants • final audit */
+/* Life RPG 9.0.0 — Core utilities and constants • final audit */
 
-const APP_VERSION="8.1.0";
+const APP_VERSION="9.0.0";
 
 const STATE_VERSION=16;
 
@@ -59,6 +59,16 @@ function validDateKey(s){return /^\d{4}-\d{2}-\d{2}$/.test(String(s||""))}
 function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
 
 function finiteNumberOr(v,fallback=0){if(v==null||String(v).trim()==="")return fallback;const n=Number(v);return Number.isFinite(n)?n:fallback}
+
+function moneyCents(v){const n=finiteNumberOr(v,0);if(!Number.isFinite(n))return 0;return Math.round((n+(n>=0?Number.EPSILON:-Number.EPSILON))*100)}
+
+function moneyFromCents(c){const n=Number(c);return Number.isFinite(n)?Math.round(n)/100:0}
+
+function moneySum(values){return moneyFromCents((values||[]).reduce((sum,v)=>sum+moneyCents(v),0))}
+
+function moneyAdd(...values){return moneySum(values)}
+
+function moneySub(first,...rest){return moneyFromCents(moneyCents(first)-rest.reduce((sum,v)=>sum+moneyCents(v),0))}
 
 function bytesToBase64(bytes){bytes=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes||0);let out="",chunk=32768;for(let i=0;i<bytes.length;i+=chunk)out+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(out)}
 
