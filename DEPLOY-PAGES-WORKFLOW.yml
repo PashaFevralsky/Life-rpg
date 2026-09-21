@@ -30,6 +30,10 @@ jobs:
         run: npm test
       - name: Build Vite + Workbox PWA
         run: npm run build
+      - name: Install Chromium for E2E
+        run: npx playwright install --with-deps chromium
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact

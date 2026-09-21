@@ -1,7 +1,35 @@
-Life RPG 9.0.0
+LIFE RPG 10.0.0 — ОБНОВЛЕНИЕ С ТЕЛЕФОНА
 
-1. Сделай JSON backup в приложении.
-2. Загрузи все корневые файлы из пакета в репозиторий с заменой.
-3. Один раз настрой .github/workflows/deploy-pages.yml и GitHub Pages -> Source -> GitHub Actions по PHONE-SETUP-GUIDE.txt.
-4. После успешного Actions deployment полностью перезапусти PWA.
-5. Не удаляй PWA, не очищай данные сайта, не переимпортируй годовую выписку.
+1. Сначала сделай обычный JSON backup в текущей Life RPG.
+2. Не удаляй PWA и не очищай данные сайта.
+3. Распакуй ZIP на телефоне.
+4. Загрузи/замени ВСЕ КОРНЕВЫЕ файлы из пакета в корне репозитория Life-rpg.
+5. Папки с телефона загружать не нужно.
+
+ВАЖНО: workflow уже существует.
+Открой на GitHub:
+.github/workflows/deploy-pages.yml
+
+Нажми Edit и полностью замени его содержимое текстом из корневого файла:
+DEPLOY-PAGES-WORKFLOW.yml
+
+Сохрани Commit changes.
+
+6. Открой Actions -> Build and deploy Life RPG.
+Новая цепочка должна пройти:
+- npm install
+- npm test
+- npm run build
+- playwright install chromium
+- npm run test:e2e
+- deploy GitHub Pages
+
+7. Только после зелёного deployment полностью закрой PWA и открой снова.
+8. Проверь: Life RPG 10.0.0 • данные v16.
+
+НЕ НУЖНО:
+- компьютер;
+- Termux;
+- Node.js/npm/Vite на телефоне;
+- повторный импорт годовой банковской выписки;
+- очистка IndexedDB.

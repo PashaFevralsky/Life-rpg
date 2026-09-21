@@ -1,0 +1,54 @@
+Life RPG 10.0.0 — All Systems
+================================
+
+Reliability Core
+----------------
+- Cross-domain diagnostics.
+- Safe snapshots + trash/restore for Work, CRM, Tennis and Reading.
+- Safe integrity repair.
+- Deeper Zod validation.
+- Full render smoke test.
+- Playwright mobile Chromium E2E in GitHub Actions.
+
+Work OS
+-------
+- CRM forecast, plan coverage and gap.
+- Sales Decision Engine.
+- Deal timeline/history.
+- Contacts/participants and lost reason.
+- Won deal -> factual sales realization, deduplicated.
+- Editable work logs.
+- Safer deletion.
+
+Tennis OS
+---------
+- Individual match records inside sessions.
+- Rated-match internal Elo.
+- Unknown opponent rating does not affect Elo.
+- Separate official rating.
+- Exposure/focus analytics.
+- Editable/restorable sessions.
+
+Knowledge OS
+------------
+- Pause/resume/postpone/archive book lifecycle.
+- Queue reorder.
+- Chapter/tags/thesis/application fields.
+- Review queue.
+- Reading pace and estimated days remaining.
+- Editable reading sessions.
+- Archive instead of destructive book deletion.
+
+Life OS 2
+---------
+- More actionable Daily Engine.
+- Explainable Life Systems Score.
+- Factual auto-synchronization of verifiable daily quests.
+- Whole-Life ChatGPT context export.
+
+Compatibility
+-------------
+APP_VERSION=10.0.0
+STATE_VERSION=16
+No IndexedDB migration.
+Existing Finance, CRM, Tennis and Reading data are preserved.
