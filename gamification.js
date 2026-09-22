@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.0.1 — Life OS 2, quests and explainable analytics */
+/* Life RPG 10.0.2 — Life OS 2, quests and explainable analytics */
 
 const DAILY_QUESTS=[
   {id:"expenses",title:"Учёт расходов за день",stat:"Дисциплина",xp:10,auto:date=>(S.expenses||[]).some(x=>x.dateKey===date)},
@@ -67,7 +67,7 @@ function xpEventDate(dateKey=""){return /^\d{4}-\d{2}-\d{2}$/.test(String(dateKe
 
 function addXp(xp,stat,label="",sourceId="",kind="",dateKey=""){xp=Math.max(0,Math.round(xp));if(!xp)return;S.xpEarned+=xp;if(stat&&S.stats[stat]!=null)S.stats[stat]+=xp;const inferred=kind||(/закрыт|выполнен.*план|книга закончена|побед|результат/i.test(label)?"result":"process");S.xpEvents.push({id:uid(),date:xpEventDate(dateKey),xp,stat,label,sourceId,kind:inferred})}
 
-function removeXp(xp,stat,label="Откат",sourceId="",dateKey=""){xp=Math.max(0,Math.round(xp));S.xpEarned=Math.max(0,S.xpEarned-xp);if(stat&&S.stats[stat]!=null)S.stats[stat]=Math.max(0,S.stats[stat]-xp);S.xpEvents.push({id:uid(),date:xpEventDate(dateKey),xp:-xp,stat,label,sourceId,kind:"rollback"})}
+function removeXp(xp,stat,label="Откат",sourceId="",dateKey=""){xp=Math.max(0,Math.round(xp));if(!xp)return;S.xpEarned=Math.max(0,S.xpEarned-xp);if(stat&&S.stats[stat]!=null)S.stats[stat]=Math.max(0,S.stats[stat]-xp);S.xpEvents.push({id:uid(),date:xpEventDate(dateKey),xp:-xp,stat,label,sourceId,kind:"rollback",rollbackKind:(S.xpEvents.slice().reverse().find(x=>x.sourceId===sourceId&&x.xp>0)?.kind||"process")})}
 
 function activeDay(dateKey){const checks=Object.values(S.checks[dateKey]||{}).some(v=>v===true||v?.done);const w=S.workLogs.some(x=>x.date===dateKey),t=S.tennis.some(x=>x.dateKey===dateKey),r=S.readingLogs.some(x=>x.dateKey===dateKey),p=S.payments.some(x=>(x.localDate||String(x.date||"").slice(0,10))===dateKey);return checks||w||t||r||p}
 
@@ -77,7 +77,7 @@ function calcStreak(){let n=0,d=new Date();for(let i=0;i<365;i++){if(activeDay(l
 
 function dailyQuestState(qid,date=localDateKey()){const q=DAILY_QUESTS.find(x=>x.id===qid),auto=!!(q?.auto&&q.auto(date)),manual=!!S.checks[date]?.[qid];return q?.autoStrict?auto:(manual||auto)}
 
-function syncAutoDailyQuests(date=localDateKey()){S.checks[date]=S.checks[date]||{};for(const q of DAILY_QUESTS.filter(x=>x.auto)){const yes=!!q.auto(date),cur=S.checks[date][q.id];if(yes&&!cur){S.checks[date][q.id]={done:true,auto:true};addXp(q.xp,q.stat,q.title,`daily:${date}:${q.id}`,"process",date)}else if(!yes&&cur?.auto){delete S.checks[date][q.id];removeXp(q.xp,q.stat,`Авто-откат: ${q.title}`,`daily:${date}:${q.id}`,date)}}}
+function syncAutoDailyQuests(date){if(!date){const dates=new Set([localDateKey(),...Object.keys(S.checks||{}),...(S.readingLogs||[]).map(x=>x.dateKey),...(S.expenses||[]).map(x=>x.dateKey)]);for(const day of dates)if(validDateKey(day)&&day<=localDateKey())syncAutoDailyQuests(day);return}S.checks[date]=S.checks[date]||{};for(const q of DAILY_QUESTS.filter(x=>x.auto)){const yes=!!q.auto(date),cur=S.checks[date][q.id];if(yes&&!cur){S.checks[date][q.id]={done:true,auto:true};addXp(q.xp,q.stat,q.title,`daily:${date}:${q.id}`,"process",date)}else if(!yes&&cur?.auto){delete S.checks[date][q.id];removeXp(q.xp,q.stat,`Авто-откат: ${q.title}`,`daily:${date}:${q.id}`,date)}}}
 
 async function toggleDaily(qid){const q=DAILY_QUESTS.find(x=>x.id===qid);if(!q)return;const k=localDateKey();if(q.auto&&q.auto(k)){toast("Этот квест уже подтверждён фактическими данными");return}if(q.autoStrict){toast("Этот квест засчитывается только по фактическим данным");return}S.checks[k]=S.checks[k]||{};const was=!!S.checks[k][qid];S.checks[k][qid]=!was;if(was)removeXp(q.xp,q.stat,`Отмена: ${q.title}`,`daily:${k}:${qid}`);else addXp(q.xp,q.stat,q.title,`daily:${k}:${qid}`);await save(was?"Квест отменён":"Квест выполнен")}
 
@@ -105,7 +105,7 @@ function weeklyReviewData(){const [a,b]=weekBounds(),work=workWeek(),ten=tennisW
 
 function renderWeeklyReview(){const box=$("weeklyReview");if(!box)return;const r=weeklyReviewData();box.innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Новые контакты</div><b>${r.work.contacts}</b></div><div class="report-item"><div class="smallcaps">Продажи</div><b>${rub(r.work.sales)}</b></div><div class="report-item"><div class="smallcaps">Тренировки</div><b>${r.ten.sessions}</b></div><div class="report-item"><div class="smallcaps">Дни чтения</div><b>${r.readDays}</b></div><div class="report-item"><div class="smallcaps">Расходы</div><b>${rub(r.expenses)}</b></div><div class="report-item"><div class="smallcaps">В долги</div><b>${rub(r.payments)}</b></div></div><div class="status" style="margin-top:10px"><b>Фокус:</b> ${r.tips.length?r.tips.join("; "):"сохранить текущий ритм"}</div>`}
 
-function renderXpBreakdown(){const box=$("xpBreakdown");if(!box)return;const m=localMonthKey(),e=S.xpEvents.filter(x=>String(x.date||"").startsWith(m)),process=e.filter(x=>(x.kind||"process")==="process").reduce((a,x)=>a+(+x.xp||0),0),result=e.filter(x=>x.kind==="result").reduce((a,x)=>a+(+x.xp||0),0);box.innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Process XP</div><b>${process}</b><div class="sub">за действия и регулярность</div></div><div class="report-item"><div class="smallcaps">Result XP</div><b>${result}</b><div class="sub">за достигнутые результаты</div></div></div>`}
+function renderXpBreakdown(){const box=$("xpBreakdown");if(!box)return;const m=localMonthKey(),e=S.xpEvents.filter(x=>String(x.date||"").startsWith(m)),process=e.filter(x=>(x.kind==="rollback"?x.rollbackKind||"process":x.kind||"process")==="process").reduce((a,x)=>a+(+x.xp||0),0),result=e.filter(x=>(x.kind==="rollback"?x.rollbackKind:x.kind)==="result").reduce((a,x)=>a+(+x.xp||0),0);box.innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Process XP</div><b>${process}</b><div class="sub">за действия и регулярность</div></div><div class="report-item"><div class="smallcaps">Result XP</div><b>${result}</b><div class="sub">за достигнутые результаты</div></div></div>`}
 
 function renderToday(){
   const l=level(),r=rank(l),xp=S.xpEarned%XP_PER_LEVEL,xpp=xp/XP_PER_LEVEL*100;$("lvl").textContent=l;$("rankText").textContent=r;$("headerRank").textContent=`Уровень ${l} • ${r}`;$("xpTotal").textContent=S.xpEarned.toLocaleString("ru-RU");$("xpText").textContent=`${xp} / ${XP_PER_LEVEL} XP • доступно ${availableXp()}`;$("xpPct").textContent=Math.round(xpp)+"%";$("xpProgress").style.width=xpp+"%";

@@ -21,6 +21,7 @@ export default defineConfig({
         clientsClaim:false,
         skipWaiting:false,
         cleanupOutdatedCaches:true,
+        ignoreURLParametersMatching:[/^v$/, /^utm_/, /^fbclid$/],
         navigateFallback:"index.html",
         globPatterns:["**/*.{html,js,css,png,json,webmanifest}"],
         maximumFileSizeToCacheInBytes:3*1024*1024,

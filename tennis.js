@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.0.1 — Tennis OS */
+/* Life RPG 10.0.2 — Tennis OS */
 
 const TENNIS_WEEKLY=[
   {id:"sessions3",title:"3 тренировки за неделю",stat:"Теннис",xp:180,condition:()=>tennisWeek().sessions>=3},
@@ -11,7 +11,7 @@ const TENNIS_WEEKLY=[
 ];
 
 function tennisWeek(){const [a,b]=weekBounds(),arr=S.tennis.filter(x=>inRange(x.dateKey,a,b));return {sessions:arr.length,tournaments:arr.filter(x=>x.type==="Турнир").length,serve:arr.reduce((n,x)=>n+(+x.serveMin||0),0),foot:arr.reduce((n,x)=>n+(+x.footMin||0),0)}}
-function tennisSessionsDesc(){return (S.tennis||[]).slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||""))||String(b.createdAt||"").localeCompare(String(a.createdAt||"")))}
+function tennisSessionsDesc(){return (S.tennis||[]).slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||""))||String(b.createdAt||"").localeCompare(String(a.createdAt||""))||String(b.id||"").localeCompare(String(a.id||"")))}
 function eloExpected(r,opp){return 1/(1+Math.pow(10,(opp-r)/400))}
 function eloAfterSession(r,opp,w,l,k=24){let cur=r;for(let i=0;i<w;i++)cur+=k*(1-eloExpected(cur,opp));for(let i=0;i<l;i++)cur+=k*(0-eloExpected(cur,opp));return Math.round(cur)}
 

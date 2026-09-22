@@ -55,7 +55,7 @@ function normalizeLegacyStatementFingerprints(out){
 }
 
 function normalizeState(raw){
-  raw=convertLegacyResetToFresh(raw||{});const out=deepClone(DEFAULT_STATE);
+  validateStateShape(raw||{});raw=convertLegacyResetToFresh(deepClone(raw||{}));const out=deepClone(DEFAULT_STATE);
   out.version=STATE_VERSION;out.created=String(raw.created||out.created);out.updated=String(raw.updated||out.updated);out.profile={...out.profile,...(raw.profile||{})};out.settings={...out.settings,...(raw.settings||{})};
   const legacyIncome=Number(raw?.settings?.monthlyIncome||0)===200000;
   const legacyEvents=Array.isArray(raw?.settings?.incomeEvents)&&raw.settings.incomeEvents.length===4&&[75000,50000,25000,50000].every((v,i)=>Number(raw.settings.incomeEvents[i]?.amount||0)===v)&&[5,15,20,25].every((v,i)=>Number(raw.settings.incomeEvents[i]?.day||0)===v);
@@ -85,28 +85,68 @@ function normalizeState(raw){
   out.assets=(out.assets||[]).map((a,i)=>({id:String(a.id||`asset-${i+1}`),name:String(a.name||`Актив ${i+1}`),type:String(a.type||"Инвестиции"),verifiedValue:Math.max(0,Number(a.verifiedValue??a.value??0)||0),verifiedAt:String(a.verifiedAt||""),liquid:a.liquid!==false,available:!!a.available,active:a.active!==false,note:String(a.note||"")}));
   const main=out.accounts.find(a=>a.id===out.settings.primaryAccountId)||out.accounts.find(a=>a.id==="main")||out.accounts[0];
   out.incomeLogs=out.incomeLogs.map(x=>({...x,accountId:x.accountId||main.id}));out.expenses=out.expenses.map(x=>({...x,accountId:x.accountId||main.id}));out.payments=out.payments.map(x=>({...x,debtId:x.debtId||out.debts[x.debtIndex]?.id||"",accountId:x.accountId||main.id}));out.bankTransfers=out.bankTransfers.map(x=>({...x,fromAccountId:x.fromAccountId||"",toAccountId:x.toAccountId||""}));normalizeLegacyStatementFingerprints(out);
+  if(raw.settings?.tennisBaseElo==null){const first=out.tennis.slice().sort((a,b)=>String(a.dateKey||"").localeCompare(String(b.dateKey||""))||String(a.createdAt||"").localeCompare(String(b.createdAt||""))||String(a.id||"").localeCompare(String(b.id||"")))[0];const base=first?.eloBefore??(!first?raw.settings?.tennisElo:undefined);if(Number.isFinite(Number(base))&&base!=null)out.settings.tennisBaseElo=Math.max(0,Number(base))}
   out.envelopeCarryovers=raw.envelopeCarryovers&&typeof raw.envelopeCarryovers==="object"?raw.envelopeCarryovers:{};out.envelopeLimits={...out.envelopeLimits,...(raw.envelopeLimits||{})};out.workTargets={...out.workTargets,...(raw.workTargets||{})};
   if(!out.xpEvents.length&&out.xpEarned>0)out.xpEvents.push({id:uid(),date:out.created||new Date().toISOString(),xp:out.xpEarned,stat:"Миграция",label:"Перенесённый XP",kind:"process"});
   return out
 }
 
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=e=>{const x=e.target.result;if(!x.objectStoreNames.contains("state"))x.createObjectStore("state");if(!x.objectStoreNames.contains("backups"))x.createObjectStore("backups",{keyPath:"ts"})};r.onsuccess=()=>{db=r.result;res(db)};r.onerror=()=>rej(r.error)})}
-
+// Persistence chooses the newest valid copy and acknowledges transaction commit.
+let persistenceQueue=Promise.resolve(),storageLoadBlocked=false;
+function storageMessage(message){const el=$("storageStatus");if(el)el.textContent=message}
+function validateStateShape(raw){
+  if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new Error("Состояние должно быть объектом");
+  if(Number(raw.version)>STATE_VERSION)throw new Error("Данные созданы более новой версией приложения");
+  for(const key of ["profile","settings","stats","checks","questDone","achievements","envelopeLimits","envelopeCarryovers","workTargets"]){if(raw[key]!=null&&(typeof raw[key]!=="object"||Array.isArray(raw[key])))throw new Error(`Некорректное поле ${key}`)}
+  for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(`Некорректный список ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(`Повреждённая запись в ${key}`)}
+  for(const x of raw.workLogs||[])if(typeof x.date!=="string")throw new Error("Рабочая запись без даты");
+  for(const x of raw.tennis||[])if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");
+  for(const x of raw.readingLogs||[])if(x.tags!=null&&!Array.isArray(x.tags))throw new Error("Повреждены теги чтения");
+}
+function openDB(){return new Promise((res,rej)=>{
+  let done=false;const timer=setTimeout(()=>{done=true;rej(new Error("IndexedDB: время ожидания истекло"))},5000);
+  const fail=e=>{if(done)return;done=true;clearTimeout(timer);rej(e||new Error("IndexedDB недоступна"))};
+  let r;try{r=indexedDB.open(DB_NAME,DB_VERSION)}catch(e){fail(e);return}
+  r.onupgradeneeded=e=>{const x=e.target.result;if(!x.objectStoreNames.contains("state"))x.createObjectStore("state");if(!x.objectStoreNames.contains("backups"))x.createObjectStore("backups",{keyPath:"ts"})};
+  r.onsuccess=()=>{if(done){r.result.close();return}done=true;clearTimeout(timer);db=r.result;db.onversionchange=()=>{db.close();db=null};res(db)};r.onerror=()=>fail(r.error);r.onblocked=()=>fail(new Error("База занята другой вкладкой"));
+})}
 function dbGet(store,key){return new Promise((res,rej)=>{const q=db.transaction(store,"readonly").objectStore(store).get(key);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
-
-function dbPut(store,val,key){return new Promise((res,rej)=>{const os=db.transaction(store,"readwrite").objectStore(store),q=key===undefined?os.put(val):os.put(val,key);q.onsuccess=()=>res();q.onerror=()=>rej(q.error)})}
-
+function dbWrite(store,operation){return new Promise((res,rej)=>{const tx=db.transaction(store,"readwrite");tx.oncomplete=()=>res();tx.onabort=()=>rej(tx.error||new Error("Транзакция отменена"));tx.onerror=()=>rej(tx.error||new Error("Ошибка транзакции"));try{operation(tx.objectStore(store))}catch(e){rej(e)}})}
+function dbPut(store,val,key){return dbWrite(store,os=>key===undefined?os.put(val):os.put(val,key))}
 function dbGetAll(store){return new Promise((res,rej)=>{const q=db.transaction(store,"readonly").objectStore(store).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
-
-function dbDelete(store,key){return new Promise((res,rej)=>{const q=db.transaction(store,"readwrite").objectStore(store).delete(key);q.onsuccess=()=>res();q.onerror=()=>rej(q.error)})}
-
+function dbDelete(store,key){return dbWrite(store,os=>os.delete(key))}
 async function createPreActionSnapshot(label=""){if(!db)await openDB();let ts=Date.now();while(await dbGet("backups",ts))ts++;await dbPut("backups",{ts,day:localDateKey(),label,state:deepClone(S)});await cleanupBackups(40);return ts}
-
 async function cleanupBackups(limit=30){const all=(await dbGetAll("backups")).sort((a,b)=>b.ts-a.ts);for(const x of all.slice(limit))await dbDelete("backups",x.ts)}
-
-async function loadState(){try{await openDB();const saved=await dbGet("state","current");if(saved)S=normalizeState(saved);else{const legacy=localStorage.getItem("lifeRpg3")||localStorage.getItem("lifeRpgPwa");if(legacy)S=normalizeState(JSON.parse(legacy));await persist(true)}$("storageStatus").textContent="IndexedDB подключена • локальная база работает офлайн."}catch(e){const x=localStorage.getItem("lifeRpg4");if(x)S=normalizeState(JSON.parse(x));$("storageStatus").textContent="IndexedDB недоступна • используется резервное localStorage."}if(checkAchievements())await persist();render();requestAnimationFrame(()=>document.documentElement.classList.remove("life-rpg-booting"));runReminderCheck();setInterval(runReminderCheck,3600000)}
-
-async function persist(makeBackup=false){if(typeof syncAutoDailyQuests==="function")syncAutoDailyQuests();checkAchievements();S.version=STATE_VERSION;S.updated=new Date().toISOString();try{if(!db)await openDB();await dbPut("state",S,"current");const day=localDateKey(),last=localStorage.getItem("lifeRpgBackupDay");if(makeBackup||day!==last){await dbPut("backups",{ts:Date.now(),day,state:deepClone(S)});await cleanupBackups(30);localStorage.setItem("lifeRpgBackupDay",day)}}catch(e){localStorage.setItem("lifeRpg4",JSON.stringify(S))}}
+function stateTimestamp(state){const n=Date.parse(state?.updated||"");return Number.isFinite(n)?n:0}
+async function loadState(){
+  const candidates=[];let damaged=false,hasDatabase=false,newerVersion=false;
+  const accept=(raw,source)=>{try{if(typeof raw==="string")raw=JSON.parse(raw);if(Number(raw?.version)>STATE_VERSION)newerVersion=true;validateStateShape(raw);candidates.push({raw,source})}catch(e){damaged=true}};
+  for(const key of ["lifeRpg4","lifeRpg3","lifeRpgPwa"]){try{const raw=localStorage.getItem(key);if(raw)accept(raw,key)}catch(e){}}
+  try{await openDB();const saved=await dbGet("state","current");hasDatabase=true;if(saved)accept(saved,"IndexedDB")}catch(e){}
+  candidates.sort((a,b)=>stateTimestamp(b.raw)-stateTimestamp(a.raw)||(b.source==="IndexedDB")-(a.source==="IndexedDB"));
+  try{
+    if(newerVersion){storageLoadBlocked=true;throw new Error("Найдены данные более новой версии. Обнови приложение; сохранение остановлено.")}
+    if(candidates.length){S=normalizeState(candidates[0].raw);storageLoadBlocked=false;storageMessage(`Загружена свежая копия: ${candidates[0].source}${damaged?" • другая копия повреждена":""}`)}
+    else if(damaged){storageLoadBlocked=true;throw new Error("Копии данных повреждены или требуют новой версии. Автосохранение остановлено; восстанови резервную копию.")}
+    else if(!hasDatabase){storageLoadBlocked=true;throw new Error("Не удалось проверить основную базу. Перезапусти приложение; запись отключена для защиты данных.")}
+    else await persist(true);
+    if(checkAchievements())await persist();render();runReminderCheck();setInterval(runReminderCheck,3600000);
+  }catch(e){storageMessage(e.message);toast(e.message)}finally{requestAnimationFrame(()=>document.documentElement.classList.remove("life-rpg-booting"))}
+}
+function persist(makeBackup=false){
+  if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));
+  if(typeof syncAutoDailyQuests==="function")syncAutoDailyQuests();checkAchievements();S.version=STATE_VERSION;
+  S.updated=new Date(Math.max(Date.now(),stateTimestamp(S)+1)).toISOString();const snapshot=deepClone(S);
+  const task=persistenceQueue.catch(()=>{}).then(()=>writeStateSnapshot(snapshot,makeBackup));persistenceQueue=task;return task;
+}
+async function writeStateSnapshot(snapshot,makeBackup){
+  let localSaved=false,databaseSaved=false;
+  try{localStorage.setItem("lifeRpg4",JSON.stringify(snapshot));localSaved=true}catch(e){}
+  try{if(!db)await openDB();await dbPut("state",snapshot,"current");databaseSaved=true}catch(e){db=null}
+  if(!databaseSaved&&!localSaved){storageMessage("НЕ СОХРАНЕНО: оба хранилища недоступны. Экспортируй резервную копию.");throw new Error("Не удалось сохранить данные")}
+  storageMessage(databaseSaved?"Данные сохранены в IndexedDB"+(localSaved?" и резервной копии.":" • резервное хранилище недоступно."):"Данные сохранены только в резервном localStorage.");
+  if(databaseSaved){try{const day=localDateKey(),last=localStorage.getItem("lifeRpgBackupDay");if(makeBackup||day!==last){await dbPut("backups",{ts:Date.now(),day,state:deepClone(snapshot)});await cleanupBackups(30);localStorage.setItem("lifeRpgBackupDay",day)}}catch(e){storageMessage("Данные сохранены • не удалось создать дополнительный снимок.")}}
+}
 
 async function save(msg){await persist();render();if(msg)toast(msg)}
 
@@ -122,7 +162,7 @@ async function restoreSnapshot(ts){if(!confirm("Восстановить это�
 
 async function exportBackup(encrypted){const data=JSON.stringify(S);let blob,name;if(encrypted){const pass=$("backupPassword").value;if(!pass){toast("Укажи пароль");return}const enc=new TextEncoder(),salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["encrypt"]),cipher=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,enc.encode(data));blob=new Blob([JSON.stringify({format:"life-rpg-encrypted-v1",salt:bytesToBase64(salt),iv:bytesToBase64(iv),data:bytesToBase64(new Uint8Array(cipher))})],{type:"application/octet-stream"});name=`life-rpg-${localDateKey()}.lrpg`;closeModal("encryptedBackupModal")}else{blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});name=`life-rpg-${localDateKey()}.json`}const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 
-async function importBackupFile(file){const text=await file.text();let obj=JSON.parse(text);if(obj.format==="life-rpg-encrypted-v1"){const pass=prompt("Пароль от резервной копии:");if(!pass)throw new Error("Пароль не указан");const dec64=base64ToBytes,enc=new TextEncoder(),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:dec64(obj.salt),iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["decrypt"]),plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:dec64(obj.iv)},key,dec64(obj.data));obj=JSON.parse(new TextDecoder().decode(plain))}const checked=window.LifePlatform?.validateBackup?.(obj);if(checked&&!checked.ok)throw new Error(checked.error||"Резервная копия не прошла проверку");obj=checked?.data||obj;await createPreActionSnapshot("Перед импортом резервной копии");S=normalizeState(obj);await persist();render();toast("Резервная копия восстановлена • предыдущее состояние сохранено в снимках")}
+async function importBackupFile(file){const text=await file.text();let obj=JSON.parse(text);if(obj.format==="life-rpg-encrypted-v1"){const pass=prompt("Пароль от резервной копии:");if(!pass)throw new Error("Пароль не указан");const dec64=base64ToBytes,enc=new TextEncoder(),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:dec64(obj.salt),iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["decrypt"]),plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:dec64(obj.iv)},key,dec64(obj.data));obj=JSON.parse(new TextDecoder().decode(plain))}const checked=window.LifePlatform?.validateBackup?.(obj);if(checked&&!checked.ok)throw new Error(checked.error||"Резервная копия не прошла проверку");obj=checked?.data||obj;await createPreActionSnapshot("Перед импортом резервной копии");S=normalizeState(obj);storageLoadBlocked=false;await persist();render();toast("Резервная копия восстановлена • предыдущее состояние сохранено в снимках")}
 
 function dataIntegrityIssues(){
   const issues=[],ids=new Map(),add=(level,title,detail="")=>issues.push({level,title,detail});
@@ -131,7 +171,7 @@ function dataIntegrityIssues(){
   const today=localDateKey();for(const d of (S.debts||[]).filter(x=>x.active!==false&&x.balance>0)){if(!validDateKey(d.nextPaymentDate))add("warn",`Нет следующей даты платежа: ${d.name}`,"Обнови данные долга");else if(d.nextPaymentDate<today)add("bad",`Просрочена дата платежа: ${d.name}`,fmtDate(parseLocal(d.nextPaymentDate)))}
   const collections=[["incomeLogs",S.incomeLogs],["expenses",S.expenses],["payments",S.payments],["workLogs",S.workLogs],["tennis",S.tennis],["books",S.books],["readingLogs",S.readingLogs],["crmDeals",S.crmDeals]];for(const [name,arr] of collections)for(const x of arr||[]){if(!x?.id)continue;const key=`${name}:${x.id}`;if(ids.has(key))add("bad",`Дублирующийся ID в ${name}`,x.id);ids.set(key,true)}
   for(const p of S.payments||[]){if(p.debtId&&!debtById(p.debtId))add("warn","Платёж ссылается на отсутствующий долг",p.debt||p.debtId)}
-  const future=[];for(const x of S.incomeLogs||[])if(x.dateKey>today)future.push(`доход ${x.dateKey}`);for(const x of S.expenses||[])if(x.dateKey>today)future.push(`расход ${x.dateKey}`);for(const x of S.workLogs||[])if(x.date>today)future.push(`работа ${x.date}`);for(const x of S.tennis||[])if(x.dateKey>today)future.push(`теннис ${x.dateKey}`);for(const x of S.readingLogs||[])if(x.dateKey>today)future.push(`чтение ${x.dateKey}`);if(future.length)add("warn","Есть фактические записи из будущего",future.slice(0,4).join(" • "));
+  const future=[];for(const x of S.incomeLogs||[])if(x.dateKey>today)future.push(`доход ${x.dateKey}`);for(const x of S.expenses||[])if(x.dateKey>today)future.push(`расход ${x.dateKey}`);for(const x of S.workLogs||[])if(String(x.date||"").slice(0,10)>today)future.push(`работа ${x.date}`);for(const x of S.tennis||[])if(x.dateKey>today)future.push(`теннис ${x.dateKey}`);for(const x of S.readingLogs||[])if(x.dateKey>today)future.push(`чтение ${x.dateKey}`);if(future.length)add("warn","Есть фактические записи из будущего",future.slice(0,4).join(" • "));
 
   // Work / CRM integrity.
   for(const w of S.workLogs||[]){if((+w.sales||0)<0||(+w.pipeline||0)<0)add("bad","Некорректная рабочая запись",w.date||w.id);if(w.sourceDealId&&!S.crmDeals.some(d=>d.id===w.sourceDealId))add("warn","Реализация ссылается на отсутствующую CRM-сделку",w.note||w.sourceDealId);if(w.sourceDealId){const d=S.crmDeals.find(x=>x.id===w.sourceDealId);if(d&&+d.realizedAmount>0&&Math.abs((+w.sales||0)-(+d.realizedAmount||0))>.01)add("warn",`CRM и факт продаж расходятся: ${d.name}`,`${rub(d.realizedAmount)} в CRM • ${rub(w.sales)} в рабочем журнале`)}}
@@ -145,10 +185,14 @@ function dataIntegrityIssues(){
   const orders=new Map();for(const b of S.books||[]){if(b.status==="queued"&&b.readingOrder){const k=String(b.readingOrder);if(orders.has(k))add("warn","Повторяется номер в очереди чтения",`№${k}: ${orders.get(k)} / ${b.title}`);else orders.set(k,b.title)}const sum=(S.readingLogs||[]).filter(x=>x.bookId===b.id).reduce((n,x)=>n+Math.max(0,+x.pages||0),0),expected=Math.min(Math.max(0,+b.totalPages||0),sum);if(b.status!=="queued"&&b.status!=="archived"&&Math.abs((+b.currentPage||0)-expected)>.01)add("warn",`Прогресс книги требует пересчёта: ${b.title}`,`${b.currentPage||0} → ${expected}`)}
   for(const r of S.readingLogs||[])if(r.bookId&&!S.books.some(b=>b.id===r.bookId))add("warn","Сессия чтения ссылается на отсутствующую книгу",r.dateKey||r.id);
 
+  if(typeof computeTennisElo==="function"&&Math.abs((+S.settings.tennisElo||0)-computeTennisElo().rating)>.01)add("warn","Внутренний Elo требует пересчёта");
+  for(const day of new Set((S.workLogs||[]).map(x=>x.date)))if(workXpOnDate(day)>120)add("warn","Превышен дневной XP за работу",day);
+  for(const day of new Set((S.readingLogs||[]).map(x=>x.dateKey)))if(readingBaseXpOnDate(day)>40)add("warn","Превышен дневной XP за чтение",day);
+  for(const d of S.crmDeals||[])if(S.workLogs.filter(w=>w.sourceDealId===d.id).length>1)add("bad","Повторная реализация CRM",d.name||d.id);
   return issues
 }
 
-async function repairDomainIntegrity(){if(!confirm("Выполнить безопасный пересчёт производных данных? Перед этим будет создан снимок."))return;await createPreActionSnapshot("Перед безопасным ремонтом данных");for(const b of S.books||[]){const pages=(S.readingLogs||[]).filter(x=>x.bookId===b.id).reduce((n,x)=>n+Math.max(0,+x.pages||0),0);b.currentPage=Math.min(Math.max(0,+b.totalPages||0),pages)}const q=(S.books||[]).filter(b=>b.status==="queued").slice().sort((a,b)=>(+a.readingOrder||999999)-(+b.readingOrder||999999)||String(a.created||"").localeCompare(String(b.created||"")));q.forEach((b,i)=>b.readingOrder=i+1);for(const d of S.crmDeals||[])d.probability=clamp(+d.probability||0,0,100);for(const t of S.tennis||[]){if(Array.isArray(t.matches)&&t.matches.length){t.w=t.matches.filter(m=>String(m.result||"").toUpperCase()==="W").length;t.l=t.matches.filter(m=>String(m.result||"").toUpperCase()==="L").length}}if(typeof recomputeTennisElo==="function")recomputeTennisElo();audit("Безопасный ремонт данных","system","очередь книг • прогресс • CRM probability • Tennis Elo");await save("Производные данные пересчитаны")}
+async function repairDomainIntegrity(){if(!confirm("Выполнить безопасный пересчёт производных данных? Перед этим будет создан снимок."))return;await createPreActionSnapshot("Перед безопасным ремонтом данных");for(const b of S.books||[]){const pages=(S.readingLogs||[]).filter(x=>x.bookId===b.id).reduce((n,x)=>n+Math.max(0,+x.pages||0),0);recomputeBookProgress(b.id)}const q=(S.books||[]).filter(b=>b.status==="queued").slice().sort((a,b)=>(+a.readingOrder||999999)-(+b.readingOrder||999999)||String(a.created||"").localeCompare(String(b.created||"")));q.forEach((b,i)=>b.readingOrder=i+1);for(const d of S.crmDeals||[])d.probability=clamp(+d.probability||0,0,100);for(const t of S.tennis||[]){if(Array.isArray(t.matches)&&t.matches.length){t.w=t.matches.filter(m=>String(m.result||"").toUpperCase()==="W").length;t.l=t.matches.filter(m=>String(m.result||"").toUpperCase()==="L").length}}if(typeof recomputeTennisElo==="function")recomputeTennisElo();reconcileReadingAwards();audit("Безопасный ремонт данных","system","очередь книг • прогресс • CRM probability • Tennis Elo");await save("Производные данные пересчитаны")}
 
 function renderSystemDiagnostics(){const box=$("systemDiagnostics");if(!box)return;const issues=dataIntegrityIssues();if($("trashStatus"))$("trashStatus").textContent=(S.trash||[]).length?`В корзине: ${S.trash.length}`:"Корзина пуста";if(!issues.length){box.innerHTML='<div class="status"><b>OK.</b> Финансы, CRM, Work, Tennis и Knowledge не показывают критичных проблем целостности.</div>';return}box.innerHTML=issues.map(x=>`<div class="notice ${x.level==="bad"?"diagnostic-bad":""}" style="margin-top:8px"><b>${escapeHtml(x.title)}</b>${x.detail?`<div class="sub">${escapeHtml(x.detail)}</div>`:""}</div>`).join("")}
 

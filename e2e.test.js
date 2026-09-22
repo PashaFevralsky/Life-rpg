@@ -11,7 +11,7 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
 
   await page.goto("/");
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("10.0.1");
+  await expect(page.locator("#versionStatus")).toContainText("10.0.2");
 
   // Work -> CRM -> reveal compact editor -> save deal.
   await page.locator('[data-tab="work"]').click();
@@ -86,4 +86,46 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#bookList")).toContainText("E2E книга");
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   expect(pageErrors).toEqual([]);
+});
+
+test("newer fallback survives reload and becomes durable", async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('html')).not.toHaveClass(/life-rpg-booting/);
+  await page.evaluate(async()=>{
+    S.profile.name='older database';await persist();
+    const fallback=structuredClone(S);fallback.profile.name='fresh fallback';fallback.updated=new Date(Date.now()+1000).toISOString();
+    localStorage.setItem('lifeRpg4',JSON.stringify(fallback));
+  });
+  await page.reload();
+  await expect(page.locator('html')).not.toHaveClass(/life-rpg-booting/);
+  expect(await page.evaluate(()=>S.profile.name)).toBe('fresh fallback');
+  await page.evaluate(()=>persist());
+  expect(await page.evaluate(async()=>(await dbGet('state','current')).profile.name)).toBe('fresh fallback');
+});
+
+test("PWA starts offline with versioned scripts and retained data", async ({ page, context }) => {
+  const errors=[];page.on('pageerror',error=>errors.push(String(error)));
+  await page.goto('/');
+  await expect(page.locator('html')).not.toHaveClass(/life-rpg-booting/);
+  await page.evaluate(async()=>{S.profile.name='offline retained';await persist();await navigator.serviceWorker.ready});
+  await page.reload();
+  await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBe(true);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator('html')).not.toHaveClass(/life-rpg-booting/);
+  expect(await page.evaluate(()=>S.profile.name)).toBe('offline retained');
+  expect(errors).toEqual([]);
+});
+
+test("completed book editing and CRM double-tap preserve data", async ({ page }) => {
+  await page.goto('/');await expect(page.locator('html')).not.toHaveClass(/life-rpg-booting/);
+  const result=await page.evaluate(async()=>{
+    S.crmDeals=[{id:'race',name:'Race',realizedAmount:500,realizationDate:localDateKey()}];
+    await Promise.all([recordCrmRealization('race'),recordCrmRealization('race')]);
+    S.books=[{id:'finished',title:'Completed',status:'done',totalPages:100,currentPage:100}];
+    S.readingLogs=[{id:'read',bookId:'finished',dateKey:localDateKey(),minutes:30,pages:100,xpAward:320}];
+    render();editReading('read');
+    return {sales:S.workLogs.filter(x=>x.sourceDealId==='race').length,selected:document.getElementById('readBook').value};
+  });
+  expect(result).toEqual({sales:1,selected:'finished'});
 });

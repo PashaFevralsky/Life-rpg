@@ -2,10 +2,10 @@
 const fs=require("fs"),path=require("path"),assert=require("assert");const root=__dirname;
 const read=n=>fs.readFileSync(path.join(root,n),"utf8");
 const pkg=JSON.parse(read("package.json")),html=read("index.html"),vite=read("vite.config.mjs"),workflow=read(".github/workflows/deploy-pages.yml"),platform=read("platform.vite.mjs"),pwa=read("pwa.js");
-assert.equal(pkg.version,"10.0.1");assert.equal(pkg.dependencies.zod,"4.6.5");assert.equal(pkg.dependencies.lucide,"1.47.0");assert.equal(pkg.devDependencies.vite,"8.3.0");assert.equal(pkg.devDependencies["vite-plugin-pwa"],"1.3.0");assert.equal(pkg.devDependencies["workbox-build"],"7.4.1");assert.equal(pkg.devDependencies["workbox-window"],"7.4.1");assert.equal(pkg.devDependencies["@playwright/test"],"1.55.0");
+assert.equal(pkg.version,"10.0.2");assert.equal(pkg.dependencies.zod,"4.6.5");assert.equal(pkg.dependencies.lucide,"1.47.0");assert.equal(pkg.devDependencies.vite,"8.3.0");assert.equal(pkg.devDependencies["vite-plugin-pwa"],"1.3.0");assert.equal(pkg.devDependencies["workbox-build"],"7.4.1");assert.equal(pkg.devDependencies["workbox-window"],"7.4.1");assert.equal(pkg.devDependencies["@playwright/test"],"1.55.0");
 assert.ok(html.includes('type="module" src="./platform.vite.mjs"'));assert.ok(vite.includes('VitePWA'));assert.ok(vite.includes('strategies:"generateSW"'));assert.ok(vite.includes('injectRegister:null'));assert.ok(workflow.includes('npm run build'));assert.ok(workflow.includes('npm run test:e2e'));assert.ok(workflow.includes('playwright install'));assert.ok(workflow.includes('actions/deploy-pages@v4'));assert.ok(platform.includes('safeParse'));assert.ok(platform.includes('createIcons'));assert.ok(platform.includes('CreditCard'));assert.ok(platform.includes('BookOpen'));assert.ok(pwa.includes('register("./sw.js"'));
 for(const n of ["platform.js","platform.vite.mjs","vite.config.mjs","DEPLOY-PAGES-WORKFLOW.yml"])assert.ok(fs.existsSync(path.join(root,n)),`${n} missing`);
 assert.ok(fs.existsSync(path.join(root,"playwright.config.mjs")));assert.ok(fs.existsSync(path.join(root,"e2e.test.js")));
 assert.ok(vite.includes('registerType:"prompt"'));assert.ok(vite.includes('clientsClaim:false'));assert.ok(vite.includes('skipWaiting:false'));
 const pwaHot=read("pwa.js"),uiHot=read("ui.js");assert.ok(!pwaHot.includes("location.reload()"));assert.ok(!uiHot.includes("location.replace(`./?v="));assert.ok(html.includes("life-rpg-booting"));
-console.log("OK — Life RPG 10.0.1 architecture tests passed");
+console.log("OK — Life RPG 10.0.2 architecture tests passed");
