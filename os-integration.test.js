@@ -69,6 +69,26 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   assert.ok(details.find(x=>x.name==="Теннис").reason.includes("/4"));
   assert.ok(details.find(x=>x.name==="Знания").reason.includes("/7"));
 
+  // Projects OS: project data persists through settings, overdue high-priority actions are hard,
+  // completion awards result XP once, and Life OS receives a routable project action.
+  run(`S=normalizeState({version:STATE_VERSION,settings:{projects:[{id:"persist",title:"Persist",area:"Работа",priority:2,status:"active",progress:20,nextStep:"Шаг"}]}});`);
+  assert.equal(run(`projectStore().length`),1);
+  assert.equal(run(`projectStore()[0].title`),"Persist");
+
+  run(`S=deepClone(DEFAULT_STATE); S.settings.projects=[{id:"p1",title:"Проект 1",area:"Работа",priority:1,status:"active",progress:30,nextStep:"Позвонить",nextDate:localDateKey(addDays(new Date(),-1)),deadline:localDateKey(addDays(new Date(),5)),createdAt:new Date(Date.now()-5*86400000).toISOString(),updatedAt:new Date(Date.now()-2*86400000).toISOString()}]; save=async()=>{}; audit=()=>{}; toast=()=>{};`);
+  assert.equal(run(`projectDecisionEngine()[0].kind`),"project-next");
+  assert.equal(run(`projectDecisionEngine()[0].hard`),true);
+  assert.ok(run(`lifeOsRawCandidates().some(x=>String(x.id).startsWith("project:p1:")&&x.route==="projects")`));
+
+  const xpBefore=run(`S.xpEarned`);
+  await run(`completeProject("p1")`);
+  const xpAfter=run(`S.xpEarned`);
+  assert.ok(xpAfter>xpBefore);
+  await run(`completeProject("p1")`);
+  assert.equal(run(`S.xpEarned`),xpAfter);
+  assert.equal(run(`projectStore()[0].status`),"done");
+  assert.equal(run(`projectStore()[0].progress`),100);
+
   // Dynamically injected OS cards must participate in UX7 view switching.
   for(const file of ["work.js","tennis.js","knowledge.js","bootstrap.js"]){
     const src=fs.readFileSync(path.join(root,file),"utf8");

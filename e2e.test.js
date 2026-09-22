@@ -80,10 +80,21 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator('[data-tab="more"]').click();
   await expect(page.locator("#more")).toHaveClass(/active/);
 
+  // Projects OS -> create a real project in More / Overview.
+  await expect(page.locator("#projectsOsCommand")).toBeVisible();
+  await page.locator('button[onclick="projectToggleEditor(true)"]').click();
+  await expect(page.locator("#projectEditorCard")).toBeVisible();
+  await page.locator("#projectTitle").fill("E2E проект");
+  await page.locator("#projectOutcome").fill("Проверяемый результат");
+  await page.locator("#projectNextStep").fill("Сделать следующий шаг");
+  await page.locator('button[onclick="saveProject()"]').click();
+  await expect(page.locator("#projectsOsList")).toContainText("E2E проект");
+
   const knowledgeTab = page.locator('#more .ux7-tab[data-view="knowledge"]');
   await expect(knowledgeTab).toBeVisible();
   await knowledgeTab.click();
   await expect(page.locator("#knowledgeOsCommand")).toBeVisible();
+  await expect(page.locator("#projectsOsCommand")).not.toBeVisible();
 
   const addBookButton = page.locator('button[onclick="openModal(\'bookModal\')"]');
   await expect(addBookButton).toBeVisible();

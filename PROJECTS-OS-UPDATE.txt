@@ -1,0 +1,72 @@
+Life RPG — Projects OS
+Base: commit 2478eddee919b70a6417bbe6a8a9dd55e335f312
+
+NEW FUNCTIONALITY
+
+Projects OS
+- Project = managed goal: title, area, priority, outcome, deadline, progress,
+  next physical step and next-step date.
+- Areas: Work, Finance, Tennis, Knowledge, Personal, System.
+- Statuses: active, paused, done, archived.
+- Portfolio dashboard:
+  active projects, overdue projects, projects without next step,
+  deadlines within 7 days, average progress, completed this month.
+- Automatic project health:
+  overdue deadline;
+  overdue next step;
+  missing next step;
+  deadline <= 7 days;
+  stale project >= 14 days.
+- Quick actions:
+  edit;
+  +10% progress;
+  complete;
+  pause/resume;
+  archive.
+- Completion awards Result XP once:
+  high priority 250 XP;
+  medium 150 XP;
+  low 100 XP.
+  XP stat follows the project area.
+
+LIFE OS INTEGRATION
+- Project actions feed directly into Life OS.
+- Overdue next step for a high-priority project can become a hard obligation.
+- Project actions retain a route to More -> Overview, even when the project belongs
+  to Work / Finance / Tennis / Knowledge.
+- Project actions compete with other Life OS actions by urgency but do not replace
+  higher-severity finance or CRM obligations.
+
+PERSISTENCE
+- No state schema migration.
+- Projects are stored inside settings.projects.
+- Existing normalizeState already preserves settings keys, so projects survive
+  restart, backup/export and restore.
+- A future major version can migrate this storage to a top-level projects collection
+  without changing the user-facing model.
+
+TEST COVERAGE
+- os-integration.test.js:
+  persistence through normalizeState;
+  overdue high-priority project action;
+  Life OS routing;
+  project completion;
+  one-time Result XP.
+- e2e.test.js:
+  create a project through the real mobile UI;
+  verify it appears in the list;
+  switch More -> Knowledge and verify Projects OS is hidden.
+
+LOCAL CHECKS
+- node --check bootstrap.js: OK
+- node --check os-integration.test.js: OK
+- node --check e2e.test.js: OK
+- isolated Projects OS runtime smoke: OK
+
+UPLOAD
+Replace:
+- bootstrap.js
+- os-integration.test.js
+- e2e.test.js
+
+No other files need to be changed.
