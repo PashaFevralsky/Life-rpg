@@ -1,0 +1,69 @@
+Life RPG — Review / Planning OS
+Base commit: efe959f9fd10c13a2d65e0ec05018b664d205af9
+
+WHAT IS NEW
+
+Review / Planning OS
+- Weekly review with an automatic snapshot of:
+  finance, work, tennis, knowledge, projects and Life OS load.
+- Monthly review with:
+  income, expenses, debt payments, total debt, work sales,
+  tennis, reading, projects and Life Score.
+- Optional notes only:
+  "what worked" and "what to change".
+  Reviews can be saved without typing any notes.
+- Saved review history: up to 36 snapshots.
+- Trend against the previous saved period:
+  Life Score delta, debt delta, sales delta and overdue-project delta.
+
+PLANNING
+- Automatic plan with up to 3 focus areas.
+- Automatic selection of up to 3 focus projects.
+- Saved weekly plan remains active for up to 8 days.
+- Focus areas receive a small Life OS priority boost.
+- Focus projects create routable Life OS next-action candidates.
+- Projects belonging to the same projectId are de-duplicated in Life OS.
+
+PORTFOLIO CONTROL
+- Configurable WIP limit for active projects, default 5.
+- If active projects exceed the limit, Review OS proposes pause candidates.
+- High-priority / overdue projects are protected from normal pause selection.
+- Pausing is never automatic; user must explicitly press "Поставить на паузу".
+
+REVIEW REMINDERS
+- Weekly Review appears in Life OS if the previous weekly review is 7+ days old.
+- For a new install with no review history, reminder appears on Sunday/Monday.
+- Monthly Review appears during the last days of the month if the month has not been saved.
+
+XP
+- First saved weekly review for the period: +50 process XP (Discipline).
+- First saved monthly review for the period: +100 process XP.
+- Re-saving the same period updates the snapshot and plan without awarding XP again.
+
+PERSISTENCE
+- No state schema migration.
+- Review history: settings.reviews.
+- WIP limit: settings.reviewProjectWipLimit.
+- Existing backups/export/restore keep these settings automatically.
+
+FILES
+Replace:
+- bootstrap.js
+- os-integration.test.js
+- e2e.test.js
+
+TEST COVERAGE
+- Review snapshot and project metrics.
+- WIP pause recommendations.
+- Weekly review persistence.
+- No duplicate XP on re-save.
+- Saved focus-project -> Life OS candidate.
+- Review history survives normalizeState.
+- Mobile E2E saves a real weekly review and verifies its history.
+- Review OS hides correctly when switching More -> Knowledge.
+
+LOCAL CHECKS
+- node --check bootstrap.js: OK
+- node --check os-integration.test.js: OK
+- node --check e2e.test.js: OK
+- isolated Review / Planning OS runtime smoke: OK

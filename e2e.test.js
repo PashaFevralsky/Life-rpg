@@ -90,11 +90,19 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator('button[onclick="saveProject()"]').click();
   await expect(page.locator("#projectsOsList")).toContainText("E2E проект");
 
+  // Review / Planning OS -> save the weekly snapshot and verify history.
+  await expect(page.locator("#reviewOsCommand")).toBeVisible();
+  await page.locator("#reviewWeekWins").fill("E2E результат недели");
+  await page.locator('button[onclick="saveReview(\'week\')"]').click();
+  await expect(page.locator("#reviewHistory")).toContainText("Неделя");
+  await expect(page.locator("#reviewHistory")).toContainText("E2E результат недели");
+
   const knowledgeTab = page.locator('#more .ux7-tab[data-view="knowledge"]');
   await expect(knowledgeTab).toBeVisible();
   await knowledgeTab.click();
   await expect(page.locator("#knowledgeOsCommand")).toBeVisible();
   await expect(page.locator("#projectsOsCommand")).not.toBeVisible();
+  await expect(page.locator("#reviewOsCommand")).not.toBeVisible();
 
   const addBookButton = page.locator('button[onclick="openModal(\'bookModal\')"]');
   await expect(addBookButton).toBeVisible();

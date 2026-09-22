@@ -89,6 +89,34 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   assert.equal(run(`projectStore()[0].status`),"done");
   assert.equal(run(`projectStore()[0].progress`),100);
 
+  // Review / Planning OS: snapshots, WIP recommendations, persistence and plan -> Life OS.
+  run(`S=deepClone(DEFAULT_STATE); S.settings.projects=[
+    {id:"rp1",title:"High",area:"Работа",priority:1,status:"active",progress:30,nextStep:"Шаг 1",nextDate:localDateKey(addDays(new Date(),2)),deadline:localDateKey(addDays(new Date(),10)),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()},
+    {id:"rp2",title:"Low 1",area:"Личное",priority:3,status:"active",progress:10,nextStep:"Шаг 2",createdAt:new Date(Date.now()-20*86400000).toISOString(),updatedAt:new Date(Date.now()-20*86400000).toISOString()},
+    {id:"rp3",title:"Low 2",area:"Знания",priority:3,status:"active",progress:5,nextStep:"Шаг 3",createdAt:new Date(Date.now()-20*86400000).toISOString(),updatedAt:new Date(Date.now()-20*86400000).toISOString()}
+  ]; S.settings.reviewProjectWipLimit=2; S.settings.reviews=[]; save=async()=>{}; audit=()=>{}; toast=()=>{};`);
+  assert.equal(run(`reviewPauseCandidates().length`),1);
+  assert.equal(run(`reviewSnapshot("week").projects.active`),3);
+  assert.ok(run(`reviewSuggestedPlan().focusProjectIds.includes("rp1")`));
+
+  await run(`saveReview("week")`);
+  assert.equal(run(`reviewStore().length`),1);
+  assert.equal(run(`reviewStore()[0].kind`),"week");
+  assert.ok(run(`Array.isArray(reviewStore()[0].plan.focusAreas)`));
+  const reviewXp=run(`S.xpEarned`);
+  await run(`saveReview("week")`);
+  assert.equal(run(`S.xpEarned`),reviewXp);
+
+  // A saved focus project becomes a routable Life OS candidate even without deadline urgency.
+  run(`S.settings.reviews[0].plan={focusAreas:["Работа"],focusProjectIds:["rp1"],pauseProjectIds:[],generatedAt:new Date().toISOString()};`);
+  assert.ok(run(`reviewPlanCandidates().some(x=>x.projectId==="rp1")`));
+  assert.ok(run(`lifeOsRawCandidates().some(x=>x.projectId==="rp1"&&x.route==="projects")`));
+
+  // Review history survives normalizeState because it lives in settings.
+  run(`S=normalizeState({version:STATE_VERSION,settings:{reviews:[{id:"rw",kind:"week",periodKey:"x",savedAt:new Date().toISOString(),snapshot:{lifeScore:50},plan:{focusAreas:["Работа"],focusProjectIds:[]}}]}});`);
+  assert.equal(run(`reviewStore().length`),1);
+  assert.equal(run(`reviewStore()[0].id`),"rw");
+
   // Dynamically injected OS cards must participate in UX7 view switching.
   for(const file of ["work.js","tennis.js","knowledge.js","bootstrap.js"]){
     const src=fs.readFileSync(path.join(root,file),"utf8");
