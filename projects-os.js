@@ -1,12 +1,9 @@
 "use strict";
 
 /* Projects OS — outcome -> deadline -> next action.
-   Stored under settings.projects for backward-compatible persistence without a schema migration. */
+   Stored in the v18 entities layer; Goals can reference Projects and Tasks reference Projects. */
 
-function projectStore(){
-  if(!Array.isArray(S.settings.projects))S.settings.projects=[];
-  return S.settings.projects
-}
+function projectStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.projects))S.entities.projects=[];return S.entities.projects}
 function projectEl(id){return document.getElementById(id)}
 function projectPriorityLabel(p){return +p===1?"Высокий":+p===2?"Средний":"Низкий"}
 function projectAreaStat(area){return area==="Финансы"?"Финансы":area==="Работа"?"Карьера":area==="Теннис"?"Теннис":area==="Знания"?"Разум":"Дисциплина"}
@@ -61,7 +58,7 @@ function ensureProjectsOsUi(){
   grid.insertAdjacentHTML("afterbegin",`
     <div data-ux7-view="overview" class="card ux7-card span-12">
       <div class="eyebrow">Projects OS</div>
-      <div class="section-title">Цели и проекты</div>
+      <div class="section-title">Проекты</div>
       <div class="muted" style="margin-top:6px">Результат → дедлайн → следующий шаг. Life OS автоматически поднимает просроченные и застрявшие проекты.</div>
       <div id="projectsOsCommand" style="margin-top:12px"></div>
     </div>
@@ -73,7 +70,7 @@ function ensureProjectsOsUi(){
       <div class="title">Редактор проекта</div>
       <input id="projectEditId" type="hidden">
       <div class="formgrid" style="margin-top:12px">
-        <div class="field"><label>Проект / цель</label><input id="projectTitle" placeholder="Например: выйти на 4,5 млн продаж"></div>
+        <div class="field"><label>Проект</label><input id="projectTitle" placeholder="Например: выйти на 4,5 млн продаж"></div>
         <div class="field"><label>Область</label><select id="projectArea"><option>Работа</option><option>Финансы</option><option>Теннис</option><option>Знания</option><option>Личное</option><option>Система</option></select></div>
         <div class="field"><label>Приоритет</label><select id="projectPriority"><option value="1">Высокий</option><option value="2" selected>Средний</option><option value="3">Низкий</option></select></div>
         <div class="field"><label>Дедлайн</label><input id="projectDeadline" type="date"></div>

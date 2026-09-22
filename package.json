@@ -1,9 +1,9 @@
 {
   "name": "life-rpg",
-  "version": "10.2.0",
+  "version": "11.0.0",
   "private": true,
   "scripts": {
-    "test": "node static-check.js && node regression.test.js && node operational.test.js && node final-audit.test.js && node reading-list.test.js && node visual-layout.test.js && node visual-system.test.js && node architecture.test.js && node money-core.test.js && node domain-deep.test.js && node os-integration.test.js && node render-smoke.test.js && node reliability.test.js",
+    "test": "node static-check.js && node regression.test.js && node operational.test.js && node final-audit.test.js && node reading-list.test.js && node visual-layout.test.js && node visual-system.test.js && node architecture.test.js && node state-v18.test.js && node money-core.test.js && node domain-deep.test.js && node os-integration.test.js && node render-smoke.test.js && node reliability.test.js",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test:e2e": "playwright test"

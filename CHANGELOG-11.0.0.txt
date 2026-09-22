@@ -1,0 +1,80 @@
+Life RPG 11.0.0 — Core Intelligence
+
+BASE
+10.2.0 / commit 4345119002ffa7cefc41ec25e789cf48f9de5ce9
+
+1. DATA ARCHITECTURE V18
+- APP_VERSION 11.0.0.
+- STATE_VERSION 18.
+- Projects, Tasks, Goals, Routines, routine logs, Reviews, Inbox and Calendar events moved from settings.* to S.entities.*.
+- Automatic idempotent migration from v17.
+- Legacy entity arrays are removed from settings after migration.
+- v18 validates entity IDs and relation-array shapes.
+- Duplicate entity IDs block loading instead of being silently guessed.
+- Entity Integrity detects missing links, self dependencies and dependency cycles.
+- Safe repair removes only missing/self references; cycles stay visible for manual correction.
+- Finance ledgers, CRM, Books and other mature domains keep their existing storage models.
+
+2. EXPLAINABLE DECISIONS
+- Life OS recommendations preserve source, evidence, consequence and confidence.
+- Confidence means reliability of the rationale, NOT probability of success.
+- User controls affect future ranking:
+  raise priority, tomorrow, hide today, never suggest.
+- Every manual preference is visible and reversible in Settings.
+- Today Flow gives one mobile path: Inbox -> priorities -> execute -> mark done.
+
+3. EXECUTION INTELLIGENCE
+- Weekly capacity planning across existing Calendar commitments.
+- Tasks gain plannedDate, notBefore, blockedByIds and autoPlanLocked.
+- Deadlines remain deadlines and are never rewritten by the planner.
+- Locked tasks are never moved, even outside the current planning horizon.
+- Dependencies, not-before and capacity are respected.
+- Shows tasks that do not fit, tasks planned after deadline, overloaded days,
+  goal/project risks and suggested low-priority relief candidates.
+- Applying a plan creates a pre-action snapshot first.
+- Weekly Review snapshots keep unscheduled/late/critical execution pressure.
+
+4. RECOVERY 2.0
+- Uses existing IndexedDB backup snapshots.
+- Shows up to 20 recent snapshots.
+- Manual checkpoints.
+- Snapshot diff for supported entities.
+- Point restore for Project, Task, Goal, Routine, Review, Inbox, Calendar event,
+  CRM deal and Book.
+- A pre-action snapshot is created before point restore.
+- Finance ledgers are deliberately excluded from point restore; use full snapshot
+  rollback for finance to preserve accounting consistency.
+
+5. MOBILE UX
+- Today Flow consolidates day-to-day execution.
+- Projects and Goals are clearly separated in wording.
+- Advanced OS modules remain available without forcing the user through every screen.
+
+6. INSIGHTS
+- Execution pressure added to Insights once enough weekly Review samples exist.
+- Small samples are explicitly reported as insufficient.
+- Descriptive associations remain non-causal.
+
+SAFETY / EPISTEMIC RULES
+- No automatic deadline changes.
+- No automatic project pausing.
+- No automatic deletion of core entities during link repair.
+- Routines do not create an accumulating overdue debt.
+- Statistical associations are not described as causes.
+- Life Score and priority scores remain heuristics, not scientific measurements.
+
+LOCAL RELEASE GATES PASSED
+- node --check on all modified/new runtime and test files.
+- static-check.js:
+  879 unique functions
+  329 unique static HTML ids
+  63 inline handlers
+  15 modular OS files
+- state-v18.test.js: migration, idempotence, stable IDs, corruption/duplicate gates.
+- os-integration.test.js: v18 entities, dependencies, absolute task locks,
+  dependency cycles, Decision preferences, Recovery diff, Execution planner.
+- No direct runtime references remain to legacy S.settings entity arrays.
+- bootstrap.js remains a loader/orchestrator: 2822 bytes.
+
+GitHub CI must still be run after upload:
+npm test -> Vite/Workbox build -> mobile Playwright E2E -> Pages deploy.

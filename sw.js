@@ -1,10 +1,10 @@
-const CACHE="life-rpg-v10.2.0-direction-execution";
+const CACHE="life-rpg-v11.0.0-core-intelligence";
 const ASSETS=[
   "./","./index.html",
-  "./platform.js?v=10.2.0","./styles.css?v=10.2.0",
-  "./core.js?v=10.2.0","./state.js?v=10.2.0","./finance.js?v=10.2.0","./imports.js?v=10.2.0","./work.js?v=10.2.0","./tennis.js?v=10.2.0","./knowledge.js?v=10.2.0","./gamification.js?v=10.2.0","./pwa.js?v=10.2.0","./ui.js?v=10.2.0","./bootstrap.js?v=10.2.0",
-  "./life-os.js?v=10.2.0","./projects-os.js?v=10.2.0","./goals-os.js?v=10.2.0","./review-os.js?v=10.2.0","./calendar-os.js?v=10.2.0","./tasks-os.js?v=10.2.0","./routines-os.js?v=10.2.0","./inbox-os.js?v=10.2.0","./rules-os.js?v=10.2.0","./insights-os.js?v=10.2.0","./command-os.js?v=10.2.0",
-  "./manifest.webmanifest?v=10.2.0","./icon-192.png","./icon-512.png"
+  "./platform.js?v=11.0.0","./styles.css?v=11.0.0",
+  "./core.js?v=11.0.0","./state.js?v=11.0.0","./finance.js?v=11.0.0","./imports.js?v=11.0.0","./work.js?v=11.0.0","./tennis.js?v=11.0.0","./knowledge.js?v=11.0.0","./gamification.js?v=11.0.0","./pwa.js?v=11.0.0","./ui.js?v=11.0.0","./bootstrap.js?v=11.0.0",
+  "./data-os.js?v=11.0.0","./projects-os.js?v=11.0.0","./goals-os.js?v=11.0.0","./review-os.js?v=11.0.0","./calendar-os.js?v=11.0.0","./tasks-os.js?v=11.0.0","./routines-os.js?v=11.0.0","./inbox-os.js?v=11.0.0","./rules-os.js?v=11.0.0","./insights-os.js?v=11.0.0","./command-os.js?v=11.0.0","./execution-os.js?v=11.0.0","./decision-os.js?v=11.0.0","./recovery-os.js?v=11.0.0","./life-os.js?v=11.0.0",
+  "./manifest.webmanifest?v=11.0.0","./icon-192.png","./icon-512.png"
 ];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("life-rpg-v")&&k!==CACHE).map(k=>caches.delete(k))))));

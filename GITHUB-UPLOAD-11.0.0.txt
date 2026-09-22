@@ -1,0 +1,20 @@
+Life RPG 11.0.0 — GitHub upload
+
+Upload ALL files from this ZIP to the ROOT of PashaFevralsky/Life-rpg in ONE commit.
+Replace existing files when GitHub asks.
+
+New required files:
+- data-os.js
+- decision-os.js
+- execution-os.js
+- recovery-os.js
+- state-v18.test.js
+
+All other .js/.html/.json/.webmanifest files in the archive replace existing files.
+The three release documentation files can also be uploaded; they are harmless and useful for audit history.
+
+IMPORTANT
+This is an atomic state-schema release (v17 -> v18).
+Do not intentionally mix the new state.js with old Projects/Tasks/Goals/Routines/Review/Calendar store modules.
+
+After the commit, send “залил”.

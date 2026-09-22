@@ -45,7 +45,7 @@ function lifeOsAddCandidate(arr,c){
     score:Math.max(0,+c.score||0),
     hard:!!c.hard,
     route:String(c.route||""),
-    projectId:String(c.projectId||""),
+    projectId:String(c.projectId||""),taskId:String(c.taskId||""),routineId:String(c.routineId||""),goalId:String(c.goalId||""),refId:String(c.refId||""),source:String(c.source||""),confidence:String(c.confidence||""),evidence:Array.isArray(c.evidence)?c.evidence.map(String):[],consequence:String(c.consequence||""),
     minutes:Math.max(0,Math.round(c.minutes!=null?+c.minutes:lifeOsEstimateMinutes(c.area,c.kind)))
   })
 }
@@ -129,6 +129,8 @@ function lifeOsRawCandidates(){
   for(const x of inboxActions.slice(0,2))lifeOsAddCandidate(out,x);
   const ruleActions=typeof ruleEngineActions==="function"?ruleEngineActions():[];
   for(const x of ruleActions.slice(0,4))lifeOsAddCandidate(out,x);
+  const executionActions=typeof executionDecisionEngine==="function"?executionDecisionEngine():[];
+  for(const x of executionActions.slice(0,3))lifeOsAddCandidate(out,x);
   const plannedProjects=typeof reviewPlanCandidates==="function"?reviewPlanCandidates():[];
   for(const x of plannedProjects){
     lifeOsAddCandidate(out,{id:`project:${x.projectId}:plan`,projectId:x.projectId,area:x.area,kind:"project-focus",title:x.title,meta:x.meta,score:x.score,hard:false,route:"projects",minutes:x.minutes||25})
@@ -183,6 +185,7 @@ function lifeOsCandidates(){
   if(load?.interpretable&&load.ratio>1.5&&hardElsewhere){
     rows=rows.map(x=>x.area==="Теннис"&&x.kind!=="load"?{...x,score:Math.min(x.score,32),meta:x.meta+" • сегодня приоритет — лёгкая нагрузка/восстановление"}:x)
   }
+  if(typeof decisionAdjustCandidates==="function")rows=decisionAdjustCandidates(rows);
   return rows.sort((a,b)=>b.score-a.score)
 }
 
@@ -250,6 +253,7 @@ function lifeOsMinimumDay(){
 function lifeOsOpen(area,route=""){
   if(route==="projects"||route==="goals"||route==="reviews"||route==="rules"||route==="insights"){ux7Go("more","overview");return}
   if(route==="calendar"){ux7Go("more","overview");setTimeout(()=>document.getElementById("calendarOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"start"}),180);return}
+  if(route==="execution"){ux7Go("today","focus");setTimeout(()=>document.getElementById("executionOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}
   if(route==="tasks"||route==="routines"||route==="inbox"){ux7Go("today","focus");setTimeout(()=>document.getElementById(route==="tasks"?"tasksOsCommand":route==="routines"?"routinesOsCommand":"inboxOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}
   if(area==="Финансы"){switchTab("finance");return}
   if(area==="Работа"){ux7Go("work","crm");return}
@@ -286,7 +290,7 @@ function renderLifeOsCommand(){
     '<div class="quest">'+
       '<span class="tag '+(x.hard?"bad":x.score>=90?"warn":"")+'">#'+(i+1)+' • '+escapeHtml(x.area)+'</span>'+
       '<div class="qbody"><div class="qtitle">'+escapeHtml(x.title)+'</div><div class="qmeta">'+escapeHtml(x.meta)+(x.minutes?' • ~'+x.minutes+' мин':'')+'</div></div>'+
-      '<button class="btn ghost small" onclick="lifeOsOpen(\''+escapeHtml(x.area)+'\',\''+escapeHtml(x.route||"")+'\')">Открыть</button>'+
+      (typeof decisionActionButtons==="function"?decisionActionButtons(x):'<button class="btn ghost small" onclick="lifeOsOpen(\''+escapeHtml(x.area)+'\',\''+escapeHtml(x.route||"")+'\')">Открыть</button>')+
     '</div>'
   ).join("");
   const bars=domains.map(x=>

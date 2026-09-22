@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.2.0 — Search / Command Palette */
+/* Life RPG 11.0.0 — Search / Command Palette */
 
 let commandIndex=new Map(),commandListenerInstalled=false;
 function commandNorm(s){return String(s||"").toLocaleLowerCase("ru-RU").replace(/ё/g,"е").replace(/[^a-zа-я0-9]+/g," ").trim()}

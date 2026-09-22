@@ -2,7 +2,7 @@
 
 /* Life RPG 10.1.0 — Inbox / Capture OS */
 
-function inboxStore(){if(!Array.isArray(S.settings.inbox))S.settings.inbox=[];return S.settings.inbox}
+function inboxStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.inbox))S.entities.inbox=[];return S.entities.inbox}
 function knowledgeNoteStore(){if(!Array.isArray(S.settings.knowledgeNotes))S.settings.knowledgeNotes=[];return S.settings.knowledgeNotes}
 function inboxInferArea(text){text=String(text||"").toLowerCase();if(/оплат|деньг|руб|₽|карт|кредит|долг|банк/.test(text))return"Финансы";if(/клиент|сделк|звон|коммер|счет|счёт|crm|работ/.test(text))return"Работа";if(/теннис|тренир|турнир|подач|ракет/.test(text))return"Теннис";if(/книг|чита|тезис|идея|знани|изуч/.test(text))return"Знания";return"Личное"}
 function inboxInferDate(text){text=String(text||"").toLowerCase();if(/сегодня/.test(text))return localDateKey();if(/завтра/.test(text))return localDateKey(addDays(new Date(),1));const m=text.match(/\b(\d{1,2})[.\/-](\d{1,2})(?:[.\/-](\d{2,4}))?\b/);if(m){const y=m[3]?((+m[3]<100?2000:0)+ +m[3]):new Date().getFullYear(),d=String(+m[1]).padStart(2,"0"),mo=String(+m[2]).padStart(2,"0"),k=`${y}-${mo}-${d}`;if(validDateKey(k))return k}return""}

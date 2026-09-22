@@ -3,10 +3,7 @@
 /* Review / Planning OS — close the loop between activity, projects and the next period.
    Reviews are snapshots; optional notes never block closing a period. */
 
-function reviewStore(){
-  if(!Array.isArray(S.settings.reviews))S.settings.reviews=[];
-  return S.settings.reviews
-}
+function reviewStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.reviews))S.entities.reviews=[];return S.entities.reviews}
 function reviewWipLimit(){return Math.round(lifeOsSettingNumber("reviewProjectWipLimit",5,1,12))}
 function reviewPeriodKey(kind,date=new Date()){return kind==="month"?localMonthKey(date):isoWeekKey(date)}
 function reviewCurrent(kind){const key=reviewPeriodKey(kind);return reviewStore().find(x=>x.kind===kind&&x.periodKey===key)||null}
@@ -21,7 +18,7 @@ function reviewCompletedProjects(a,b){
 }
 function reviewSnapshot(kind){
   const score=lifeScore(),projects=projectSummary(),life=lifeOsDailyPlan(),finance=typeof decisionEngineData==="function"?decisionEngineData():null,tasks=typeof taskSummary==="function"?taskSummary():{active:0,overdue:0,due:0,high:0,doneMonth:0},inboxRows=typeof inboxOpen==="function"?inboxOpen():[];
-  const inbox={open:inboxRows.length,old:inboxRows.filter(x=>typeof inboxAgeDays==="function"&&inboxAgeDays(x)>=2).length},goals=typeof goalSummary==="function"?goalSummary():{active:0,atRisk:0,overdue:0,avg:0,doneMonth:0},routines=typeof routine28Stats==="function"?routine28Stats():{scheduled:0,done:0,rate:0};
+  const inbox={open:inboxRows.length,old:inboxRows.filter(x=>typeof inboxAgeDays==="function"&&inboxAgeDays(x)>=2).length},goals=typeof goalSummary==="function"?goalSummary():{active:0,atRisk:0,overdue:0,avg:0,doneMonth:0},routines=typeof routine28Stats==="function"?routine28Stats():{scheduled:0,done:0,rate:0},execution=typeof executionPlan==="function"?executionPlan():{unscheduled:[],late:[],critical:0};
   if(kind==="month"){
     const r=currentMonthReport(),month=localMonthKey(),readDays=new Set((S.readingLogs||[]).filter(x=>String(x.dateKey||"").startsWith(month)).map(x=>x.dateKey)).size;
     return {
@@ -32,7 +29,7 @@ function reviewSnapshot(kind){
       knowledge:{minutes:r.readMinutes,books:r.books,days:readDays,reviewDue:typeof knowledgeReviewQueue==="function"?knowledgeReviewQueue().length:0},
       projects:{...projects,completed:r?projectCompletedThisMonth():0},
       tasks:{...tasks},inbox,goals,routines,
-      system:{hard:life.hardAll.length,deferred:life.deferred.length}
+      system:{hard:life.hardAll.length,deferred:life.deferred.length,unscheduled:execution.unscheduled.length,lateTasks:execution.late.length,executionCritical:execution.critical}
     }
   }
   const [a,b]=weekBounds(),w=workWeek(),t=tennisWeek(),reads=(S.readingLogs||[]).filter(x=>inRange(x.dateKey,a,b)),readDays=new Set(reads.map(x=>x.dateKey)).size;
@@ -47,7 +44,7 @@ function reviewSnapshot(kind){
     knowledge:{minutes:reads.reduce((n,x)=>n+(+x.minutes||0),0),days:readDays,target:Math.round(lifeOsSettingNumber("readingWeeklyDaysTarget",7,1,7)),reviewDue:typeof knowledgeReviewQueue==="function"?knowledgeReviewQueue().length:0},
     projects:{...projects,completed:reviewCompletedProjects(a,b)},
     tasks:{...tasks},inbox,goals,routines,
-    system:{hard:life.hardAll.length,deferred:life.deferred.length}
+    system:{hard:life.hardAll.length,deferred:life.deferred.length,unscheduled:execution.unscheduled.length,lateTasks:execution.late.length,executionCritical:execution.critical}
   }
 }
 function reviewProjectRank(p){

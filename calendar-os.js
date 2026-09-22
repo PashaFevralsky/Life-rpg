@@ -4,10 +4,7 @@
    and manually planned events such as training/tournaments.
    Calendar load is an estimate of active commitment time, not a full-day time tracker. */
 
-function calendarStore(){
-  if(!Array.isArray(S.settings.calendarEvents))S.settings.calendarEvents=[];
-  return S.settings.calendarEvents
-}
+function calendarStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.calendarEvents))S.entities.calendarEvents=[];return S.entities.calendarEvents}
 function calendarCapacity(){return Math.round(lifeOsSettingNumber("calendarDailyCapacityMin",180,30,720))}
 function calendarHorizon(){return Math.round(lifeOsSettingNumber("calendarHorizonDays",30,7,90))}
 function calendarTypeArea(type){
@@ -83,7 +80,10 @@ function calendarAutoEvents(startKey,endKey){
     if(validDateKey(p.nextDate))add({id:calendarSemanticId(["project","next",p.id,p.nextDate]),dateKey:p.nextDate,source:"project",kind:"project",area:p.area||"Личное",title:`Проект: ${p.title}`,meta:p.nextStep||"следующий шаг",minutes:25,hard:p.nextDate<localDateKey()&&+p.priority===1,priority:+p.priority||2,refId:p.id,route:"projects"});
     if(validDateKey(p.deadline))add({id:calendarSemanticId(["project","deadline",p.id,p.deadline]),dateKey:p.deadline,source:"project",kind:"project-deadline",area:p.area||"Личное",title:`Дедлайн: ${p.title}`,meta:`Прогресс ${p.progress||0}%`,minutes:15,hard:p.deadline<localDateKey()&&+p.priority===1,priority:+p.priority||2,refId:p.id,route:"projects"})
   }
-  if(typeof taskActive==="function")for(const t of taskActive())if(validDateKey(t.dueDate))add({id:calendarSemanticId(["task",t.id,t.dueDate]),dateKey:t.dueDate,source:"task",kind:"task",area:t.area||"Личное",title:`Задача: ${t.title}`,meta:t.note||`Приоритет ${t.priority}`,minutes:t.minutes||15,hard:t.dueDate<localDateKey()&&+t.priority===1,priority:+t.priority||2,refId:t.id,route:"tasks"});
+  if(typeof taskActive==="function")for(const t of taskActive()){
+    if(validDateKey(t.plannedDate))add({id:calendarSemanticId(["task","plan",t.id,t.plannedDate]),dateKey:t.plannedDate,source:"task",kind:"task-plan",area:t.area||"Личное",title:`План: ${t.title}`,meta:t.note||`Приоритет ${t.priority}`,minutes:t.minutes||15,hard:false,priority:+t.priority||2,refId:t.id,route:"tasks"});
+    if(validDateKey(t.dueDate)&&t.dueDate!==t.plannedDate)add({id:calendarSemanticId(["task","deadline",t.id,t.dueDate]),dateKey:t.dueDate,source:"task",kind:"task-deadline",area:t.area||"Личное",title:`Срок задачи: ${t.title}`,meta:`Дедлайн • приоритет ${t.priority}`,minutes:0,hard:t.dueDate<localDateKey()&&+t.priority===1,priority:+t.priority||2,refId:t.id,route:"tasks"})
+  }
   if(typeof goalCalendarEvents==="function")for(const e of goalCalendarEvents(startKey,endKey))add(e);
   if(typeof routineCalendarEvents==="function")for(const e of routineCalendarEvents(startKey,endKey))add(e);
   for(const e of calendarReviewEvents(startKey,endKey))add(e);

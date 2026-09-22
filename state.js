@@ -13,6 +13,7 @@ const DEFAULT_STATE={
   payments:[],balanceHistory:[],
   checks:{},questDone:{},achievements:{},rewardPurchases:[],
   workLogs:[],tennis:[],books:[],readingLogs:[],expenses:[],incomeLogs:[],bankImportIds:[],screenshotImportIds:[],bankTransfers:[],regularPayments:[],financeClosures:[],cashAdjustments:[],reservations:[],fundTransfers:[],accounts:[{id:"main",name:"Основной счёт",type:"Дебетовый счёт",verifiedBalance:null,verifiedAt:"",active:true}],assets:[],assetTransfers:[],importBatches:[],reconciliationSessions:[],importRules:[],crmDeals:[],auditLog:[],trash:[],envelopeCarryovers:{},envelopeLimits:{"Еда":0,"Транспорт":0,"Дом":0,"Связь":0,"Развлечения":0,"Теннис":0,"Покупки":0,"Другое":0},workTargets:{contacts:20,followups:10,lpr:3,meetings:3,proposals:3},
+  entities:{projects:[],tasks:[],goals:[],routines:[],routineLogs:[],reviews:[],inbox:[],calendarEvents:[]},
   created:new Date().toISOString(),updated:new Date().toISOString()
 };
 
@@ -57,6 +58,11 @@ function normalizeLegacyStatementFingerprints(out){
 function normalizeState(raw){
   validateStateShape(raw||{});raw=convertLegacyResetToFresh(deepClone(raw||{}));const out=deepClone(DEFAULT_STATE);
   out.version=STATE_VERSION;out.created=String(raw.created||out.created);out.updated=String(raw.updated||out.updated);out.profile={...out.profile,...(raw.profile||{})};out.settings={...out.settings,...(raw.settings||{})};
+  // v18: durable domain entities live outside settings. v17 backups migrate once from settings.*.
+  const entityKeys=["projects","tasks","goals","routines","routineLogs","reviews","inbox","calendarEvents"],rawEntities=raw.entities&&typeof raw.entities==="object"&&!Array.isArray(raw.entities)?raw.entities:{};
+  out.entities={};
+  for(const key of entityKeys){const primary=Array.isArray(rawEntities[key])?rawEntities[key]:null,legacy=Array.isArray(raw?.settings?.[key])?raw.settings[key]:[];out.entities[key]=deepClone(primary??legacy).filter(x=>x&&typeof x==="object"&&!Array.isArray(x)).map(x=>({...x,id:String(x.id||uid())}));delete out.settings[key]}
+
   const legacyIncome=Number(raw?.settings?.monthlyIncome||0)===200000;
   const legacyEvents=Array.isArray(raw?.settings?.incomeEvents)&&raw.settings.incomeEvents.length===4&&[75000,50000,25000,50000].every((v,i)=>Number(raw.settings.incomeEvents[i]?.amount||0)===v)&&[5,15,20,25].every((v,i)=>Number(raw.settings.incomeEvents[i]?.day||0)===v);
   if(legacyIncome&&legacyEvents){out.settings.monthlyIncome=150000;out.settings.incomeEvents=deepClone(DEFAULT_STATE.settings.incomeEvents)}
@@ -97,7 +103,10 @@ function storageMessage(message){const el=$("storageStatus");if(el)el.textConten
 function validateStateShape(raw){
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new Error("Состояние должно быть объектом");
   if(Number(raw.version)>STATE_VERSION)throw new Error("Данные созданы более новой версией приложения");
-  for(const key of ["profile","settings","stats","checks","questDone","achievements","envelopeLimits","envelopeCarryovers","workTargets"]){if(raw[key]!=null&&(typeof raw[key]!=="object"||Array.isArray(raw[key])))throw new Error(`Некорректное поле ${key}`)}
+  for(const key of ["profile","settings","stats","checks","questDone","achievements","envelopeLimits","envelopeCarryovers","workTargets","entities"]){if(raw[key]!=null&&(typeof raw[key]!=="object"||Array.isArray(raw[key])))throw new Error(`Некорректное поле ${key}`)}
+  const entityKeysForValidation=["projects","tasks","goals","routines","routineLogs","reviews","inbox","calendarEvents"];
+  const rejectDuplicateEntityIds=collections=>{for(const key of entityKeysForValidation){const arr=Array.isArray(collections?.[key])?collections[key]:[],seen=new Set();for(const x of arr){const id=String(x?.id||"").trim();if(!id)continue;if(seen.has(id))throw new Error(`Дублирующийся ID entities.${key}: ${id}`);seen.add(id)}}};
+  if(Number(raw.version)>=18){const keys=entityKeysForValidation;if(!raw.entities)throw new Error("Данные v18 без entities");for(const key of keys){if(!Array.isArray(raw.entities[key]))throw new Error(`Некорректная коллекция entities.${key}`);if(raw.entities[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)||!String(x.id||"").trim()))throw new Error(`Повреждённая запись entities.${key}`)}rejectDuplicateEntityIds(raw.entities);for(const t of raw.entities.tasks)if(t.blockedByIds!=null&&(!Array.isArray(t.blockedByIds)||t.blockedByIds.some(id=>!String(id||"").trim())))throw new Error("Повреждены зависимости задач");for(const g of raw.entities.goals)if(g.projectIds!=null&&(!Array.isArray(g.projectIds)||g.projectIds.some(id=>!String(id||"").trim())))throw new Error("Повреждены связи целей с проектами");for(const r of raw.entities.routines)if(r.days!=null&&(!Array.isArray(r.days)||r.days.some(n=>!Number.isInteger(Number(n))||Number(n)<1||Number(n)>7)))throw new Error("Повреждено расписание рутины");for(const rv of raw.entities.reviews)if(rv?.plan?.focusProjectIds!=null&&!Array.isArray(rv.plan.focusProjectIds))throw new Error("Повреждены связи Review с проектами")}else if(raw.settings&&typeof raw.settings==="object"){const legacy=Object.fromEntries(entityKeysForValidation.map(key=>[key,Array.isArray(raw.settings[key])?raw.settings[key]:[]]));rejectDuplicateEntityIds(legacy)}
   for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(`Некорректный список ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(`Повреждённая запись в ${key}`)}
   for(const x of raw.workLogs||[])if(typeof x.date!=="string")throw new Error("Рабочая запись без даты");
   for(const x of raw.tennis||[])if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");

@@ -1,0 +1,52 @@
+"use strict";
+
+/* Life RPG 11.0.0 — Execution Intelligence
+   Suggests dates; never rewrites deadlines. Dependencies and locked dates are respected. */
+
+function executionHorizon(){return clamp(Math.round(+S.settings.executionHorizonDays||7),3,14)}
+function executionDateRange(days=executionHorizon()){return Array.from({length:days},(_,i)=>localDateKey(addDays(new Date(),i)))}
+function executionBaseLoads(days=executionHorizon()){
+  const dates=executionDateRange(days),start=dates[0],end=dates[dates.length-1],map=new Map(dates.map(k=>[k,0]));
+  const events=typeof calendarEvents==="function"?calendarEvents(days,0):[];
+  for(const e of events){if(!map.has(e.dateKey)||e.source==="task")continue;map.set(e.dateKey,(map.get(e.dateKey)||0)+Math.max(0,+e.minutes||0))}
+  for(const t of taskActive())if(t.autoPlanLocked&&validDateKey(t.plannedDate)&&map.has(t.plannedDate))map.set(t.plannedDate,(map.get(t.plannedDate)||0)+Math.max(0,+t.minutes||0));
+  return map
+}
+function executionTaskScore(t){const h=taskHealth(t),days=h.days==null?30:h.days;return (h.overdue?1000:0)+(t.priority===1?400:t.priority===2?180:50)+Math.max(0,30-days)*8+(t.projectId?30:0)+(validDateKey(t.plannedDate)?10:0)}
+function executionGoalRisks(){return typeof goalActive==="function"?goalActive().map(g=>({goal:g,health:goalHealth(g)})).filter(x=>x.health.atRisk).sort((a,b)=>(b.goal.priority-a.goal.priority)||(a.health.days??999)-(b.health.days??999)):[]}
+function executionProjectRisks(){return typeof projectActive==="function"?projectActive().map(p=>({project:p,health:projectHealth(p)})).filter(x=>x.health.overdueDeadline||x.health.overdueNext||(x.health.deadlineDays!=null&&x.health.deadlineDays<=7&&x.health.pct<70)).sort((a,b)=>(b.health.overdueDeadline-a.health.overdueDeadline)||(a.health.deadlineDays??999)-(b.health.deadlineDays??999)):[]}
+function executionPlan(days=executionHorizon()){
+  const dates=executionDateRange(days),capacity=calendarCapacity(),used=executionBaseLoads(days),assignments=[],unscheduled=[],blocked=[],late=[];
+  const active=taskActive(),byId=new Map(active.map(t=>[t.id,t])),assignedDate=new Map(),done=new Set(taskAll().filter(t=>t.status==="done").map(t=>t.id));
+  for(const t of active)if(t.autoPlanLocked){if(validDateKey(t.plannedDate)&&dates.includes(t.plannedDate)){assignments.push({taskId:t.id,dateKey:t.plannedDate,minutes:t.minutes||15,fixed:true,late:validDateKey(t.dueDate)&&t.plannedDate>t.dueDate});assignedDate.set(t.id,t.plannedDate);if(validDateKey(t.dueDate)&&t.plannedDate>t.dueDate)late.push(t.id)}else blocked.push({taskId:t.id,reason:validDateKey(t.plannedDate)?"locked-outside-horizon":"locked-without-date"})}
+  let pending=active.filter(t=>!t.autoPlanLocked).sort((a,b)=>executionTaskScore(b)-executionTaskScore(a)),guard=0;
+  while(pending.length&&guard++<active.length+2){let progressed=false,next=[];
+    for(const t of pending){
+      const deps=(t.blockedByIds||[]).filter(id=>!done.has(id));
+      const unresolved=deps.filter(id=>byId.has(id)&&!assignedDate.has(id));
+      if(unresolved.length){next.push(t);continue}
+      if(deps.some(id=>!byId.has(id)&&!done.has(id))){blocked.push({taskId:t.id,reason:"missing-dependency"});continue}
+      let min=t.notBefore&&validDateKey(t.notBefore)?t.notBefore:dates[0];
+      for(const id of deps){const d=assignedDate.get(id);if(d&&d>min)min=d}
+      let eligible=dates.filter(k=>k>=min),chosen="";
+      const preferred=validDateKey(t.plannedDate)&&eligible.includes(t.plannedDate)?t.plannedDate:"";
+      const fits=k=>(used.get(k)||0)+Math.max(0,+t.minutes||15)<=capacity;
+      if(preferred&&fits(preferred))chosen=preferred;
+      if(!chosen&&validDateKey(t.dueDate)){const before=eligible.filter(k=>k<=t.dueDate);chosen=before.find(fits)||""}
+      if(!chosen)chosen=eligible.find(fits)||"";
+      if(!chosen){unscheduled.push({taskId:t.id,reason:"capacity"});progressed=true;continue}
+      used.set(chosen,(used.get(chosen)||0)+Math.max(0,+t.minutes||15));assignedDate.set(t.id,chosen);const isLate=validDateKey(t.dueDate)&&chosen>t.dueDate;if(isLate)late.push(t.id);assignments.push({taskId:t.id,dateKey:chosen,minutes:t.minutes||15,fixed:false,late:isLate});progressed=true
+    }
+    if(!progressed){for(const t of next)blocked.push({taskId:t.id,reason:"dependency"});break}pending=next
+  }
+  const load=dates.map(dateKey=>({dateKey,minutes:used.get(dateKey)||0,capacity,ratio:capacity?(used.get(dateKey)||0)/capacity:0}));
+  const overloaded=load.filter(x=>x.minutes>x.capacity),relief=[];
+  for(const d of overloaded){const taskRows=assignments.filter(a=>a.dateKey===d.dateKey&&!a.fixed).map(a=>byId.get(a.taskId)).filter(Boolean).sort((a,b)=>(b.priority-a.priority)||((+b.minutes||0)-(+a.minutes||0))),manual=(typeof calendarManualEvents==="function"?calendarManualEvents():[]).filter(e=>e.dateKey===d.dateKey&&e.status==="planned").sort((a,b)=>(+b.priority||2)-(+a.priority||2));let need=d.minutes-d.capacity;for(const x of [...taskRows.map(t=>({kind:"task",id:t.id,title:t.title,minutes:+t.minutes||15,priority:t.priority})),...manual.map(e=>({kind:"calendar",id:e.id,title:e.title,minutes:+e.minutes||0,priority:e.priority}))]){if(need<=0)break;if(+x.priority===1)continue;relief.push({dateKey:d.dateKey,...x});need-=x.minutes}}
+  const goalRisks=executionGoalRisks(),projectRisks=executionProjectRisks();
+  return {generatedAt:new Date().toISOString(),days,dates,capacity,assignments,unscheduled,blocked,late:[...new Set(late)],load,overloaded,relief,goalRisks,projectRisks,critical:unscheduled.length+late.length+overloaded.length+goalRisks.filter(x=>x.goal.priority===1).length+projectRisks.filter(x=>x.project.priority===1).length}
+}
+function executionTaskById(id){return taskAll().find(t=>t.id===id)||null}
+async function applyExecutionPlan(){const plan=executionPlan();if(!plan.assignments.length){toast("Нет задач для перепланирования");return}await createPreActionSnapshot("Перед применением автоплана");let changed=0;for(const a of plan.assignments){const t=executionTaskById(a.taskId);if(!t||a.fixed||t.autoPlanLocked)continue;if(t.plannedDate!==a.dateKey){t.plannedDate=a.dateKey;t.updatedAt=new Date().toISOString();changed++}}S.settings.executionLastAppliedAt=new Date().toISOString();audit("Execution plan applied","system",`Перепланировано задач: ${changed}`);await save(`Автоплан: обновлено ${changed} задач`)}
+function executionDecisionEngine(){const p=executionPlan();const out=[];if(p.unscheduled.length)out.push({id:"execution:capacity",area:"Система",kind:"execution-capacity",title:"Неделя не вмещает все задачи",meta:`Не помещается ${p.unscheduled.length} задач • лимит ${p.capacity} мин/день`,score:88,hard:false,minutes:10,route:"execution",source:"Execution Intelligence",confidence:"high"});if(p.late.length)out.push({id:"execution:late",area:"Система",kind:"execution-late",title:"Есть задачи, которые планируются после дедлайна",meta:`Конфликтов срока: ${p.late.length}`,score:96,hard:false,minutes:10,route:"execution",source:"Execution Intelligence",confidence:"high"});if(p.goalRisks.some(x=>x.goal.priority===1))out.push({id:"execution:goal-risk",area:"Система",kind:"execution-goal-risk",title:"Критичная цель под риском",meta:p.goalRisks.filter(x=>x.goal.priority===1).slice(0,2).map(x=>`${x.goal.title} • ${x.health.progress}%`).join(" • "),score:92,hard:false,minutes:10,route:"execution",source:"Execution Intelligence",confidence:"medium"});return out}
+function ensureExecutionOsUi(){if(document.getElementById("executionOsCommand"))return;const grid=document.querySelector?.("#today .grid");if(!grid)return;const anchor=document.getElementById("routinesOsCommand")?.closest?.(".card")||document.getElementById("tasksOsCommand")?.closest?.(".card");if(!anchor||typeof anchor.insertAdjacentHTML!=="function")return;anchor.insertAdjacentHTML("afterend",`<div data-ux7-view="focus" class="card ux7-card span-12"><div class="split"><div><div class="eyebrow">Execution Intelligence</div><div class="section-title">Реалистичный план недели</div></div><button class="btn secondary small" onclick="applyExecutionPlan()">Применить план</button></div><div class="muted" style="margin-top:6px">Учитывает календарную ёмкость, дедлайны, not-before, зависимости и заблокированные плановые даты. Дедлайны не изменяет.</div><div id="executionOsCommand" style="margin-top:10px"></div></div>`)}
+function renderExecutionOs(){const box=document.getElementById("executionOsCommand");if(!box)return;const p=executionPlan(),by=new Map(taskAll().map(t=>[t.id,t]));box.innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Запланировано</div><b>${p.assignments.length}</b></div><div class="report-item"><div class="smallcaps">Не помещается</div><b class="${p.unscheduled.length?"income-bad":""}">${p.unscheduled.length}</b></div><div class="report-item"><div class="smallcaps">После дедлайна</div><b class="${p.late.length?"income-bad":""}">${p.late.length}</b></div><div class="report-item"><div class="smallcaps">Целей под риском</div><b>${p.goalRisks.length}</b></div><div class="report-item"><div class="smallcaps">Проектов под риском</div><b>${p.projectRisks.length}</b></div></div><div style="margin-top:10px">${p.dates.map(k=>{const l=p.load.find(x=>x.dateKey===k),rows=p.assignments.filter(x=>x.dateKey===k);return `<div class="log-item"><div class="split"><div class="qtitle">${k===localDateKey()?"Сегодня":fmtDate(parseLocal(k))}</div><span class="tag ${l.minutes>l.capacity?"bad":l.ratio>=.8?"warn":""}">${l.minutes}/${l.capacity} мин</span></div>${rows.length?rows.map(a=>{const t=by.get(a.taskId);return `<div class="qmeta" style="margin-top:5px">${a.fixed?"🔒 ":""}${escapeHtml(t?.title||a.taskId)}${a.late?" • после дедлайна":""}</div>`}).join(""):"<div class=\"sub\">Свободно для задач</div>"}</div>`}).join("")}</div>${p.unscheduled.length?`<div class="notice" style="margin-top:10px"><b>Не помещается:</b> ${p.unscheduled.slice(0,4).map(x=>escapeHtml(by.get(x.taskId)?.title||x.taskId)).join(" • ")}</div>`:""}${p.relief.length?`<div class="notice" style="margin-top:10px"><b>Что можно перенести для разгрузки:</b> ${p.relief.slice(0,5).map(x=>`${fmtDate(parseLocal(x.dateKey))}: ${escapeHtml(x.title)} (~${x.minutes} мин)`).join(" • ")}</div>`:""}`}

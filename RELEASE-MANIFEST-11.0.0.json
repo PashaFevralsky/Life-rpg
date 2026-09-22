@@ -1,0 +1,128 @@
+{
+  "release": "11.0.0",
+  "stateVersion": 18,
+  "baseCommit": "4345119002ffa7cefc41ec25e789cf48f9de5ce9",
+  "generatedAt": "2026-09-22",
+  "files": {
+    "architecture.test.js": {
+      "bytes": 3163,
+      "sha256": "3afc8c20d13ab482559f01dcd2bcf4c2a2d447732d1f1b5a759bf6543b2f7c12"
+    },
+    "bootstrap.js": {
+      "bytes": 2822,
+      "sha256": "7b5ea59fb66b47f157440a78a4cb0edc840621f65a28b62304cc3d174cce3f32"
+    },
+    "calendar-os.js": {
+      "bytes": 24378,
+      "sha256": "b30b9c036e8142130a1821023954877c7e80047b43814f11b1b19ef5bfbd8cbe"
+    },
+    "command-os.js": {
+      "bytes": 8222,
+      "sha256": "72e9e312a12f7d7bdbeb8d3c40d30e7bf7d2302cd5fb1ea54fee945703736dea"
+    },
+    "core.js": {
+      "bytes": 3742,
+      "sha256": "357aeaec5c7d4806ec07e67148644083ce9a642666de251929d0e88bac60d464"
+    },
+    "data-os.js": {
+      "bytes": 7729,
+      "sha256": "1f1ba65fc2e388055a174012c57419c608d289ceec59ef5b4e65ac67093cf68f"
+    },
+    "decision-os.js": {
+      "bytes": 11779,
+      "sha256": "89e3539ec52bf52dc79543d93cdb4f408c669d0b38615f869f0e2d22051d28e8"
+    },
+    "e2e.test.js": {
+      "bytes": 15153,
+      "sha256": "6382278bc19066d7ac12f1a523c5d6af6c70dd548aa6aff2514b355572a526bb"
+    },
+    "execution-os.js": {
+      "bytes": 10766,
+      "sha256": "d252086f94d8a33d08c18739a6fd63d9fd5368c26211406092b0eb0991f74e35"
+    },
+    "goals-os.js": {
+      "bytes": 13757,
+      "sha256": "3c4344edfdb76fac2150abfd5860221aa8f0798022c1a2fc92688ebff1fb025c"
+    },
+    "inbox-os.js": {
+      "bytes": 8653,
+      "sha256": "8b996abe0290b5444e9ef0cd60c2b156e075e64b7486c0f3b87af1c9b71c2e9b"
+    },
+    "index.html": {
+      "bytes": 68969,
+      "sha256": "58feba99d47bfea045a5563b882c7b211d34ecc78bfb14016315ab28ad63eb80"
+    },
+    "insights-os.js": {
+      "bytes": 11224,
+      "sha256": "967c02168586f53dad1e9675f65b56bdc818f3e9368525de98c2c256c513ec6c"
+    },
+    "life-os.js": {
+      "bytes": 22997,
+      "sha256": "ca123560de8aa7f86263c71c3cfca27fe3c44a40b0e02a4278ad20e3d0b6b01a"
+    },
+    "manifest.webmanifest": {
+      "bytes": 581,
+      "sha256": "27763affae015e47590080136ddde8593651615ee25fb6b1483ae39eb2dbe735"
+    },
+    "os-integration.test.js": {
+      "bytes": 24374,
+      "sha256": "492c5cdfa5162893fe9b30ed7541704b514bbef3c2bae11934c2c4dcb8e8d9e6"
+    },
+    "package.json": {
+      "bytes": 925,
+      "sha256": "caf4fdbb6ce338be76991de1fa85b56698bc13bde97b2cbddd8bb5872e54e477"
+    },
+    "projects-os.js": {
+      "bytes": 15105,
+      "sha256": "7cbc755bb825b994ed34034e9c99bac9a88168f5785a9ccebdbefb2342d0edcd"
+    },
+    "recovery-os.js": {
+      "bytes": 6426,
+      "sha256": "2ab3bbdbaca944dca7620e168af9c957657826bd5dd1da99aa66c40a6a5594dd"
+    },
+    "review-os.js": {
+      "bytes": 19721,
+      "sha256": "c6a2dda5a127b5145165c2bd85b7cddd75935fc44de239f2ca9f60702338ef2e"
+    },
+    "routines-os.js": {
+      "bytes": 12003,
+      "sha256": "e1155c0389707733bac76c961b1cb86e964ca7db13683132b305aeacc24426c6"
+    },
+    "rules-os.js": {
+      "bytes": 8022,
+      "sha256": "87f12e4967fa2927ceb0e03e5658ac0bdcc12665c0158c91eca63e766ba3778e"
+    },
+    "state-v18.test.js": {
+      "bytes": 3190,
+      "sha256": "8839f8b21b89a264986a0883dfe487630aa03d34b2b2eb14dca87ac05e759ec9"
+    },
+    "state.js": {
+      "bytes": 36397,
+      "sha256": "beddf5942ae96eb3fc497398acaaf9a3f835db845b2b743111acb3403492b068"
+    },
+    "static-check.js": {
+      "bytes": 6960,
+      "sha256": "d5deb8a64a61ae72f70ff545ef6578b9eab6bb7739bf12d309264d57bea1a70c"
+    },
+    "sw.js": {
+      "bytes": 1837,
+      "sha256": "5d0d5b8e01f21eaaf0ae0350adff273d12b1a711c47f5e65f5cfda5bd70616d1"
+    },
+    "tasks-os.js": {
+      "bytes": 12695,
+      "sha256": "b599f1340e1a171cd36585eda057479ef3fea623114218e973a0ec240410a27b"
+    },
+    "vite.config.mjs": {
+      "bytes": 1882,
+      "sha256": "8d90a2d0696d816cf360fe64f7cfd1c78cd240c9eca07283b209162414dc5133"
+    },
+    "CHANGELOG-11.0.0.txt": {
+      "bytes": 3746,
+      "sha256": "2689108087e2a6275048c9c9105168c53bf497517e325ab5bceaa625a4d75f05"
+    },
+    "GITHUB-UPLOAD-11.0.0.txt": {
+      "bytes": 678,
+      "sha256": "6091feabc4b7c925d8d8c392b25c7d2faae8b8dfbe9ce2fcbd6fa53eb4e5b7b2"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("Life RPG 10 mobile critical flow", async ({ page }) => {
+test("Life RPG 11 mobile critical flow", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", error => pageErrors.push(String(error)));
 
@@ -11,8 +11,8 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("10.2.0");
-  expect(await page.evaluate(()=>STATE_VERSION)).toBe(17);
+  await expect(page.locator("#versionStatus")).toContainText("11.0.0");
+  expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.
   await expect(page.locator("#lifeOsCommand")).toBeVisible();
@@ -24,6 +24,10 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#routinesOsCommand")).toBeVisible();
   await expect(page.locator("#inboxOsCommand")).toBeVisible();
   await expect(page.locator("#commandPaletteBtn")).toBeVisible();
+  await expect(page.locator("#todayFlowCommand")).toBeVisible();
+  await expect(page.locator("#decisionOsCommand")).toBeVisible();
+  await expect(page.locator("#executionOsCommand")).toBeVisible();
+  await expect(page.locator("#lifeOsCommand")).toContainText("Не предлагать");
 
   // Tasks OS -> create a real next action.
   await page.locator('button[onclick*="taskEditorCard"]').click();
@@ -33,6 +37,9 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator("#taskPriority").selectOption("1");
   await page.locator('button[onclick="saveTaskForm()"]',).click();
   await expect(page.locator("#tasksOsList")).toContainText("E2E задача");
+  expect(await page.evaluate(()=>Array.isArray(S.entities.tasks)&&S.entities.tasks.some(x=>x.title==="E2E задача"))).toBe(true);
+  await page.locator('button[onclick="applyExecutionPlan()"]',).click();
+  expect(await page.evaluate(()=>S.entities.tasks.find(x=>x.title==="E2E задача")?.plannedDate||"")).not.toBe("");
 
   // Routines OS -> create today's routine and complete it once.
   await page.locator('button[onclick*="routineDayPicker"]').click();
@@ -113,9 +120,14 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator('[data-tab="more"]').click();
   await expect(page.locator("#more")).toHaveClass(/active/);
 
-  // Modular 10.2.0 systems are present in More / Overview.
+  // Modular 11.0.0 systems are present in More / Overview.
   await expect(page.locator("#rulesOsCommand")).toBeVisible();
   await expect(page.locator("#insightsOsCommand")).toBeVisible();
+  const settingsTab=page.locator('#more .ux7-tab[data-view="settings"]');
+  await settingsTab.click();
+  await expect(page.locator("#dataOsCommand")).toBeVisible();
+  await expect(page.locator("#recoveryOsCommand")).toBeVisible();
+  await page.locator('#more .ux7-tab[data-view="overview"]').click();
 
   // Projects OS -> create a real project in More / Overview.
   await expect(page.locator("#projectsOsCommand")).toBeVisible();
@@ -189,6 +201,35 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#bookList")).toContainText("E2E книга");
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   expect(pageErrors).toEqual([]);
+});
+
+test("v17 local state migrates durably to entity architecture v18", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
+  await page.evaluate(async()=>{
+    const raw={
+      version:17,
+      created:new Date().toISOString(),
+      updated:new Date(Date.now()+2000).toISOString(),
+      profile:{name:"migration-e2e"},
+      settings:{
+        projects:[{id:"m-project",title:"Migrated project",status:"active",area:"Работа",priority:2,progress:10,nextStep:"Step"}],
+        tasks:[{id:"m-task",title:"Migrated task",status:"active",area:"Работа",priority:2,projectId:"m-project",minutes:20}]
+      }
+    };
+    localStorage.setItem("lifeRpg4",JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
+  const migrated=await page.evaluate(()=>({
+    version:S.version,
+    project:S.entities.projects.some(x=>x.id==="m-project"),
+    task:S.entities.tasks.some(x=>x.id==="m-task"&&x.projectId==="m-project"),
+    legacyProjects:Object.prototype.hasOwnProperty.call(S.settings,"projects")
+  }));
+  expect(migrated).toEqual({version:18,project:true,task:true,legacyProjects:false});
+  await page.evaluate(()=>persist());
+  expect(await page.evaluate(async()=>(await dbGet("state","current")).version)).toBe(18);
 });
 
 test("newer fallback survives reload and becomes durable", async ({ page }) => {
