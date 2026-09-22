@@ -65,7 +65,7 @@ function knowledgeReviewIntervals(){
 }
 function knowledgeReviewState(x){
   const intervals=knowledgeReviewIntervals(),legacyReviewed=!!x.reviewedAt&&x.reviewCount==null,count=Math.max(0,Math.round(legacyReviewed?1:(+x.reviewCount||0)));
-  const interval=intervals[Math.min(count,intervals.length-1)];
+  const nextIndex=x.reviewedAt?Math.max(0,count-1):0,interval=intervals[Math.min(nextIndex,intervals.length-1)];
   let anchor;
   if(x.reviewedAt)anchor=new Date(x.reviewedAt);
   else anchor=parseLocal(x.dateKey||localDateKey());
@@ -80,7 +80,6 @@ knowledgeReviewQueue=function(){
     .filter(z=>z.s.due)
     .sort((a,b)=>a.s.dueAt-b.s.dueAt||String(a.x.dateKey||"").localeCompare(String(b.x.dateKey||"")))
     .map(z=>z.x)
-    .slice(0,30)
 };
 markKnowledgeReviewed=async function(id){
   const x=S.readingLogs.find(z=>z.id===id);if(!x)return;
@@ -133,7 +132,7 @@ function readingQueueHorizon(){
 }
 function knowledgeMonthData(){
   const month=localMonthKey(),logs=(S.readingLogs||[]).filter(x=>String(x.dateKey||"").startsWith(month)),mins=logs.reduce((s,x)=>s+Math.max(0,+x.minutes||0),0),pages=logs.reduce((s,x)=>s+Math.max(0,+x.pages||0),0),days=new Set(logs.map(x=>x.dateKey)).size,done=(S.books||[]).filter(b=>b.status==="done"&&String(b.completed||"").startsWith(month)).length;
-  const now=new Date(),elapsed=now.getDate(),target=Math.max(1,knowledgeOsNumber("readingDailyMin",30,1,1440)),planned=elapsed*target;
+  const now=new Date(),elapsed=now.getDate(),target=Math.max(1,knowledgeOsNumber("readingDailyMin",30,1,1440)),weeklyDays=Math.max(1,knowledgeOsNumber("readingWeeklyDaysTarget",7,1,7)),planned=Math.round(elapsed*target*weeklyDays/7);
   return {mins,pages,days,done,planned,pace:planned>0?mins/planned*100:0}
 }
 function knowledgeDecisionEngine(){
@@ -143,7 +142,7 @@ function knowledgeDecisionEngine(){
   if(b&&today<target)out.push({kind:"read",title:`Дочитать дневной минимум: ещё ${target-today} мин`,meta:`Сегодня зафиксировано ${today}/${target} мин.`});
   if(b&&v.minutes>0&&v.pages===0)out.push({kind:"data",title:"Указывать страницы после чтения",meta:"Без страниц приложение видит время, но не может оценить скорость и срок завершения книги."});
   if(c.sessions>=5&&c.captureRate<40)out.push({kind:"capture",title:"Зафиксировать хотя бы один тезис",meta:`За 28 дней знания сохранены в ${pct(c.captureRate,0)} сессий. Не нужно конспектировать всё — достаточно ключевых идей.`});
-  if(cons.activeDays<Math.max(1,Math.round(knowledgeOsNumber("readingWeeklyDaysTarget",7,1,7)))&&cons.days>=7)out.push({kind:"consistency",title:"Вернуть регулярность чтения",meta:`За последние 28 дней чтение было в ${cons.activeDays} днях; средняя частота ${cons.weeklyDays.toFixed(1)} дн./нед.`});
+  if(cons.weeklyDays+0.01<Math.max(1,Math.round(knowledgeOsNumber("readingWeeklyDaysTarget",7,1,7)))&&cons.days>=7)out.push({kind:"consistency",title:"Вернуть регулярность чтения",meta:`За последние 28 дней чтение было в ${cons.activeDays} днях; средняя частота ${cons.weeklyDays.toFixed(1)} дн./нед.`});
   if(b&&v.calendarDays!=null)out.push({kind:"pace",title:`Текущий прогноз: закончить примерно за ${v.calendarDays} дн.`,meta:`${v.remaining} стр. осталось • ${v.pagesPerHour.toFixed(1)} стр./ч • ${cons.weeklyDays.toFixed(1)} дней чтения в неделю.`});
   return out.slice(0,7)
 }
@@ -155,14 +154,14 @@ function ensureKnowledgeOsUi(){
   const grid=document.querySelector?.("#more .grid");if(!grid)return;
   const anchor=grid.querySelector?.(".book-hero")||null,target=anchor||grid;if(typeof target.insertAdjacentHTML!=="function")return;
   target.insertAdjacentHTML(anchor?"afterend":"beforeend",`
-    <div data-ux7-view="knowledge" class="card span-12"><div class="eyebrow">Knowledge OS</div><div class="section-title">Центр чтения и удержания знаний</div><div class="muted" style="margin-top:6px">Темп, регулярность, повторение и фиксация идей. Метрики повторения показывают дисциплину работы с заметками, а не измеряют память напрямую.</div><div id="knowledgeOsCommand" style="margin-top:12px"></div></div>
-    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Reading Engine</div><div class="title">Темп и прогноз книги</div><div id="knowledgeOsPace"></div></div>
-    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Consistency</div><div class="title">Регулярность</div><div id="knowledgeOsConsistency"></div></div>
-    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Review Engine</div><div class="title">Интервальные повторения</div><div id="knowledgeOsReview"></div></div>
-    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Capture</div><div class="title">Фиксация и применение</div><div id="knowledgeOsCapture"></div></div>
-    <div data-ux7-view="knowledge" class="card span-6"><div class="title">Очередь: горизонт</div><div id="knowledgeOsQueue"></div></div>
-    <div data-ux7-view="knowledge" class="card span-6"><div class="title">Месяц: план → факт</div><div id="knowledgeOsMonth"></div></div>
-    <div data-ux7-view="knowledge" class="card span-12"><details><summary>Настройки Knowledge OS</summary><div class="formgrid" style="margin-top:12px"><div class="field"><label>Чтение / день, мин</label><input id="knowledgeOsDailyMin" type="number" min="1" max="1440"></div><div class="field"><label>Целевых дней чтения / неделю</label><input id="knowledgeOsWeeklyDays" type="number" min="1" max="7"></div><div class="field"><label>Базовый интервал повторения, дней</label><input id="knowledgeOsReviewBase" type="number" min="3" max="90"></div></div><button class="btn secondary" style="margin-top:12px" onclick="saveKnowledgeOsSettings()">Сохранить настройки</button><div class="notice" style="margin-top:10px">Новая заметка сразу попадает в очередь первого повторения. После него интервалы: 1 день → 3 дня → базовый интервал → ×2 → ×4. После последней ступени используется самый длинный интервал повторно.</div></details></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-12"><div class="eyebrow">Knowledge OS</div><div class="section-title">Центр чтения и удержания знаний</div><div class="muted" style="margin-top:6px">Темп, регулярность, повторение и фиксация идей. Метрики повторения показывают дисциплину работы с заметками, а не измеряют память напрямую.</div><div id="knowledgeOsCommand" style="margin-top:12px"></div></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-6"><div class="eyebrow">Reading Engine</div><div class="title">Темп и прогноз книги</div><div id="knowledgeOsPace"></div></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-6"><div class="eyebrow">Consistency</div><div class="title">Регулярность</div><div id="knowledgeOsConsistency"></div></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-6"><div class="eyebrow">Review Engine</div><div class="title">Интервальные повторения</div><div id="knowledgeOsReview"></div></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-6"><div class="eyebrow">Capture</div><div class="title">Фиксация и применение</div><div id="knowledgeOsCapture"></div></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-6"><div class="title">Очередь: горизонт</div><div id="knowledgeOsQueue"></div></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-6"><div class="title">Месяц: план → факт</div><div id="knowledgeOsMonth"></div></div>
+    <div data-ux7-view="knowledge" class="card ux7-card span-12"><details><summary>Настройки Knowledge OS</summary><div class="formgrid" style="margin-top:12px"><div class="field"><label>Чтение / день, мин</label><input id="knowledgeOsDailyMin" type="number" min="1" max="1440"></div><div class="field"><label>Целевых дней чтения / неделю</label><input id="knowledgeOsWeeklyDays" type="number" min="1" max="7"></div><div class="field"><label>Базовый интервал повторения, дней</label><input id="knowledgeOsReviewBase" type="number" min="3" max="90"></div></div><button class="btn secondary" style="margin-top:12px" onclick="saveKnowledgeOsSettings()">Сохранить настройки</button><div class="notice" style="margin-top:10px">Новая заметка сразу попадает в очередь первого повторения. После него интервалы: 1 день → 3 дня → базовый интервал → ×2 → ×4. После последней ступени используется самый длинный интервал повторно.</div></details></div>
   `)
 }
 function renderKnowledgeOsCommand(){

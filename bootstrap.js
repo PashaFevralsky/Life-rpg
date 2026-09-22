@@ -20,6 +20,23 @@ function lifeOsSettingNumber(key,fallback,min=0,max=Number.POSITIVE_INFINITY){
   return Number.isFinite(v)?clamp(v,min,max):fallback
 }
 
+const lifeOsLegacyScore=lifeScore;
+lifeScore=function(){
+  const base=lifeOsLegacyScore(),week=typeof tennisWeek==="function"?tennisWeek():{sessions:0},monthSessions=(S.tennis||[]).filter(x=>x.dateKey?.startsWith(localMonthKey())).length;
+  const tennisMonthTarget=Math.max(1,lifeOsSettingNumber("tennisMonthlyTarget",12,1,60)),tennisWeekTarget=Math.max(1,lifeOsSettingNumber("tennisWeeklyTarget",4,1,14));
+  const tennisRegular=clamp(monthSessions/tennisMonthTarget*100,0,100),tennisWeekScore=clamp((week.sessions||0)/tennisWeekTarget*100,0,100),rated=typeof tennisAllMatches==="function"?tennisAllMatches().filter(m=>(+m.opponentRating||0)>0).length:0;
+  base.tennis=tennisRegular*.55+tennisWeekScore*.30+Math.min(100,rated*10)*.15;
+
+  const readingWeekTarget=Math.max(1,lifeOsSettingNumber("readingWeeklyDaysTarget",7,1,7)),readDays=clamp(readingDaysThisWeek()/readingWeekTarget*100,0,100),b=currentBook(),bookProgress=b&&+b.totalPages?clamp((+b.currentPage||0)/(+b.totalPages||1)*100,0,100):50,applied=(S.readingLogs||[]).filter(x=>x.application).filter(x=>x.dateKey>=localDateKey(addDays(new Date(),-30))).length;
+  base.reading=readDays*.55+bookProgress*.25+Math.min(100,applied*20)*.20;
+
+  base.total=(base.finance+base.career+base.tennis+base.reading+base.discipline)/5;
+  base.details=base.details.map(x=>x.name==="Теннис"?{...x,reason:`месяц ${monthSessions}/${tennisMonthTarget} • неделя ${week.sessions||0}/${tennisWeekTarget} • рейтинговых матчей ${rated}`}:
+    x.name==="Знания"?{...x,reason:`чтение ${readingDaysThisWeek()}/${readingWeekTarget} дней • прогресс книги ${Math.round(bookProgress)}% • применений ${applied}`}:x);
+  return base
+};
+
+
 function lifeOsEstimateMinutes(area,kind){
   if(area==="Финансы"||area==="Система")return 10;
   if(area==="Работа")return ["activity","pace","pipeline"].includes(kind)?30:20;
@@ -49,6 +66,7 @@ function lifeOsRawCandidates(){
     const f=decisionEngineData();
     for(const x of (f.actions||[]).slice(0,5)){
       lifeOsAddCandidate(out,{
+        id:/просроч/i.test(String(x.title||""))?"finance:overdue":/кассов/i.test(String(x.title||""))?"finance:cash-gap":"finance:"+(x.level||"finance")+":"+String(x.title||""),
         area:"Финансы",kind:x.level||"finance",title:x.title,meta:x.meta,
         score:x.level==="bad"?145:x.level==="warn"?105:60,
         hard:x.level==="bad"
@@ -58,6 +76,7 @@ function lifeOsRawCandidates(){
     if(next){
       const days=daysBetween(new Date(),next.date),overdue=!!next.overdue;
       if(overdue||days<=3)lifeOsAddCandidate(out,{
+        id:overdue?"finance:overdue":"finance:deadline:"+String(next.label||""),
         area:"Финансы",kind:"deadline",
         title:(overdue?"Просрочен платёж: ":"Ближайший платёж: ")+next.label,
         meta:rub(next.amount)+" • "+(overdue?"срок был "+fmtDate(next.date):days===0?"сегодня":days===1?"завтра":"через "+days+" дн."),
@@ -96,8 +115,10 @@ function lifeOsRawCandidates(){
   }
 
   if(typeof dataIntegrityIssues==="function"){
-    for(const x of dataIntegrityIssues().slice(0,4)){
+    const duplicatedByDomain=/^(Просрочена дата платежа:|CRM без следующего шага:|Неполная карточка ≥500k:)/i;
+    for(const x of dataIntegrityIssues().filter(x=>!duplicatedByDomain.test(String(x.title||""))).sort((a,b)=>(a.level==="bad"?0:1)-(b.level==="bad"?0:1)).slice(0,4)){
       lifeOsAddCandidate(out,{
+        id:"system:"+String(x.title||""),
         area:"Система",kind:"integrity",title:x.title||"Проверить данные",meta:x.meta||x.detail||"",
         score:x.level==="bad"?140:x.level==="warn"?94:55,
         hard:x.level==="bad",minutes:10
@@ -108,11 +129,11 @@ function lifeOsRawCandidates(){
 }
 
 function lifeOsDedupCandidates(rows){
-  const seen=new Map(),out=[];
+  const seenIds=new Set(),seenTitles=new Set(),out=[];
   for(const x of rows.slice().sort((a,b)=>b.score-a.score)){
-    const key=(x.area+"|"+x.title).toLocaleLowerCase("ru-RU").replace(/[^a-zа-яё0-9]+/g," ").trim();
-    if(seen.has(key))continue;
-    seen.set(key,true);out.push(x)
+    const id=String(x.id||""),key=(x.area+"|"+x.title).toLocaleLowerCase("ru-RU").replace(/[^a-zа-яё0-9]+/g," ").trim();
+    if((id&&seenIds.has(id))||seenTitles.has(key))continue;
+    if(id)seenIds.add(id);seenTitles.add(key);out.push(x)
   }
   const read=out.find(x=>x.area==="Знания"&&x.kind==="read"),review=out.find(x=>x.area==="Знания"&&x.kind==="review");
   if(read&&review){
@@ -140,13 +161,13 @@ function lifeOsCandidates(){
 }
 
 function lifeOsDailyPlan(){
-  const limit=Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)),all=lifeOsCandidates(),plan=[],picked=new Set();
-  const add=x=>{if(!x||picked.has(x.id)||plan.length>=limit)return;plan.push(x);picked.add(x.id)};
-  for(const x of all.filter(x=>x.hard))add(x);
-  let areas=new Set(plan.map(x=>x.area));
-  for(const x of all)if(plan.length<limit&&x.score>=42&&!areas.has(x.area)){add(x);areas.add(x.area)}
-  for(const x of all)if(plan.length<limit&&x.score>=42)add(x);
-  const deferred=all.filter(x=>x.score>=42&&!picked.has(x.id)),hardAll=all.filter(x=>x.hard);
+  const limit=Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)),all=lifeOsCandidates(),plan=[],picked=new Set(),hardAll=all.filter(x=>x.hard);
+  const add=x=>{if(!x||picked.has(x.id))return;plan.push(x);picked.add(x.id)};
+  for(const x of hardAll)add(x);
+  const softLimit=Math.max(limit,hardAll.length),areas=new Set(plan.map(x=>x.area));
+  for(const x of all)if(plan.length<softLimit&&x.score>=42&&!areas.has(x.area)){add(x);areas.add(x.area)}
+  for(const x of all)if(plan.length<softLimit&&x.score>=42)add(x);
+  const deferred=all.filter(x=>x.score>=42&&!picked.has(x.id));
   return {
     limit,all,plan,deferred,hardAll,
     minutes:plan.reduce((s,x)=>s+x.minutes,0),
@@ -211,7 +232,7 @@ function ensureLifeOsUi(){
   const grid=document.querySelector?.("#today .grid");if(!grid)return;
   const anchor=grid.querySelector?.(".quick-card");if(!anchor||typeof anchor.insertAdjacentHTML!=="function")return;
   anchor.insertAdjacentHTML("afterend",
-    '<div data-ux7-view="focus" class="card span-12">'+
+    '<div data-ux7-view="focus" class="card ux7-card span-12">'+
       '<div class="eyebrow">Life OS</div><div class="section-title">Единый центр решений</div>'+
       '<div class="muted" style="margin-top:6px">Жёсткие обязательства имеют приоритет над мягкими целями. После них Life OS ограничивает день несколькими действиями, чтобы список задач не рос бесконечно.</div>'+
       '<div id="lifeOsCommand" style="margin-top:12px"></div>'+

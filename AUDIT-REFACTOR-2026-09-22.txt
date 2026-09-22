@@ -1,0 +1,121 @@
+Life RPG — consolidated OS audit & refactor
+Date: 2026-09-22
+Base commit audited: 61977209c0f2fd7de890959e2c6363491e4ad0bd
+
+SCOPE
+Finance was treated as protected baseline. Refactor focuses on Work OS, Tennis OS,
+Knowledge OS, Life OS and their interaction with UX7 navigation/testing.
+
+FIXED FINDINGS
+
+1. Dynamic OS cards did not participate in UX7 subview switching.
+   Cause: cards were inserted after UX7 shell tagging and lacked class ux7-card.
+   Effect: Work/Tennis/Knowledge/Life cards could remain visible on the wrong subtab.
+   Fix: every dynamically injected OS card now has ux7-card.
+   Covered by: source integration assertions + Playwright visibility checks.
+
+2. Knowledge review schedule had an off-by-one error.
+   Intended: immediate first review -> 1d -> 3d -> base -> 2x -> 4x.
+   Actual after first review: next interval was 3 days.
+   Fix: completed-review count now maps to the correct next interval.
+
+3. Knowledge review backlog was capped at 30.
+   Effect: Life OS and Knowledge OS could under-report a larger backlog.
+   Fix: knowledgeReviewQueue returns the full due queue; UI still renders only a short preview.
+
+4. Knowledge regularity compared incompatible units.
+   Cause: active days in a 28-day window were compared directly with a weekly target.
+   Fix: comparison now uses actual average reading days/week.
+
+5. Knowledge month plan ignored configured reading-days/week.
+   Cause: planned minutes assumed reading every calendar day.
+   Fix: monthly plan-to-date scales by readingWeeklyDaysTarget / 7.
+
+6. CRM stale threshold was inconsistent.
+   Cause: Work OS quality diagnostics used configurable workStaleDays, while the original
+   CRM Decision Engine always used 14 days.
+   Fix: both engines now use the same configurable threshold.
+
+7. Life Systems Score still used legacy weekly targets.
+   Cause: Tennis was scored against 3 sessions/week and Knowledge against 5 days/week.
+   Fix: score and explanation now use tennisWeeklyTarget and readingWeeklyDaysTarget.
+
+8. Life OS could hide hard obligations behind the daily task limit.
+   Cause: the same cap was applied to hard and soft actions.
+   Fix: all hard obligations are always included. The configured 2–6 limit applies to
+   the normal daily plan; exceeding it explicitly marks the day as overloaded.
+
+ADDITIONAL REFACTOR
+
+- Finance overdue candidates get stable semantic IDs, preventing the same overdue
+  obligation from consuming multiple Life OS slots with different wording.
+- Life OS de-duplicates by semantic ID first and normalized title second.
+- System-integrity actions are sorted so critical issues precede warnings.
+- Only known duplicated domain diagnostics are suppressed from System priorities;
+  unique integrity issues (orphan records, duplicate IDs, invalid tennis/book data, etc.)
+  remain visible.
+- Added os-integration.test.js.
+- Expanded mobile E2E to verify dynamic OS cards really hide/show on UX7 subtabs.
+
+TESTS ADDED / EXTENDED
+
+os-integration.test.js covers:
+- immediate Knowledge review;
+- 1-day then 3-day review progression;
+- backlog >30;
+- weekly reading regularity;
+- cadence-aware month plan;
+- configurable CRM stale threshold;
+- hard Life OS actions above soft cap;
+- semantic action de-duplication;
+- Life Systems Score target alignment;
+- ux7-card registration for all dynamic OS cards.
+
+e2e.test.js additionally checks:
+- Life OS visible in Today/Focus and hidden in Today/Progress;
+- Work OS CRM card visible in CRM while Overview card is hidden;
+- Tennis OS analytics hidden in Training;
+- Knowledge OS visible in Knowledge.
+
+LOCAL PRE-CI CHECKS
+- node --check work.js: OK
+- node --check tennis.js: OK
+- node --check knowledge.js: OK
+- node --check bootstrap.js: OK
+- node --check os-integration.test.js: OK
+- node --check e2e.test.js: OK
+- exact Knowledge review behavior test: OK
+- exact Work stale-threshold behavior test: OK
+- exact Life OS hard-cap behavior test: OK
+- dynamic UX7-card registration source test: OK
+
+INTENTIONALLY NOT CHANGED
+
+- Finance domain logic.
+- State schema.
+- Stored user data.
+- PWA/app version (remains 10.0.2 to avoid mixing this refactor with a broad
+  cache/version migration).
+- Work win-rate remains a simple deal-count historical heuristic.
+- Work calendar uses weekdays, not a regional holiday calendar.
+- Tennis load remains a training heuristic, not a medical injury-risk model.
+- Reading forecasts still depend on entering pages for meaningful speed estimates.
+- No Bitrix24 / 1C integration is introduced.
+
+FILES TO UPLOAD
+
+Replace:
+- work.js
+- tennis.js
+- knowledge.js
+- bootstrap.js
+- e2e.test.js
+- package.json
+
+Create new:
+- os-integration.test.js
+
+Optional documentation:
+- AUDIT-REFACTOR-2026-09-22.txt
+
+After upload, GitHub Actions should run the original suite plus the new OS integration test.

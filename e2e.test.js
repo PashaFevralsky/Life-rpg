@@ -13,6 +13,13 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#today")).toHaveClass(/active/);
   await expect(page.locator("#versionStatus")).toContainText("10.0.2");
 
+  // Life OS is visible only in Today -> Focus and participates in UX7 switching.
+  await expect(page.locator("#lifeOsCommand")).toBeVisible();
+  await page.locator('#today .ux7-tab[data-view="progress"]').click();
+  await expect(page.locator("#lifeOsCommand")).not.toBeVisible();
+  await page.locator('#today .ux7-tab[data-view="focus"]').click();
+  await expect(page.locator("#lifeOsCommand")).toBeVisible();
+
   // Work -> CRM -> reveal compact editor -> save deal.
   await page.locator('[data-tab="work"]').click();
   await expect(page.locator("#work")).toHaveClass(/active/);
@@ -20,6 +27,8 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   const crmTab = page.locator('#work .ux7-tab[data-view="crm"]');
   await expect(crmTab).toBeVisible();
   await crmTab.click();
+  await expect(page.locator("#workOsQuality")).toBeVisible();
+  await expect(page.locator("#workOsCommand")).not.toBeVisible();
 
   const crmCard = page.locator("#crmEditorCard");
   await expect(crmCard).toBeVisible();
@@ -45,6 +54,7 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   const trainingTab = page.locator('#tennis .ux7-tab[data-view="training"]');
   await expect(trainingTab).toBeVisible();
   await trainingTab.click();
+  await expect(page.locator("#tennisOsCommand")).not.toBeVisible();
 
   const tennisCard = page.locator('#tennis .card:has(#ttSaveBtn)');
   await expect(tennisCard).toBeVisible();
@@ -73,6 +83,7 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   const knowledgeTab = page.locator('#more .ux7-tab[data-view="knowledge"]');
   await expect(knowledgeTab).toBeVisible();
   await knowledgeTab.click();
+  await expect(page.locator("#knowledgeOsCommand")).toBeVisible();
 
   const addBookButton = page.locator('button[onclick="openModal(\'bookModal\')"]');
   await expect(addBookButton).toBeVisible();
