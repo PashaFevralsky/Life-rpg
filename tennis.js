@@ -42,3 +42,191 @@ function renderTennis(){const ss=tennisSessionsDesc(),mins=ss.reduce((a,x)=>a+(+
 
 function renderOpponents(){const map={};for(const x of tennisAllMatches()){if(!String(x.opponent||"").trim())continue;const display=x.opponent.trim(),k=display.toLowerCase().replace(/\s+/g," ");map[k]=map[k]||{name:display,w:0,l:0,s:0,rating:0};if(x.result==="W")map[k].w++;if(x.result==="L")map[k].l++;map[k].s++;if(+x.opponentRating>0)map[k].rating=+x.opponentRating}const arr=Object.values(map).sort((a,b)=>b.s-a.s||a.name.localeCompare(b.name,"ru")).slice(0,12);$("opponentJournal").innerHTML=arr.length?arr.map(v=>`<div class="log-item"><div class="qtitle">${escapeHtml(v.name)}${v.rating?` • ${v.rating}`:""}</div><div class="score">${v.s} матч. • ${v.w}:${v.l} • win rate ${pct(v.w+v.l?v.w/(v.w+v.l)*100:0,0)}</div></div>`).join(""):`<div class="empty">Добавляй матчи — здесь появится история соперников.</div>`}
 function renderTennisMonthly(){const arr=S.tennis.filter(x=>x.dateKey?.startsWith(localMonthKey())),mins=arr.reduce((a,x)=>a+(+x.min||0),0),matches=tennisAllMatches().filter(x=>x.dateKey?.startsWith(localMonthKey())),w=matches.filter(x=>x.result==="W").length,l=matches.filter(x=>x.result==="L").length,tour=arr.filter(x=>x.type==="Турнир").length,serve=arr.reduce((a,x)=>a+(+x.serveMin||0),0),foot=arr.reduce((a,x)=>a+(+x.footMin||0),0);$("tennisMonthlyReport").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Сессии</div><b>${arr.length}</b></div><div class="report-item"><div class="smallcaps">Часы</div><b>${(mins/60).toFixed(1)}</b></div><div class="report-item"><div class="smallcaps">Турниры</div><b>${tour}</b></div><div class="report-item"><div class="smallcaps">Матчи</div><b>${matches.length}</b></div><div class="report-item"><div class="smallcaps">Win rate</div><b>${pct(w+l?w/(w+l)*100:0,0)}</b></div><div class="report-item"><div class="smallcaps">Подача/приём</div><b>${serve} мин</b></div><div class="report-item"><div class="smallcaps">Ноги</div><b>${foot} мин</b></div></div>`}
+
+
+/* Tennis OS deep analytics layer — first iteration.
+   No new mandatory input fields. New settings live inside the existing settings object. */
+
+function tennisOsNumber(key,fallback,min=0,max=Number.POSITIVE_INFINITY){
+  const v=Number(S.settings?.[key]);
+  return Number.isFinite(v)?clamp(v,min,max):fallback
+}
+function tennisDateStart(days){
+  const d=addDays(new Date(),-(days-1));
+  return localDateKey(new Date(d.getFullYear(),d.getMonth(),d.getDate(),12))
+}
+function tennisSessionsInDays(days){const start=tennisDateStart(days);return (S.tennis||[]).filter(x=>String(x.dateKey||"")>=start)}
+function tennisLoadInDays(days){return tennisSessionsInDays(days).reduce((s,x)=>s+Math.max(0,+x.min||0)*clamp(+x.load||0,0,10),0)}
+function tennisLoadProfile(){
+  const acute=tennisLoadInDays(7),load28=tennisLoadInDays(28),baseline=load28/4,sessions28=tennisSessionsInDays(28).length,ratio=baseline>0?acute/baseline:null;
+  const hard3=tennisSessionsInDays(3).filter(x=>(+x.load||0)>=8).length;
+  return {acute,load28,baseline,sessions28,ratio,hard3,interpretable:sessions28>=4&&baseline>0}
+}
+function tennisExposureDeep(days=14){
+  const start=tennisDateStart(days),exp={FH:0,BH:0,"Подача":0,"Приём":0,"Ноги":0,"Тактика":0};
+  for(const x of (S.tennis||[]).filter(s=>String(s.dateKey||"")>=start)){
+    const total=Math.max(0,+x.min||0),serve=Math.min(total,Math.max(0,+x.serveMin||0)),foot=Math.min(Math.max(0,total-serve),Math.max(0,+x.footMin||0)),remaining=Math.max(0,total-serve-foot);
+    exp["Подача"]+=serve/2;exp["Приём"]+=serve/2;exp["Ноги"]+=foot;
+    const focus=String(x.focus||"Смешанная");
+    if(focus==="Смешанная"){exp.FH+=remaining/3;exp.BH+=remaining/3;exp["Тактика"]+=remaining/3}
+    else if(exp[focus]!=null)exp[focus]+=remaining;
+    else exp["Тактика"]+=remaining;
+  }
+  return exp
+}
+tennisExposure=function(days=14){return tennisExposureDeep(days)};
+tennisFocusRecommendation=function(){const exp=tennisExposureDeep(14),total=Object.values(exp).reduce((a,b)=>a+b,0);if(!total)return"нет данных";return Object.entries(exp).sort((a,b)=>a[1]-b[1]||a[0].localeCompare(b[0],"ru"))[0][0]};
+
+function tennisMatchTimeline(){
+  let rating=Math.max(0,finiteNumberOr(S.settings.tennisBaseElo,1000)),out=[];
+  const sessions=tennisSessionsDesc().slice().reverse();
+  for(const s of sessions){
+    let ms=sessionMatches(s);
+    if(!ms.length&&((+s.w||0)+(+s.l||0)>0)){
+      ms=[];
+      for(let i=0;i<Math.max(0,+s.w||0);i++)ms.push({id:`${s.id}-lw${i}`,opponent:s.opponent||"",opponentRating:+s.opponentRating||0,result:"W",score:s.score||"",legacy:true});
+      for(let i=0;i<Math.max(0,+s.l||0);i++)ms.push({id:`${s.id}-ll${i}`,opponent:s.opponent||"",opponentRating:+s.opponentRating||0,result:"L",score:s.score||"",legacy:true});
+    }
+    for(const m of ms){
+      const opp=Math.max(0,+m.opponentRating||0),result=normalizeMatchResult(m.result),before=rating;
+      if(opp>0&&["W","L"].includes(result))rating=eloAfterSession(rating,opp,result==="W"?1:0,result==="L"?1:0);
+      out.push({...m,sessionId:s.id,dateKey:s.dateKey,type:s.type,ownBefore:before,ownAfter:rating,eloDelta:rating-before,rated:opp>0&&["W","L"].includes(result)});
+    }
+  }
+  return out
+}
+function tennisMatchBands(){
+  const band=Math.round(tennisOsNumber("tennisRatingBand",100,25,500)),rows=tennisMatchTimeline().filter(x=>x.rated);
+  const buckets={
+    stronger:{label:`Сильнее ≥${band}`,w:0,l:0,n:0},
+    similar:{label:`Сопоставимые ±${band-1}`,w:0,l:0,n:0},
+    weaker:{label:`Ниже ≤-${band}`,w:0,l:0,n:0}
+  };
+  for(const m of rows){const diff=(+m.opponentRating||0)-m.ownBefore,k=diff>=band?"stronger":diff<=-band?"weaker":"similar",b=buckets[k];b.n++;if(m.result==="W")b.w++;if(m.result==="L")b.l++}
+  return {band,rows,buckets}
+}
+function tennisFormData(){
+  const all=tennisMatchTimeline().filter(x=>["W","L"].includes(x.result)).slice().reverse(),last10=all.slice(0,10),prev10=all.slice(10,20);
+  const wr=a=>a.length?a.filter(x=>x.result==="W").length/a.length*100:null;
+  const rated=tennisMatchTimeline().filter(x=>x.rated),cut=tennisDateStart(30),r30=rated.filter(x=>String(x.dateKey||"")>=cut),elo30=r30.length?r30[r30.length-1].ownAfter-r30[0].ownBefore:0;
+  const strongestWin=rated.filter(x=>x.result==="W").sort((a,b)=>(+b.opponentRating||0)-(+a.opponentRating||0))[0]||null;
+  return {last10,prev10,lastWr:wr(last10),prevWr:wr(prev10),elo30,strongestWin}
+}
+function tennisDaysSinceLast(){
+  const s=tennisSessionsDesc()[0];if(!s?.dateKey)return null;
+  return Math.max(0,Math.floor((parseLocal(localDateKey())-parseLocal(s.dateKey))/86400000))
+}
+function tennisMonthStats(){
+  const month=localMonthKey(),sessions=(S.tennis||[]).filter(x=>String(x.dateKey||"").startsWith(month)),matches=tennisAllMatches().filter(x=>String(x.dateKey||"").startsWith(month));
+  return {sessions:sessions.length,tournaments:sessions.filter(x=>x.type==="Турнир").length,matches:matches.length,wins:matches.filter(x=>x.result==="W").length,losses:matches.filter(x=>x.result==="L").length}
+}
+function tennisPlanFact(){
+  const week=tennisWeek(),month=tennisMonthStats();
+  return {
+    weekSessions:week.sessions,weekTarget:Math.round(tennisOsNumber("tennisWeeklyTarget",4,1,14)),
+    monthSessions:month.sessions,monthTarget:Math.round(tennisOsNumber("tennisMonthlyTarget",12,1,60)),
+    tournaments:month.tournaments,tournamentTarget:Math.round(tennisOsNumber("tennisTournamentMonthlyTarget",4,0,20)),
+    serve:week.serve,serveTarget:Math.round(tennisOsNumber("tennisServeWeeklyTarget",60,0,1000)),
+    foot:week.foot,footTarget:Math.round(tennisOsNumber("tennisFootWeeklyTarget",45,0,1000))
+  }
+}
+function tennisDecisionEngineDeep(){
+  const items=[],plan=tennisPlanFact(),load=tennisLoadProfile(),focus=tennisFocusRecommendation(),days=tennisDaysSinceLast(),form=tennisFormData(),bands=tennisMatchBands();
+  if(plan.weekSessions<plan.weekTarget)items.push({kind:"regularity",title:"Добрать недельный объём",meta:`Сессии: ${plan.weekSessions}/${plan.weekTarget}. До цели недели осталось ${plan.weekTarget-plan.weekSessions}.`});
+  if(load.interpretable&&load.ratio>1.5)items.push({kind:"load",title:"Сделать следующую сессию легче",meta:`Нагрузка 7 дней ${Math.round(load.acute)} мин×RPE — ${load.ratio.toFixed(2)}× твоей средней недельной нагрузки за 28 дней.`});
+  else if(load.hard3>=2)items.push({kind:"load",title:"Не ставить ещё одну тяжёлую сессию подряд",meta:`За последние 3 дня уже ${load.hard3} сессии с RPE ≥8. Логичнее техника/подача/приём.`});
+  else if(days!=null&&days>=3)items.push({kind:"regularity",title:"Вернуться к столу",meta:`Последняя сессия была ${days} дн. назад.`});
+  if(plan.tournaments<plan.tournamentTarget)items.push({kind:"competition",title:"Добавить соревновательную практику",meta:`Турниры месяца: ${plan.tournaments}/${plan.tournamentTarget}.`});
+  if(focus!=="нет данных")items.push({kind:"technique",title:`Технический приоритет: ${focus}`,meta:"Это зона с минимальным объёмом целевой работы за последние 14 дней."});
+  const similar=bands.buckets.similar;if(similar.n>=4&&similar.w/similar.n<0.5)items.push({kind:"matches",title:"Больше игр с сопоставимыми соперниками",meta:`В диапазоне ±${bands.band-1}: ${similar.w}:${similar.l}. Это наиболее полезная выборка для контроля игрового прогресса.`});
+  if(form.last10.length>=5&&form.prev10.length>=5&&form.lastWr+15<form.prevWr)items.push({kind:"form",title:"Форма просела относительно предыдущего отрезка",meta:`Последние ${form.last10.length}: ${pct(form.lastWr,0)}; предыдущие ${form.prev10.length}: ${pct(form.prevWr,0)}. Проверь нагрузку и повторяющиеся причины поражений.`});
+  return items.slice(0,7)
+}
+tennisRecommendation=function(){const x=tennisDecisionEngineDeep()[0];return x?`${x.title}. ${x.meta}`:"Сохраняй текущий ритм и продолжай накапливать данные."};
+
+function tennisOpponentDeep(){
+  const map=new Map();
+  for(const m of tennisMatchTimeline()){
+    const name=String(m.opponent||"").trim();if(!name)continue;const key=name.toLocaleLowerCase("ru-RU").replace(/\s+/g," "),x=map.get(key)||{name,n:0,w:0,l:0,rating:0,elo:0};
+    x.n++;if(m.result==="W")x.w++;if(m.result==="L")x.l++;if(+m.opponentRating>0)x.rating=+m.opponentRating;x.elo+=m.eloDelta||0;map.set(key,x)
+  }
+  return [...map.values()].sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name,"ru"))
+}
+function tennisOsSetHtml(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html}
+function ensureTennisOsUi(){
+  if(document.getElementById("tennisOsCommand"))return;
+  const grid=document.querySelector?.("#tennis .grid");if(!grid)return;
+  const anchor=grid.querySelector?.(".tennis-hero")||null,target=anchor||grid;if(typeof target.insertAdjacentHTML!=="function")return;
+  target.insertAdjacentHTML(anchor?"afterend":"beforeend",`
+    <div data-ux7-view="overview analytics" class="card span-12"><div class="eyebrow">Tennis OS</div><div class="section-title">Центр тренировочных решений</div><div class="muted" style="margin-top:6px">План/факт, форма, игровая динамика и нагрузка относительно твоей собственной истории. Это тренировочная аналитика, а не медицинская оценка риска.</div><div id="tennisOsCommand" style="margin-top:12px"></div></div>
+    <div data-ux7-view="analytics" class="card span-6"><div class="eyebrow">Load Engine</div><div class="title">Нагрузка и плотность</div><div id="tennisOsLoad"></div></div>
+    <div data-ux7-view="analytics" class="card span-6"><div class="eyebrow">Match Engine</div><div class="title">Результаты по уровню соперника</div><div id="tennisOsBands"></div></div>
+    <div data-ux7-view="overview analytics" class="card span-6"><div class="title">План → факт</div><div id="tennisOsPlan"></div></div>
+    <div data-ux7-view="analytics" class="card span-6"><div class="title">Игровая форма</div><div id="tennisOsForm"></div></div>
+    <div data-ux7-view="analytics" class="card span-6"><div class="title">Баланс технической работы • 28 дней</div><div id="tennisOsExposure"></div></div>
+    <div data-ux7-view="analytics" class="card span-6"><div class="title">Соперники: расширенный профиль</div><div id="tennisOsOpponents"></div></div>
+    <div data-ux7-view="analytics" class="card span-12"><details><summary>Настройки Tennis OS</summary><div class="formgrid" style="margin-top:12px"><div class="field"><label>Сессий / неделю</label><input id="tennisOsWeeklyTarget" type="number" min="1" max="14"></div><div class="field"><label>Сессий / месяц</label><input id="tennisOsMonthlyTarget" type="number" min="1" max="60"></div><div class="field"><label>Турниров / месяц</label><input id="tennisOsTournamentTarget" type="number" min="0" max="20"></div><div class="field"><label>Подача/приём / неделю, мин</label><input id="tennisOsServeTarget" type="number" min="0"></div><div class="field"><label>Ноги / неделю, мин</label><input id="tennisOsFootTarget" type="number" min="0"></div><div class="field"><label>Граница уровня соперника, Elo</label><input id="tennisOsRatingBand" type="number" min="25" max="500"></div><div class="field"><label>Официальный рейтинг</label><input id="tennisOsOfficial" type="number" min="0"></div><div class="field"><label>Цель по рейтингу</label><input id="tennisOsRatingGoal" type="number" min="0"></div></div><button class="btn secondary" style="margin-top:12px" onclick="saveTennisOsSettings()">Сохранить настройки</button></details></div>
+  `)
+}
+function renderTennisOsCommand(){
+  const p=tennisPlanFact(),f=tennisFormData(),calc=computeTennisElo(),actions=tennisDecisionEngineDeep(),goal=Math.max(0,tennisOsNumber("tennisRatingGoal",0,0,100000));
+  tennisOsSetHtml("tennisOsCommand",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Неделя</div><b>${p.weekSessions}/${p.weekTarget}</b></div><div class="report-item"><div class="smallcaps">Elo</div><b>${calc.rating}</b></div><div class="report-item"><div class="smallcaps">Elo • 30 дней</div><b>${f.elo30>=0?"+":""}${f.elo30}</b></div><div class="report-item"><div class="smallcaps">Последние 10</div><b>${f.lastWr==null?"—":pct(f.lastWr,0)}</b></div><div class="report-item"><div class="smallcaps">Цель рейтинга</div><b>${goal||"—"}</b></div></div>${actions.length?`<div class="title" style="margin-top:14px">Что делать дальше</div>${actions.map(a=>`<div class="quest"><span class="tag ${a.kind==="load"?"warn":""}">${a.kind==="load"?"Нагрузка":a.kind==="technique"?"Техника":a.kind==="competition"?"Игры":"Приоритет"}</span><div class="qbody"><div class="qtitle">${escapeHtml(a.title)}</div><div class="qmeta">${escapeHtml(a.meta)}</div></div></div>`).join("")}`:""}`)
+}
+function renderTennisOsLoad(){
+  const l=tennisLoadProfile(),days=tennisDaysSinceLast(),ratio=l.interpretable?`${l.ratio.toFixed(2)}×`:"—";
+  const text=!l.interpretable?"Нужно минимум несколько сессий за 28 дней, чтобы сравнение с собственной базой было осмысленным.":l.ratio>1.5?"Текущая недельная нагрузка заметно выше твоей средней за 28 дней. Это повод снизить следующую нагрузку, а не оценка риска травмы.":l.ratio<0.6?"Текущая неделя заметно легче твоей недавней средней.":"Текущая неделя близка к твоей собственной недавней базе.";
+  tennisOsSetHtml("tennisOsLoad",`<div class="goal"><div class="goal-top"><span>7 дней</span><b>${Math.round(l.acute)} мин×RPE</b></div><div class="goal-top" style="margin-top:7px"><span>Средняя неделя по 28 дням</span><b>${Math.round(l.baseline)} мин×RPE</b></div><div class="goal-top" style="margin-top:7px"><span>Отношение</span><b>${ratio}</b></div><div class="goal-top" style="margin-top:7px"><span>Тяжёлых сессий за 3 дня</span><b>${l.hard3}</b></div><div class="goal-top" style="margin-top:7px"><span>Дней с последней сессии</span><b>${days==null?"—":days}</b></div></div><div class="status" style="margin-top:10px">${escapeHtml(text)}</div>`)
+}
+function renderTennisOsBands(){
+  const x=tennisMatchBands(),arr=Object.values(x.buckets);
+  tennisOsSetHtml("tennisOsBands",arr.map(b=>`<div class="goal"><div class="goal-top"><span>${escapeHtml(b.label)}</span><b>${b.n?`${b.w}:${b.l}`:"—"}</b></div><div class="qmeta">${b.n?`win rate ${pct(b.w/b.n*100,0)} • ${b.n} матч.`:"Нет рейтинговых матчей в диапазоне"}</div></div>`).join("")+`<div class="sub" style="margin-top:8px">Уровень определяется относительно твоего внутреннего Elo непосредственно перед каждым матчем.</div>`)
+}
+function renderTennisOsPlan(){
+  const p=tennisPlanFact(),rows=[["Сессии недели",p.weekSessions,p.weekTarget],["Сессии месяца",p.monthSessions,p.monthTarget],["Турниры месяца",p.tournaments,p.tournamentTarget],["Подача/приём недели",p.serve,p.serveTarget],["Ноги недели",p.foot,p.footTarget]];
+  tennisOsSetHtml("tennisOsPlan",rows.map(([label,fact,target])=>{const pc=target>0?clamp(fact/target*100,0,100):100;return `<div class="goal"><div class="goal-top"><span>${label}</span><b>${fact}/${target}</b></div><div class="progress"><i style="width:${pc}%"></i></div></div>`}).join(""))
+}
+function renderTennisOsForm(){
+  const f=tennisFormData(),delta=f.lastWr!=null&&f.prevWr!=null?f.lastWr-f.prevWr:null;
+  tennisOsSetHtml("tennisOsForm",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Последние ${f.last10.length||0}</div><b>${f.lastWr==null?"—":pct(f.lastWr,0)}</b></div><div class="report-item"><div class="smallcaps">Предыдущие ${f.prev10.length||0}</div><b>${f.prevWr==null?"—":pct(f.prevWr,0)}</b></div><div class="report-item"><div class="smallcaps">Изменение win rate</div><b>${delta==null?"—":`${delta>=0?"+":""}${delta.toFixed(0)} п.п.`}</b></div><div class="report-item"><div class="smallcaps">Elo • 30 дней</div><b>${f.elo30>=0?"+":""}${f.elo30}</b></div></div>${f.strongestWin?`<div class="status" style="margin-top:10px">Самая рейтинговая победа: <b>${escapeHtml(f.strongestWin.opponent||"соперник")} • ${f.strongestWin.opponentRating}</b>.</div>`:""}`)
+}
+function renderTennisOsExposure(){
+  const e=tennisExposureDeep(28),max=Math.max(1,...Object.values(e));
+  tennisOsSetHtml("tennisOsExposure",Object.entries(e).map(([k,v])=>`<div class="stat-row"><div class="stat-name">${escapeHtml(k)}</div><div class="statbar"><i style="width:${clamp(v/max*100,0,100)}%"></i></div><div class="stat-xp">${Math.round(v)}м</div></div>`).join("")+`<div class="sub" style="margin-top:8px">Явные минуты подачи/приёма и ног вычитаются из общей длительности, поэтому больше не происходит двойного учёта времени.</div>`)
+}
+function renderTennisOsOpponents(){
+  const arr=tennisOpponentDeep().slice(0,8);
+  tennisOsSetHtml("tennisOsOpponents",arr.length?arr.map(x=>`<div class="log-item"><div class="qtitle">${escapeHtml(x.name)}${x.rating?` • ${x.rating}`:""}</div><div class="score">${x.n} матч. • ${x.w}:${x.l} • ${pct(x.n?x.w/x.n*100:0,0)} • Elo ${x.elo>=0?"+":""}${x.elo}</div></div>`).join(""):'<div class="empty">Добавляй матчи с именами соперников — профиль появится автоматически.</div>')
+}
+function renderTennisOsSettings(){
+  const vals={
+    tennisOsWeeklyTarget:Math.round(tennisOsNumber("tennisWeeklyTarget",4,1,14)),
+    tennisOsMonthlyTarget:Math.round(tennisOsNumber("tennisMonthlyTarget",12,1,60)),
+    tennisOsTournamentTarget:Math.round(tennisOsNumber("tennisTournamentMonthlyTarget",4,0,20)),
+    tennisOsServeTarget:Math.round(tennisOsNumber("tennisServeWeeklyTarget",60,0,1000)),
+    tennisOsFootTarget:Math.round(tennisOsNumber("tennisFootWeeklyTarget",45,0,1000)),
+    tennisOsRatingBand:Math.round(tennisOsNumber("tennisRatingBand",100,25,500)),
+    tennisOsOfficial:Math.max(0,+S.settings.tennisOfficialRating||0),
+    tennisOsRatingGoal:Math.max(0,tennisOsNumber("tennisRatingGoal",0,0,100000))
+  };
+  for(const [id,v] of Object.entries(vals)){const el=document.getElementById(id);if(el&&!el.dataset.ready){el.value=String(v);el.dataset.ready="1"}}
+}
+async function saveTennisOsSettings(){
+  const n=(id,min,max)=>clamp(Number(document.getElementById(id)?.value)||0,min,max);
+  S.settings.tennisWeeklyTarget=Math.round(n("tennisOsWeeklyTarget",1,14));
+  S.settings.tennisMonthlyTarget=Math.round(n("tennisOsMonthlyTarget",1,60));
+  S.settings.tennisTournamentMonthlyTarget=Math.round(n("tennisOsTournamentTarget",0,20));
+  S.settings.tennisServeWeeklyTarget=Math.round(n("tennisOsServeTarget",0,1000));
+  S.settings.tennisFootWeeklyTarget=Math.round(n("tennisOsFootTarget",0,1000));
+  S.settings.tennisRatingBand=Math.round(n("tennisOsRatingBand",25,500));
+  S.settings.tennisOfficialRating=Math.round(n("tennisOsOfficial",0,100000));
+  S.settings.tennisRatingGoal=Math.round(n("tennisOsRatingGoal",0,100000));
+  audit("Настройки Tennis OS","sport",`Неделя ${S.settings.tennisWeeklyTarget} • месяц ${S.settings.tennisMonthlyTarget}`);
+  await save("Настройки Tennis OS сохранены")
+}
+function renderTennisOsPanels(){
+  if(!document.getElementById("tennisOsCommand"))return;
+  renderTennisOsCommand();renderTennisOsLoad();renderTennisOsBands();renderTennisOsPlan();renderTennisOsForm();renderTennisOsExposure();renderTennisOsOpponents();renderTennisOsSettings()
+}
+
+const renderTennis1002=renderTennis;
+renderTennis=function(){renderTennis1002();ensureTennisOsUi();renderTennisOsPanels()};
