@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.0.2 — Runtime bootstrap */
+/* Life RPG 10.0.2 — Runtime bootstrap + Life OS Command Center */
 
 const ux7BaseRender=render;
 
@@ -9,6 +9,294 @@ render=function(){ux7BaseRender();requestAnimationFrame(()=>{renderUx7FinancePul
 const ux7BaseSwitchTab=switchTab;
 
 switchTab=function(id){ux7BaseSwitchTab(id);requestAnimationFrame(()=>{const view=UX7_PREFS[id]||UX7_DEFAULTS[id];ux7SetView(id,view,false);ux7RefreshHeaders();ui82SyncChrome(id,view)})};
+
+
+/* Life OS Command Center — cross-domain orchestration layer.
+   Uses existing Finance / Work / Tennis / Knowledge engines.
+   It does not create new mandatory input fields or change the state schema. */
+
+function lifeOsSettingNumber(key,fallback,min=0,max=Number.POSITIVE_INFINITY){
+  const v=Number(S.settings?.[key]);
+  return Number.isFinite(v)?clamp(v,min,max):fallback
+}
+
+function lifeOsEstimateMinutes(area,kind){
+  if(area==="Финансы"||area==="Система")return 10;
+  if(area==="Работа")return ["activity","pace","pipeline"].includes(kind)?30:20;
+  if(area==="Теннис")return kind==="competition"?90:kind==="load"?30:60;
+  if(area==="Знания")return kind==="review"?15:kind==="read"?Math.max(15,Math.round(+S.settings.readingDailyMin||30)):20;
+  return 15
+}
+
+function lifeOsAddCandidate(arr,c){
+  if(!c||!String(c.title||"").trim())return;
+  arr.push({
+    id:String(c.id||[c.area,c.kind,c.title].join(":")),
+    area:String(c.area||"Система"),
+    kind:String(c.kind||"action"),
+    title:String(c.title||""),
+    meta:String(c.meta||""),
+    score:Math.max(0,+c.score||0),
+    hard:!!c.hard,
+    minutes:Math.max(0,Math.round(c.minutes!=null?+c.minutes:lifeOsEstimateMinutes(c.area,c.kind)))
+  })
+}
+
+function lifeOsRawCandidates(){
+  const out=[],today=localDateKey();
+
+  if(typeof decisionEngineData==="function"){
+    const f=decisionEngineData();
+    for(const x of (f.actions||[]).slice(0,5)){
+      lifeOsAddCandidate(out,{
+        area:"Финансы",kind:x.level||"finance",title:x.title,meta:x.meta,
+        score:x.level==="bad"?145:x.level==="warn"?105:60,
+        hard:x.level==="bad"
+      })
+    }
+    const next=typeof nextDebtEvent==="function"?nextDebtEvent():null;
+    if(next){
+      const days=daysBetween(new Date(),next.date),overdue=!!next.overdue;
+      if(overdue||days<=3)lifeOsAddCandidate(out,{
+        area:"Финансы",kind:"deadline",
+        title:(overdue?"Просрочен платёж: ":"Ближайший платёж: ")+next.label,
+        meta:rub(next.amount)+" • "+(overdue?"срок был "+fmtDate(next.date):days===0?"сегодня":days===1?"завтра":"через "+days+" дн."),
+        score:overdue?155:days===0?145:days===1?132:112,
+        hard:overdue||days<=1
+      })
+    }
+  }
+
+  const workActions=typeof workDecisionEngineDeep==="function"?workDecisionEngineDeep():(typeof crmDecisionEngine==="function"?crmDecisionEngine():[]);
+  for(const x of workActions.slice(0,6)){
+    const kind=String(x.kind||"work");
+    const score=kind==="overdue"?135:kind==="pace"?108:kind==="pipeline"?100:kind==="next"?98:kind==="date"?92:kind==="quality"?88:kind==="stale"?82:kind==="close"?78:kind==="activity"?68:72;
+    lifeOsAddCandidate(out,{
+      area:"Работа",kind,title:x.title,meta:x.meta,score,
+      hard:kind==="overdue",id:"work:"+(x.dealId||x.title)
+    })
+  }
+
+  const tennisActions=typeof tennisDecisionEngineDeep==="function"?tennisDecisionEngineDeep():[];
+  for(const x of tennisActions.slice(0,4)){
+    const kind=String(x.kind||"tennis");
+    const score=kind==="load"?68:kind==="form"?58:kind==="regularity"?54:kind==="competition"?48:kind==="matches"?46:kind==="technique"?42:40;
+    lifeOsAddCandidate(out,{area:"Теннис",kind,title:x.title,meta:x.meta,score})
+  }
+
+  const knowledgeActions=typeof knowledgeDecisionEngine==="function"?knowledgeDecisionEngine():[];
+  for(const x of knowledgeActions.slice(0,5)){
+    const kind=String(x.kind||"knowledge");
+    const score=kind==="review"?68:kind==="read"?62:kind==="consistency"?52:kind==="book"?46:kind==="capture"?38:kind==="data"?36:kind==="pace"?28:35;
+    lifeOsAddCandidate(out,{area:"Знания",kind,title:x.title,meta:x.meta,score})
+  }
+
+  if(!dailyQuestState("focus",today)){
+    lifeOsAddCandidate(out,{area:"Работа",kind:"focus",title:"Один фокус-блок по работе",meta:"Закрыть самое важное рабочее действие без переключений.",score:58,minutes:45})
+  }
+
+  if(typeof dataIntegrityIssues==="function"){
+    for(const x of dataIntegrityIssues().slice(0,4)){
+      lifeOsAddCandidate(out,{
+        area:"Система",kind:"integrity",title:x.title||"Проверить данные",meta:x.meta||x.detail||"",
+        score:x.level==="bad"?140:x.level==="warn"?94:55,
+        hard:x.level==="bad",minutes:10
+      })
+    }
+  }
+  return out
+}
+
+function lifeOsDedupCandidates(rows){
+  const seen=new Map(),out=[];
+  for(const x of rows.slice().sort((a,b)=>b.score-a.score)){
+    const key=(x.area+"|"+x.title).toLocaleLowerCase("ru-RU").replace(/[^a-zа-яё0-9]+/g," ").trim();
+    if(seen.has(key))continue;
+    seen.set(key,true);out.push(x)
+  }
+  const read=out.find(x=>x.area==="Знания"&&x.kind==="read"),review=out.find(x=>x.area==="Знания"&&x.kind==="review");
+  if(read&&review){
+    const filtered=out.filter(x=>x!==read&&x!==review);
+    filtered.push({
+      id:"knowledge:combined",area:"Знания",kind:"knowledge",
+      title:"Чтение + повторение знаний",
+      meta:read.meta+" • "+review.meta,
+      score:Math.max(read.score,review.score)+4,hard:false,
+      minutes:Math.max(read.minutes,Math.round(+S.settings.readingDailyMin||30))+10
+    });
+    return filtered.sort((a,b)=>b.score-a.score)
+  }
+  return out
+}
+
+function lifeOsCandidates(){
+  let rows=lifeOsDedupCandidates(lifeOsRawCandidates());
+  const load=typeof tennisLoadProfile==="function"?tennisLoadProfile():null;
+  const hardElsewhere=rows.some(x=>x.hard&&x.area!=="Теннис");
+  if(load?.interpretable&&load.ratio>1.5&&hardElsewhere){
+    rows=rows.map(x=>x.area==="Теннис"&&x.kind!=="load"?{...x,score:Math.min(x.score,32),meta:x.meta+" • сегодня приоритет — лёгкая нагрузка/восстановление"}:x)
+  }
+  return rows.sort((a,b)=>b.score-a.score)
+}
+
+function lifeOsDailyPlan(){
+  const limit=Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)),all=lifeOsCandidates(),plan=[],picked=new Set();
+  const add=x=>{if(!x||picked.has(x.id)||plan.length>=limit)return;plan.push(x);picked.add(x.id)};
+  for(const x of all.filter(x=>x.hard))add(x);
+  let areas=new Set(plan.map(x=>x.area));
+  for(const x of all)if(plan.length<limit&&x.score>=42&&!areas.has(x.area)){add(x);areas.add(x.area)}
+  for(const x of all)if(plan.length<limit&&x.score>=42)add(x);
+  const deferred=all.filter(x=>x.score>=42&&!picked.has(x.id)),hardAll=all.filter(x=>x.hard);
+  return {
+    limit,all,plan,deferred,hardAll,
+    minutes:plan.reduce((s,x)=>s+x.minutes,0),
+    overload:hardAll.length>limit||all.filter(x=>x.score>=60).length>limit+2
+  }
+}
+
+function lifeOsDomainState(){
+  const s=lifeScore(),rows=[
+    {area:"Финансы",score:s.finance,reason:s.details.find(x=>x.name==="Финансы")?.reason||""},
+    {area:"Работа",score:s.career,reason:s.details.find(x=>x.name==="Работа")?.reason||""},
+    {area:"Теннис",score:s.tennis,reason:s.details.find(x=>x.name==="Теннис")?.reason||""},
+    {area:"Знания",score:s.reading,reason:s.details.find(x=>x.name==="Знания")?.reason||""},
+    {area:"Система",score:s.discipline,reason:s.details.find(x=>x.name==="Система")?.reason||""}
+  ];
+  const candidates=lifeOsCandidates();
+  for(const r of rows){
+    const top=candidates.find(x=>x.area===r.area);
+    r.attention=top?.score||0;r.hard=!!top?.hard;r.next=top?.title||"Нет отдельного действия"
+  }
+  return rows
+}
+
+function lifeOsGuardrails(){
+  const out=[],plan=lifeOsDailyPlan(),finance=typeof decisionEngineData==="function"?decisionEngineData():null;
+  if(finance?.p?.cashGapDate)out.push("До устранения риска кассового разрыва не повышать необязательные расходы.");
+  const load=typeof tennisLoadProfile==="function"?tennisLoadProfile():null;
+  if(load?.interpretable&&load.ratio>1.5)out.push("Теннисная нагрузка выше собственной 28-дневной базы: следующая сессия должна быть легче обычной.");
+  const work=typeof workPaceData==="function"?workPaceData():null;
+  if(work&&work.plan>0&&work.paceDelta<0&&typeof crmOverdue==="function"&&crmOverdue().length)out.push("Рабочий фокус: сначала просроченные CRM-шаги, затем наращивание воронки/темпа.");
+  const reviews=typeof knowledgeReviewQueue==="function"?knowledgeReviewQueue().length:0;
+  if(reviews>=10)out.push("Накопилась очередь повторений: объединить её с сегодняшним чтением, а не создавать отдельный большой блок.");
+  if(plan.hardAll.length>=3)out.push("Критичных обязательств много: новые необязательные цели сегодня не добавлять.");
+  if(plan.overload)out.push("День перегружен по модели: выполнить верх плана, остальное сознательно перенести.");
+  return out
+}
+
+function lifeOsMinimumDay(){
+  const plan=lifeOsDailyPlan(),out=[];
+  for(const x of plan.plan.filter(x=>x.hard))if(out.length<3)out.push(x);
+  const today=localDateKey(),readTarget=Math.max(1,+S.settings.readingDailyMin||30),readToday=(S.readingLogs||[]).filter(x=>x.dateKey===today).reduce((s,x)=>s+(+x.minutes||0),0);
+  if(out.length<3&&!dailyQuestState("focus",today)){
+    out.push({area:"Работа",title:"1 фокус-блок",meta:"Без переключений на самое важное рабочее действие.",minutes:45})
+  }
+  if(out.length<3&&readToday<readTarget){
+    out.push({area:"Знания",title:"Дневной минимум чтения",meta:"Осталось "+(readTarget-readToday)+" мин.",minutes:readTarget-readToday})
+  }
+  if(!out.length&&plan.plan[0])out.push(plan.plan[0]);
+  return out.slice(0,3)
+}
+
+function lifeOsOpen(area){
+  if(area==="Финансы"){switchTab("finance");return}
+  if(area==="Работа"){ux7Go("work","crm");return}
+  if(area==="Теннис"){ux7Go("tennis","analytics");return}
+  if(area==="Знания"){ux7Go("more","knowledge");return}
+  ux7Go("more","settings")
+}
+
+function ensureLifeOsUi(){
+  if(document.getElementById("lifeOsCommand"))return;
+  const grid=document.querySelector?.("#today .grid");if(!grid)return;
+  const anchor=grid.querySelector?.(".quick-card");if(!anchor||typeof anchor.insertAdjacentHTML!=="function")return;
+  anchor.insertAdjacentHTML("afterend",
+    '<div data-ux7-view="focus" class="card span-12">'+
+      '<div class="eyebrow">Life OS</div><div class="section-title">Единый центр решений</div>'+
+      '<div class="muted" style="margin-top:6px">Жёсткие обязательства имеют приоритет над мягкими целями. После них Life OS ограничивает день несколькими действиями, чтобы список задач не рос бесконечно.</div>'+
+      '<div id="lifeOsCommand" style="margin-top:12px"></div>'+
+      '<details class="settings-group" style="margin-top:12px"><summary>Правила и настройки Life OS</summary>'+
+        '<div id="lifeOsGuardrails" style="margin-top:10px"></div>'+
+        '<div class="formgrid" style="margin-top:12px"><div class="field"><label>Максимум приоритетов на день</label><input id="lifeOsPriorityLimit" type="number" min="2" max="6"></div></div>'+
+        '<button class="btn secondary" style="margin-top:10px" onclick="saveLifeOsSettings()">Сохранить</button>'+
+      '</details>'+
+    '</div>'
+  )
+}
+
+function renderLifeOsCommand(){
+  const box=document.getElementById("lifeOsCommand");if(!box)return;
+  const p=lifeOsDailyPlan(),domains=lifeOsDomainState(),minimum=lifeOsMinimumDay(),critical=p.hardAll.length;
+  const actions=p.plan.map((x,i)=>
+    '<div class="quest">'+
+      '<span class="tag '+(x.hard?"bad":x.score>=90?"warn":"")+'">#'+(i+1)+' • '+escapeHtml(x.area)+'</span>'+
+      '<div class="qbody"><div class="qtitle">'+escapeHtml(x.title)+'</div><div class="qmeta">'+escapeHtml(x.meta)+(x.minutes?' • ~'+x.minutes+' мин':'')+'</div></div>'+
+      '<button class="btn ghost small" onclick="lifeOsOpen(\''+escapeHtml(x.area)+'\')">Открыть</button>'+
+    '</div>'
+  ).join("");
+  const bars=domains.map(x=>
+    '<div><span>'+escapeHtml(x.area)+(x.hard?' • !':'')+'</span><div class="progress"><i style="width:'+clamp(x.score,0,100)+'%"></i></div></div>'
+  ).join("");
+  const minHtml=minimum.map(x=>'<span class="tag">'+escapeHtml(x.area)+': '+escapeHtml(x.title)+'</span>').join(" ");
+  box.innerHTML=
+    '<div class="report-grid">'+
+      '<div class="report-item"><div class="smallcaps">Приоритетов сегодня</div><b>'+p.plan.length+'/'+p.limit+'</b></div>'+
+      '<div class="report-item"><div class="smallcaps">Критичных</div><b class="'+(critical?'income-bad':'income-good')+'">'+critical+'</b></div>'+
+      '<div class="report-item"><div class="smallcaps">Оценка активного времени</div><b>~'+p.minutes+' мин</b></div>'+
+      '<div class="report-item"><div class="smallcaps">Осознанно отложено</div><b>'+p.deferred.length+'</b></div>'+
+    '</div>'+
+    '<div class="life-score-bars" style="margin-top:12px">'+bars+'</div>'+
+    '<div class="title" style="margin-top:14px">План дня</div>'+
+    (actions||'<div class="empty">Критичных или значимых действий модель сейчас не нашла.</div>')+
+    '<div class="status" style="margin-top:12px"><b>Минимально достаточный день:</b> '+(minHtml||"сохранить текущий ритм")+'</div>'+
+    (p.overload?'<div class="notice" style="margin-top:10px"><b>Перегрузка.</b> Не расширяй план после выполнения верхних приоритетов.</div>':"")
+}
+
+function renderLifeOsGuardrails(){
+  const box=document.getElementById("lifeOsGuardrails");if(!box)return;
+  const g=lifeOsGuardrails();
+  box.innerHTML=g.length?g.map(x=>'<div class="notice" style="margin-top:7px">'+escapeHtml(x)+'</div>').join(""):'<div class="status">Специальных ограничений на сегодня модель не обнаружила.</div>'
+}
+
+function renderLifeOsSettings(){
+  const el=document.getElementById("lifeOsPriorityLimit");if(el&&!el.dataset.ready){el.value=String(Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)));el.dataset.ready="1"}
+}
+
+async function saveLifeOsSettings(){
+  const el=document.getElementById("lifeOsPriorityLimit"),n=clamp(Math.round(Number(el?.value)||4),2,6);
+  S.settings.lifeDailyPriorityLimit=n;
+  audit("Настройки Life OS","system","Приоритетов в день: "+n);
+  await save("Настройки Life OS сохранены")
+}
+
+function renderLifeOsPanels(){
+  if(!document.getElementById("lifeOsCommand"))return;
+  renderLifeOsCommand();renderLifeOsGuardrails();renderLifeOsSettings()
+}
+
+dailyEngineItems=function(){
+  return lifeOsDailyPlan().plan.map(x=>({p:x.score,title:x.title,meta:x.meta+(x.minutes?" • ~"+x.minutes+" мин":""),area:x.area}))
+};
+
+renderPriorities=function(){
+  const box=$("todayPriorities");if(!box)return;
+  const p=lifeOsDailyPlan();
+  box.innerHTML=p.plan.slice(0,5).map((x,i)=>
+    '<div class="quest"><div class="qbody">'+
+      '<span class="tag '+(x.hard?"bad":x.score>=90?"warn":"")+'">#'+(i+1)+' • '+escapeHtml(x.area)+'</span>'+
+      '<div class="qtitle" style="margin-top:5px">'+escapeHtml(x.title)+'</div>'+
+      '<div class="qmeta">'+escapeHtml(x.meta)+(x.minutes?' • ~'+x.minutes+' мин':'')+'</div>'+
+    '</div></div>'
+  ).join("")||'<div class="empty">На сегодня критичных задач нет.</div>'
+};
+
+const renderTodayLifeOsBase=renderToday;
+renderToday=function(){
+  renderTodayLifeOsBase();
+  ensureLifeOsUi();
+  renderLifeOsPanels()
+};
+
 
 ux7InstallShell();
 
