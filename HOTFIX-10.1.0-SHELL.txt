@@ -1,0 +1,12 @@
+Life RPG 10.1.0 — shell version hotfix
+
+Replace only root index.html.
+
+Reason:
+The 10.1.0 runtime, state version 17, modular OS files, tests, build and Pages deploy
+are already correct. The legacy HTML shell still contained 19 references to 10.0.2.
+bootstrap.js fixes the runtime version after loading, but the static title / labels / query
+parameters should also match the release.
+
+This hotfix changes only 10.0.2 -> 10.1.0 in index.html.
+No state schema or application logic is changed.
