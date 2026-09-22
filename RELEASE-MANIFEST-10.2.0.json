@@ -1,0 +1,132 @@
+{
+  "app_version": "10.2.0",
+  "state_version": 17,
+  "files": [
+    {
+      "file": "architecture.test.js",
+      "action": "replace",
+      "bytes": 2935,
+      "sha256": "e31775a711f7cb1b3973d18608f8b011ca719ccc73838535b35b0067ef213c36"
+    },
+    {
+      "file": "bootstrap.js",
+      "action": "replace",
+      "bytes": 2649,
+      "sha256": "9c7074993c113e64cb79ec6725a2c72aed4beb864024ea238e74e130be788bea"
+    },
+    {
+      "file": "calendar-os.js",
+      "action": "replace",
+      "bytes": 23921,
+      "sha256": "49837dde6d5f310058849bebc55310e82117addcbd68adaf32bbd6a826486808"
+    },
+    {
+      "file": "command-os.js",
+      "action": "new",
+      "bytes": 8222,
+      "sha256": "06443525a8be6e8ad6f653a7901b85305670049cec230211d059fe7a06f00878"
+    },
+    {
+      "file": "core.js",
+      "action": "replace",
+      "bytes": 3742,
+      "sha256": "d4a6fbc61aacd2bd9f24fe2fee5623021a9b8df6f20ce8f491131fa1d859f57b"
+    },
+    {
+      "file": "e2e.test.js",
+      "action": "replace",
+      "bytes": 12803,
+      "sha256": "98e031b0ed4a95c7a76abe847f43038f177e0281a07fc653fafce0594c00887e"
+    },
+    {
+      "file": "goals-os.js",
+      "action": "new",
+      "bytes": 13698,
+      "sha256": "fc24071df2d693f92a0e0fea8e6aec42b14cb00fe6073dac4b399249b1f2aba9"
+    },
+    {
+      "file": "index.html",
+      "action": "replace",
+      "bytes": 68969,
+      "sha256": "9ebb99f45b4a55b1f6c33a94fabd713c835e353b034347de8e0104e507356425"
+    },
+    {
+      "file": "insights-os.js",
+      "action": "replace",
+      "bytes": 10065,
+      "sha256": "54fa09f0a7d9f2ab3164b8267a741441ad34d6d7d6ee9e931a58a1f6b7e93bd6"
+    },
+    {
+      "file": "life-os.js",
+      "action": "replace",
+      "bytes": 22214,
+      "sha256": "42ae06b47f2551003d058200f63fa5a18e71b158d0675a27ae8ee38258a39dfe"
+    },
+    {
+      "file": "manifest.webmanifest",
+      "action": "replace",
+      "bytes": 571,
+      "sha256": "9effce15d25fbfd32d41c9fad3787e75124a92334faa7e5c200de71b1279c3a9"
+    },
+    {
+      "file": "os-integration.test.js",
+      "action": "replace",
+      "bytes": 20398,
+      "sha256": "160e9da4b9f15c20f2da0f7cd52d7eee78903a2a744ca7c8fcd4cb6290035d26"
+    },
+    {
+      "file": "package.json",
+      "action": "replace",
+      "bytes": 899,
+      "sha256": "03ca679f1570048f66bcad349dc25387606524f0717f6c793b7b2fed83923d17"
+    },
+    {
+      "file": "review-os.js",
+      "action": "replace",
+      "bytes": 19353,
+      "sha256": "29be3d194c23a1b4cad147d8d002af96c749a82686d2ea9e4083bac9a43664ab"
+    },
+    {
+      "file": "routines-os.js",
+      "action": "new",
+      "bytes": 11885,
+      "sha256": "9e91e08e9c63d48141d7612ea84d9fa21bb1c4290adaf6e1e8fa99c6a97eb0f0"
+    },
+    {
+      "file": "rules-os.js",
+      "action": "replace",
+      "bytes": 8022,
+      "sha256": "b6bd2b4242ee4e9e9f021f357ec3e787874933e3141a6686192895fb700dd7fb"
+    },
+    {
+      "file": "static-check.js",
+      "action": "replace",
+      "bytes": 5805,
+      "sha256": "eb8ac57f28c2e3a90a36c5abdcb182c76b2a13fb0381da893edd5e8ae163b0c3"
+    },
+    {
+      "file": "sw.js",
+      "action": "replace",
+      "bytes": 1730,
+      "sha256": "d0320b5358d8b187bd00390af1cae69353739b98c7651157d0c0e31915809dd6"
+    },
+    {
+      "file": "vite.config.mjs",
+      "action": "replace",
+      "bytes": 1817,
+      "sha256": "cd318aae691b09e59fafcbfd5aaa26aa9e2c3d1c0c055b378d74cc27fb32c0e4"
+    },
+    {
+      "file": "CHANGELOG-10.2.0.txt",
+      "action": "docs",
+      "bytes": 2545,
+      "sha256": "d5800874d70fd599bff051cb3cb060edcc6c1a2cd6bddf75eef79cd8df4fd848"
+    },
+    {
+      "file": "GITHUB-UPLOAD-10.2.0.txt",
+      "action": "docs",
+      "bytes": 711,
+      "sha256": "8fb8df2ee47dd03f28fdf4cc91cd804841aa5647a4731777420e97d4ac417bcc"
+    }
+  ]
+}

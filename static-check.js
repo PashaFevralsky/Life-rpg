@@ -2,7 +2,7 @@
 const fs=require('fs'),path=require('path'),cp=require('child_process'),assert=require('assert');
 const root=__dirname;
 const baseModules=['core','state','finance','imports','work','tennis','knowledge','gamification','pwa','ui'];
-const osModules=['life-os','projects-os','review-os','calendar-os','tasks-os','inbox-os','rules-os','insights-os'];
+const osModules=['life-os','projects-os','goals-os','review-os','calendar-os','tasks-os','routines-os','inbox-os','rules-os','insights-os','command-os'];
 const modules=[...baseModules,...osModules,'bootstrap'];
 for(const m of [...modules,'app']){
   const f=path.join(root,m+'.js');
@@ -28,13 +28,17 @@ const dynamic=new Set(['statementReviewAck','ux7AccountForm','ux7AssetForm','ux7
 const idSet=new Set(ids);const missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));
 assert.deepEqual(missing,[],'Unexpected missing DOM ids: '+missing.join(', '));
 const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8'),manifest=fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'),core=fs.readFileSync(path.join(root,'core.js'),'utf8'),bootstrap=fs.readFileSync(path.join(root,'bootstrap.js'),'utf8');
-assert.ok(sw.includes('life-rpg-v10.1.0-modular-runtime'),'Wrong SW cache');
-for(const m of osModules)assert.ok(sw.includes(`./${m}.js?v=10.1.0`),`SW missing ${m}.js`);
-assert.ok(manifest.includes('Life RPG 10.1.0'),'Wrong manifest version');
-assert.ok(core.includes('APP_VERSION="10.1.0"'),'Wrong app version');
+assert.ok(sw.includes('life-rpg-v10.2.0-direction-execution'),'Wrong SW cache');
+assert.ok(!sw.includes('?v=10.0.2')&&!sw.includes('?v=10.1.0'),'Stale SW asset query versions');
+for(const m of osModules)assert.ok(sw.includes(`./${m}.js?v=10.2.0`),`SW missing ${m}.js`);
+assert.ok(manifest.includes('Life RPG 10.2.0'),'Wrong manifest version');
+assert.ok(core.includes('APP_VERSION="10.2.0"'),'Wrong app version');
 assert.ok(core.includes('STATE_VERSION=17'),'Wrong state version');
-assert.ok(bootstrap.includes('LIFE_RPG_101_MODULES'),'Modular bootstrap registry missing');
+assert.ok(bootstrap.includes('LIFE_RPG_102_MODULES'),'Modular bootstrap registry missing');
 assert.ok(bootstrap.includes('window.__LIFE_RPG_HTML_VERSION__=APP_VERSION'),'Bootstrap must reconcile legacy HTML shell version');
+assert.ok(html.includes('window.__LIFE_RPG_HTML_VERSION__="10.2.0"'),'HTML shell version mismatch');
+assert.ok(html.includes('<title>Life RPG 10.2.0</title>'),'HTML title mismatch');
+assert.ok(!html.includes('10.1.0'),'Stale 10.1.0 references remain in HTML shell');
 assert.ok(!html.includes('Financial OS 7.2')&&!html.includes('Life OS 7.2')&&!html.includes('Debt Engine 7.2'),'Stale visible version labels');
 assert.ok(fs.readFileSync(path.join(root,'pwa.js'),'utf8').includes('fetch(`./core.js?check='),'Update checker must read core.js version');
 

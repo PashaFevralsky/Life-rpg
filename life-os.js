@@ -110,6 +110,9 @@ function lifeOsRawCandidates(){
     })
   }
 
+  const goalActions=typeof goalDecisionEngine==="function"?goalDecisionEngine():[];
+  for(const x of goalActions.slice(0,4))lifeOsAddCandidate(out,x);
+
   const reviewActions=typeof reviewDecisionEngine==="function"?reviewDecisionEngine():[];
   for(const x of reviewActions.slice(0,3)){
     lifeOsAddCandidate(out,{id:`review:${x.kind}`,area:"Система",kind:x.kind,title:x.title,meta:x.meta,score:x.score,hard:false,route:"reviews",minutes:x.minutes||20})
@@ -120,6 +123,8 @@ function lifeOsRawCandidates(){
   }
   const taskActions=typeof taskDecisionEngine==="function"?taskDecisionEngine():[];
   for(const x of taskActions.slice(0,8))lifeOsAddCandidate(out,x);
+  const routineActions=typeof routineDecisionEngine==="function"?routineDecisionEngine():[];
+  for(const x of routineActions.slice(0,3))lifeOsAddCandidate(out,x);
   const inboxActions=typeof inboxDecisionEngine==="function"?inboxDecisionEngine():[];
   for(const x of inboxActions.slice(0,2))lifeOsAddCandidate(out,x);
   const ruleActions=typeof ruleEngineActions==="function"?ruleEngineActions():[];
@@ -243,9 +248,9 @@ function lifeOsMinimumDay(){
 }
 
 function lifeOsOpen(area,route=""){
-  if(route==="projects"||route==="reviews"||route==="rules"||route==="insights"){ux7Go("more","overview");return}
+  if(route==="projects"||route==="goals"||route==="reviews"||route==="rules"||route==="insights"){ux7Go("more","overview");return}
   if(route==="calendar"){ux7Go("more","overview");setTimeout(()=>document.getElementById("calendarOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"start"}),180);return}
-  if(route==="tasks"||route==="inbox"){ux7Go("today","focus");setTimeout(()=>document.getElementById(route==="tasks"?"tasksOsCommand":"inboxOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}
+  if(route==="tasks"||route==="routines"||route==="inbox"){ux7Go("today","focus");setTimeout(()=>document.getElementById(route==="tasks"?"tasksOsCommand":route==="routines"?"routinesOsCommand":"inboxOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}
   if(area==="Финансы"){switchTab("finance");return}
   if(area==="Работа"){ux7Go("work","crm");return}
   if(area==="Теннис"){ux7Go("tennis","analytics");return}

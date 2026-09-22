@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 const classicRuntime=[
   "platform.js","core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js",
-  "life-os.js","projects-os.js","review-os.js","calendar-os.js","tasks-os.js","inbox-os.js","rules-os.js","insights-os.js",
+  "life-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js",
   "bootstrap.js","app.js","READING-LIST-27.json","manifest.webmanifest","icon-192.png","icon-512.png"
 ];
 function copyClassicRuntime(){return {name:"life-rpg-classic-runtime",writeBundle(){mkdirSync("dist",{recursive:true});for(const file of classicRuntime){if(existsSync(file))cpSync(file,resolve("dist",file))}}}}

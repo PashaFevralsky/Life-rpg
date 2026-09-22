@@ -11,7 +11,7 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("10.1.0");
+  await expect(page.locator("#versionStatus")).toContainText("10.2.0");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(17);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.
@@ -21,7 +21,9 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator('#today .ux7-tab[data-view="focus"]').click();
   await expect(page.locator("#lifeOsCommand")).toBeVisible();
   await expect(page.locator("#tasksOsCommand")).toBeVisible();
+  await expect(page.locator("#routinesOsCommand")).toBeVisible();
   await expect(page.locator("#inboxOsCommand")).toBeVisible();
+  await expect(page.locator("#commandPaletteBtn")).toBeVisible();
 
   // Tasks OS -> create a real next action.
   await page.locator('button[onclick*="taskEditorCard"]').click();
@@ -31,6 +33,17 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator("#taskPriority").selectOption("1");
   await page.locator('button[onclick="saveTaskForm()"]',).click();
   await expect(page.locator("#tasksOsList")).toContainText("E2E задача");
+
+  // Routines OS -> create today's routine and complete it once.
+  await page.locator('button[onclick*="routineDayPicker"]').click();
+  await expect(page.locator("#routineEditorCard")).toBeVisible();
+  await page.locator("#routineTitle").fill("E2E рутина");
+  await page.locator("#routineMinutes").fill("20");
+  await page.locator('button[onclick="saveRoutineForm()"]',).click();
+  const routineRow=page.locator("#routinesOsList .quest").filter({hasText:"E2E рутина"});
+  await expect(routineRow).toBeVisible();
+  await routineRow.locator('button[onclick^="completeRoutine"]').click();
+  await expect(routineRow).toContainText("E2E рутина");
 
   // Inbox OS -> capture first, decide route later.
   await page.locator("#inboxCaptureInput").fill("E2E inbox позвонить клиенту завтра");
@@ -100,7 +113,7 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator('[data-tab="more"]').click();
   await expect(page.locator("#more")).toHaveClass(/active/);
 
-  // Modular 10.1.0 systems are present in More / Overview.
+  // Modular 10.2.0 systems are present in More / Overview.
   await expect(page.locator("#rulesOsCommand")).toBeVisible();
   await expect(page.locator("#insightsOsCommand")).toBeVisible();
 
@@ -113,6 +126,24 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await page.locator("#projectNextStep").fill("Сделать следующий шаг");
   await page.locator('button[onclick="saveProject()"]').click();
   await expect(page.locator("#projectsOsList")).toContainText("E2E проект");
+
+  // Goals OS -> create a goal linked to the real project.
+  await expect(page.locator("#goalsOsCommand")).toBeVisible();
+  await page.locator('button[onclick*="goalProjectLinks"]').click();
+  await expect(page.locator("#goalEditorCard")).toBeVisible();
+  await page.locator("#goalTitle").fill("E2E цель");
+  await page.locator("#goalOutcome").fill("Достигнут проверяемый результат");
+  const projectLink=page.locator('#goalProjectLinks label').filter({hasText:"E2E проект"}).locator('input');
+  await projectLink.check();
+  await page.locator('button[onclick="saveGoalForm()"]').click();
+  await expect(page.locator("#goalsOsList")).toContainText("E2E цель");
+
+  // Command Palette -> global search finds the linked project.
+  await page.locator("#commandPaletteBtn").click();
+  await expect(page.locator("#commandPalette")).toHaveClass(/open/);
+  await page.locator("#commandInput").fill("E2E проект");
+  await expect(page.locator("#commandResults")).toContainText("E2E проект");
+  await page.locator('#commandPalette .close').click();
 
   // Review / Planning OS -> save the weekly snapshot and verify history.
   await expect(page.locator("#reviewOsCommand")).toBeVisible();
@@ -140,6 +171,7 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await knowledgeTab.click();
   await expect(page.locator("#knowledgeOsCommand")).toBeVisible();
   await expect(page.locator("#projectsOsCommand")).not.toBeVisible();
+  await expect(page.locator("#goalsOsCommand")).not.toBeVisible();
   await expect(page.locator("#reviewOsCommand")).not.toBeVisible();
   await expect(page.locator("#calendarOsCommand")).not.toBeVisible();
   await expect(page.locator("#rulesOsCommand")).not.toBeVisible();

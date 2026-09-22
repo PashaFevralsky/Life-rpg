@@ -21,7 +21,7 @@ function reviewCompletedProjects(a,b){
 }
 function reviewSnapshot(kind){
   const score=lifeScore(),projects=projectSummary(),life=lifeOsDailyPlan(),finance=typeof decisionEngineData==="function"?decisionEngineData():null,tasks=typeof taskSummary==="function"?taskSummary():{active:0,overdue:0,due:0,high:0,doneMonth:0},inboxRows=typeof inboxOpen==="function"?inboxOpen():[];
-  const inbox={open:inboxRows.length,old:inboxRows.filter(x=>typeof inboxAgeDays==="function"&&inboxAgeDays(x)>=2).length};
+  const inbox={open:inboxRows.length,old:inboxRows.filter(x=>typeof inboxAgeDays==="function"&&inboxAgeDays(x)>=2).length},goals=typeof goalSummary==="function"?goalSummary():{active:0,atRisk:0,overdue:0,avg:0,doneMonth:0},routines=typeof routine28Stats==="function"?routine28Stats():{scheduled:0,done:0,rate:0};
   if(kind==="month"){
     const r=currentMonthReport(),month=localMonthKey(),readDays=new Set((S.readingLogs||[]).filter(x=>String(x.dateKey||"").startsWith(month)).map(x=>x.dateKey)).size;
     return {
@@ -31,7 +31,7 @@ function reviewSnapshot(kind){
       tennis:{sessions:r.tennis,tournaments:r.tournaments,target:Math.round(lifeOsSettingNumber("tennisMonthlyTarget",12,1,60))},
       knowledge:{minutes:r.readMinutes,books:r.books,days:readDays,reviewDue:typeof knowledgeReviewQueue==="function"?knowledgeReviewQueue().length:0},
       projects:{...projects,completed:r?projectCompletedThisMonth():0},
-      tasks:{...tasks},inbox,
+      tasks:{...tasks},inbox,goals,routines,
       system:{hard:life.hardAll.length,deferred:life.deferred.length}
     }
   }
@@ -46,7 +46,7 @@ function reviewSnapshot(kind){
     tennis:{sessions:t.sessions,tournaments:t.tournaments,target:Math.round(lifeOsSettingNumber("tennisWeeklyTarget",4,1,14))},
     knowledge:{minutes:reads.reduce((n,x)=>n+(+x.minutes||0),0),days:readDays,target:Math.round(lifeOsSettingNumber("readingWeeklyDaysTarget",7,1,7)),reviewDue:typeof knowledgeReviewQueue==="function"?knowledgeReviewQueue().length:0},
     projects:{...projects,completed:reviewCompletedProjects(a,b)},
-    tasks:{...tasks},inbox,
+    tasks:{...tasks},inbox,goals,routines,
     system:{hard:life.hardAll.length,deferred:life.deferred.length}
   }
 }
@@ -70,7 +70,8 @@ function reviewSuggestedPlan(){
   for(const x of candidates){if(!seen.has(x.area)){focusAreas.push(x.area);seen.add(x.area)}if(focusAreas.length>=3)break}
   const pauseIds=new Set(reviewPauseCandidates().map(x=>x.id));
   const focusProjects=projectActive().filter(x=>!pauseIds.has(x.id)).sort((a,b)=>reviewProjectRank(b)-reviewProjectRank(a)).slice(0,3);
-  return {focusAreas,focusProjectIds:focusProjects.map(x=>x.id),pauseProjectIds:[...pauseIds],generatedAt:new Date().toISOString()}
+  const focusGoals=typeof goalActive==="function"?goalActive().slice().sort((a,b)=>{const ha=goalHealth(a),hb=goalHealth(b);return (hb.atRisk-ha.atRisk)||(a.priority-b.priority)}).slice(0,2):[];
+  return {focusAreas,focusProjectIds:focusProjects.map(x=>x.id),focusGoalIds:focusGoals.map(x=>x.id),pauseProjectIds:[...pauseIds],generatedAt:new Date().toISOString()}
 }
 function reviewActivePlan(){
   const current=reviewCurrent("week");if(current?.plan)return current.plan;

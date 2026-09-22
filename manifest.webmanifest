@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 10.1.0",
+  "name": "Life RPG 10.2.0",
   "short_name": "Life RPG",
-  "description": "Life RPG 10.1.0 — modular OS runtime, Inbox, Tasks, Rules and Insights",
-  "start_url": "./?v=10.1.0",
+  "description": "Life RPG 10.2.0 — Goals, Routines, Command Palette and stronger cross-domain planning",
+  "start_url": "./?v=10.2.0",
   "scope": "./",
   "display": "standalone",
   "background_color": "#08090c",

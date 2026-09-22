@@ -84,6 +84,8 @@ function calendarAutoEvents(startKey,endKey){
     if(validDateKey(p.deadline))add({id:calendarSemanticId(["project","deadline",p.id,p.deadline]),dateKey:p.deadline,source:"project",kind:"project-deadline",area:p.area||"Личное",title:`Дедлайн: ${p.title}`,meta:`Прогресс ${p.progress||0}%`,minutes:15,hard:p.deadline<localDateKey()&&+p.priority===1,priority:+p.priority||2,refId:p.id,route:"projects"})
   }
   if(typeof taskActive==="function")for(const t of taskActive())if(validDateKey(t.dueDate))add({id:calendarSemanticId(["task",t.id,t.dueDate]),dateKey:t.dueDate,source:"task",kind:"task",area:t.area||"Личное",title:`Задача: ${t.title}`,meta:t.note||`Приоритет ${t.priority}`,minutes:t.minutes||15,hard:t.dueDate<localDateKey()&&+t.priority===1,priority:+t.priority||2,refId:t.id,route:"tasks"});
+  if(typeof goalCalendarEvents==="function")for(const e of goalCalendarEvents(startKey,endKey))add(e);
+  if(typeof routineCalendarEvents==="function")for(const e of routineCalendarEvents(startKey,endKey))add(e);
   for(const e of calendarReviewEvents(startKey,endKey))add(e);
   return out.sort((a,b)=>a.dateKey.localeCompare(b.dateKey)||(b.hard?1:0)-(a.hard?1:0)||(+a.priority||2)-(+b.priority||2))
 }
@@ -126,6 +128,8 @@ function calendarOpenEvent(id){
   if(e.source==="crm"){ux7Go("work","crm");return}
   if(e.source==="project"||e.source==="review"){ux7Go("more","overview");return}
   if(e.source==="task"){ux7Go("today","focus");setTimeout(()=>document.getElementById("tasksOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}
+  if(e.source==="goal"){ux7Go("more","overview");setTimeout(()=>document.getElementById("goalsOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}
+  if(e.source==="routine"){ux7Go("today","focus");setTimeout(()=>document.getElementById("routinesOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}
   if(e.manual&&e.area==="Теннис"){ux7Go("tennis","training");return}
   if(e.manual&&e.area==="Работа"){ux7Go("work","log");return}
 }
@@ -162,7 +166,7 @@ async function deleteCalendarEvent(id){
 }
 function calendarSummary(){
   const events=calendarEvents(),today=localDateKey(),future=events.filter(x=>x.dateKey>=today),over=calendarOverloadedDays(),week=calendarWeekLoads(7)[0]||{minutes:0,events:0,hard:0,overloadDays:0};
-  return {events:future.length,manual:future.filter(x=>x.manual).length,money:future.filter(x=>x.source==="finance"&&x.kind==="payment").length,crm:future.filter(x=>x.source==="crm").length,projects:future.filter(x=>x.source==="project").length,overloadDays:over.length,nextOverload:over[0]||null,week}
+  return {events:future.length,manual:future.filter(x=>x.manual).length,money:future.filter(x=>x.source==="finance"&&x.kind==="payment").length,crm:future.filter(x=>x.source==="crm").length,projects:future.filter(x=>x.source==="project").length,goals:future.filter(x=>x.source==="goal").length,routines:future.filter(x=>x.source==="routine").length,overloadDays:over.length,nextOverload:over[0]||null,week}
 }
 function ensureCalendarOsUi(){
   if(projectEl("calendarOsCommand"))return;
@@ -171,7 +175,7 @@ function ensureCalendarOsUi(){
   const html=`
     <div data-ux7-view="overview" class="card ux7-card span-12">
       <div class="split"><div><div class="eyebrow">Calendar / Timeline OS</div><div class="section-title">Единая временная ось</div></div><button class="btn secondary small" onclick="projectEl('calendarEditorCard').hidden=false;projectEl('calendarDate').value=localDateKey()">+ Событие</button></div>
-      <div class="muted" style="margin-top:6px">Автоматически: деньги, CRM, проекты и обзоры. Вручную: тренировки, турниры и другие планы. Нагрузка — оценка активного времени, а не полный тайм-трекинг.</div>
+      <div class="muted" style="margin-top:6px">Автоматически: деньги, CRM, проекты, цели, рутины и обзоры. Вручную: тренировки, турниры и другие планы. Нагрузка — оценка активного времени, а не полный тайм-трекинг.</div>
       <div id="calendarOsCommand" style="margin-top:12px"></div>
     </div>
     <div data-ux7-view="overview" class="card ux7-card span-8"><div class="title">Ближайшие 14 дней</div><div id="calendarTimeline"></div></div>
@@ -200,7 +204,7 @@ async function saveCalendarSettings(){
 function renderCalendarOs(){
   if(!projectEl("calendarOsCommand"))return;
   const q=calendarSummary(),today=localDateKey();
-  projectEl("calendarOsCommand").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Событий впереди</div><b>${q.events}</b></div><div class="report-item"><div class="smallcaps">Плановых вручную</div><b>${q.manual}</b></div><div class="report-item"><div class="smallcaps">Платежей</div><b>${q.money}</b></div><div class="report-item"><div class="smallcaps">CRM-сроков</div><b>${q.crm}</b></div><div class="report-item"><div class="smallcaps">Проектных сроков</div><b>${q.projects}</b></div><div class="report-item"><div class="smallcaps">Перегруженных дней</div><b class="${q.overloadDays?"income-bad":""}">${q.overloadDays}</b></div></div>${q.nextOverload?`<div class="notice" style="margin-top:10px"><b>Ближайшая перегрузка:</b> ${fmtDate(parseLocal(q.nextOverload.dateKey))} • ~${q.nextOverload.minutes}/${q.nextOverload.capacity} мин.</div>`:""}`;
+  projectEl("calendarOsCommand").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Событий впереди</div><b>${q.events}</b></div><div class="report-item"><div class="smallcaps">Плановых вручную</div><b>${q.manual}</b></div><div class="report-item"><div class="smallcaps">Платежей</div><b>${q.money}</b></div><div class="report-item"><div class="smallcaps">CRM-сроков</div><b>${q.crm}</b></div><div class="report-item"><div class="smallcaps">Проектных сроков</div><b>${q.projects}</b></div><div class="report-item"><div class="smallcaps">Целей</div><b>${q.goals}</b></div><div class="report-item"><div class="smallcaps">Рутин</div><b>${q.routines}</b></div><div class="report-item"><div class="smallcaps">Перегруженных дней</div><b class="${q.overloadDays?"income-bad":""}">${q.overloadDays}</b></div></div>${q.nextOverload?`<div class="notice" style="margin-top:10px"><b>Ближайшая перегрузка:</b> ${fmtDate(parseLocal(q.nextOverload.dateKey))} • ~${q.nextOverload.minutes}/${q.nextOverload.capacity} мин.</div>`:""}`;
   const events=calendarEvents(14,2),days=[...new Set(events.map(x=>x.dateKey))].sort();
   projectEl("calendarTimeline").innerHTML=days.length?days.map(k=>{
     const d=calendarDayLoad(k,events),past=k<today,label=k===today?"Сегодня":fmtDate(parseLocal(k)),cls=d.level==="bad"?"bad":d.level==="warn"?"warn":"";

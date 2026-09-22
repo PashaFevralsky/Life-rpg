@@ -1,0 +1,57 @@
+Life RPG 10.2.0 — Direction & Execution
+Base: Life RPG 10.1.0, state schema v17
+
+NEW — Goals / Horizons OS
+- 90-day, annual and custom-horizon goals.
+- Outcome, priority, deadline, area and progress.
+- Link one goal to multiple existing projects.
+- When projects are linked, goal progress is calculated automatically from project progress.
+- Deadline / behind-pace detection.
+- Goal deadlines appear in Calendar OS.
+- At-risk goals can become Life OS actions.
+- Goal completion awards result XP once.
+
+NEW — Habits / Routines OS
+- Repeating routines by weekday.
+- Area, priority and estimated minutes.
+- One-tap completion from Today.
+- Weekly and 28-day adherence facts.
+- Missed past routines do NOT become overdue tasks.
+- Routines only exist statistically after their creation date.
+- Future routine commitments appear in Calendar OS and capacity calculations.
+- Completed routine counts as an active day and awards process XP once per completion.
+
+NEW — Search / Command Palette
+- Global mobile button in the header.
+- Ctrl/Cmd + K on desktop.
+- Search Tasks, Projects, Goals, Routines, Inbox, CRM, books and manual Calendar events.
+- Quick commands for new Task, Inbox capture, Goal, Project, Routine, Calendar and Review.
+- No new persistent state.
+
+INSIGHTS OS 2
+- Goal portfolio snapshot.
+- Task flow over 28 days.
+- Routine adherence over 28 days.
+- Routine adherence ↔ Life Score correlation only after 4 saved weekly snapshots.
+- Existing correlations keep minimum-sample requirements and explicitly remain non-causal.
+
+CROSS-DOMAIN INTEGRATION
+- Goals -> Life OS + Calendar OS + Review snapshots.
+- Routines -> Life OS + Calendar capacity + Review snapshots + Gamification active day.
+- Review plan stores up to 2 focus goals in addition to projects.
+- Rules OS warns if more than 5 goals are simultaneously active.
+- Calendar summary now exposes goal and routine events.
+
+ARCHITECTURE / PWA
+- Modular runtime grows from 8 to 11 OS modules.
+- bootstrap.js remains only ~2.6 KB.
+- APP_VERSION = 10.2.0.
+- STATE_VERSION remains 17.
+- HTML shell, manifest, package and legacy SW cache are aligned to 10.2.0.
+- Legacy SW no longer contains stale ?v=10.0.2 / ?v=10.1.0 assets.
+
+LOCAL VALIDATION
+- node --check: all changed/new JS files PASS.
+- static-check.js: PASS — 827 unique functions, 329 static HTML ids, 63 inline handlers, 11 modular OS files.
+- os-integration.test.js: PASS — Goals, Routines, Command Palette, Review/Calendar/Life integration.
+- Full CI/mobile E2E will be verified after upload on GitHub Actions.

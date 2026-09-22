@@ -11,7 +11,7 @@ context.window.window=context.window;context.window.document=context.document;
 for(const file of ["core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js"]){
   new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context)
 }
-for(const file of ["life-os.js","projects-os.js","review-os.js","calendar-os.js","tasks-os.js","inbox-os.js","rules-os.js","insights-os.js"]){
+for(const file of ["life-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js"]){
   new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context)
 }
 const run=code=>new vm.Script(code).runInContext(context);
@@ -174,8 +174,43 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   run(`for(let w=0;w<6;w++){const d=addDays(new Date(),-(w*7+1));S.workLogs.push({id:"w"+w,date:localDateKey(d),contacts:w+1,followups:w,meetings:w%2,proposals:w%3,sales:(w+1)*100000});}`);
   assert.equal(run(`insightWorkAssociation().ready`),true);assert.ok(run(`insightWorkAssociation().meta.includes("не доказательство причинности")`));
 
+  // Goals / Horizons OS: settings persistence, project-linked auto progress,
+  // deadline routing to Calendar/Life OS, and result XP only once.
+  run(`S=normalizeState({version:STATE_VERSION,settings:{goals:[{id:"g-persist",title:"Persist goal",area:"Работа",priority:2,status:"active",manualProgress:15,projectIds:[]}]}});`);
+  assert.equal(run(`goalStore().length`),1);
+  assert.equal(run(`goalStore()[0].title`),"Persist goal");
+  run(`S=deepClone(DEFAULT_STATE); S.settings.projects=[{id:"gp",title:"Linked project",area:"Работа",priority:2,status:"active",progress:60,nextStep:"Step",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}]; S.settings.goals=[]; save=async()=>{}; audit=()=>{}; toast=()=>{}; var gg=goalCreate({title:"Linked goal",area:"Работа",priority:1,horizon:"custom",deadline:localDateKey(addDays(new Date(),5)),manualProgress:5,projectIds:["gp"]});`);
+  assert.equal(run(`goalProgress(gg)`),60);
+  assert.ok(run(`goalDecisionEngine().some(x=>x.goalId===gg.id&&x.route==="goals")`));
+  assert.ok(run(`calendarEvents(7,0).some(x=>x.source==="goal"&&x.refId===gg.id)`));
+  assert.ok(run(`lifeOsRawCandidates().some(x=>String(x.id).startsWith("goal:")&&x.route==="goals")`));
+  const goalXpBefore=run(`S.xpEarned`);await run(`setGoalStatus(gg.id,"done")`);const goalXpAfter=run(`S.xpEarned`);assert.ok(goalXpAfter>goalXpBefore);await run(`setGoalStatus(gg.id,"done")`);assert.equal(run(`S.xpEarned`),goalXpAfter);
+
+  // Routines OS: today's schedule creates one soft Life OS action, completion removes it,
+  // future schedule appears in Calendar, and a missed past day does not become overdue debt.
+  run(`S=deepClone(DEFAULT_STATE); S.settings.routines=[]; S.settings.routineLogs=[]; save=async()=>{}; audit=()=>{}; toast=()=>{}; var rr=routineCreate({title:"Daily routine",area:"Знания",priority:2,days:[1,2,3,4,5,6,7],minutes:20});`);
+  assert.equal(run(`routineDueToday().length`),1);
+  assert.ok(run(`routineDecisionEngine().some(x=>x.routineId===rr.id&&!x.hard)`));
+  assert.ok(run(`lifeOsRawCandidates().some(x=>String(x.id).startsWith("routine:")&&x.route==="routines")`));
+  assert.ok(run(`routineCalendarEvents(localDateKey(),localDateKey(addDays(new Date(),2))).length>=2`));
+  const routineXpBefore=run(`S.xpEarned`);await run(`completeRoutine(rr.id)`);const routineXpAfter=run(`S.xpEarned`);assert.ok(routineXpAfter>routineXpBefore);assert.equal(run(`routineDueToday().length`),0);await run(`completeRoutine(rr.id)`);assert.equal(run(`S.xpEarned`),routineXpAfter);
+  assert.equal(run(`routineDecisionEngine().some(x=>/просроч/i.test(x.title))`),false);
+  assert.equal(run(`activeDay(localDateKey())`),true);
+
+  // Review / Insights include Goals and Routines without a schema bump.
+  assert.equal(run(`STATE_VERSION`),17);
+  const rs=run(`reviewSnapshot("week")`);assert.ok(rs.goals&&rs.routines);
+  assert.equal(run(`insightGoalPortfolio().ready`),false); // completed goal is no longer active
+  run(`goalCreate({title:"Insight goal",area:"Работа",priority:2,status:"active",manualProgress:40,projectIds:[]});`);
+  assert.equal(run(`insightGoalPortfolio().ready`),true);
+
+  // Command Palette indexes cross-domain entities without mutating state.
+  run(`S.settings.tasks=[{id:"cmd-task",title:"Найти меня",area:"Работа",priority:2,status:"active",minutes:10,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}];`);
+  assert.ok(run(`commandSearch("Найти меня").some(x=>x.key==="task:cmd-task")`));
+  assert.ok(run(`commandSearch("").some(x=>x.key==="quick:new-task")`));
+
   // Dynamically injected OS cards must participate in UX7 view switching.
-  for(const file of ["work.js","tennis.js","knowledge.js","life-os.js","projects-os.js","review-os.js","calendar-os.js","tasks-os.js","inbox-os.js","rules-os.js","insights-os.js"]){
+  for(const file of ["work.js","tennis.js","knowledge.js","life-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js"]){
     const src=fs.readFileSync(path.join(root,file),"utf8");
     const dynamic=[...src.matchAll(/data-ux7-view="[^"]+"\s+class="([^"]+)"/g)];
     assert.ok(dynamic.length>0,`${file}: no dynamic UX7 cards found`);
@@ -183,5 +218,5 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   }
   assert.ok(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8").length<8000,"bootstrap must stay modular");
 
-  console.log("OK — Life RPG 10.1.0 cross-domain OS integration tests passed");
+  console.log("OK — Life RPG 10.2.0 direction/execution OS integration tests passed");
 })().catch(e=>{console.error(e);process.exit(1)});

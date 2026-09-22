@@ -1,10 +1,10 @@
-const CACHE="life-rpg-v10.1.0-modular-runtime";
+const CACHE="life-rpg-v10.2.0-direction-execution";
 const ASSETS=[
   "./","./index.html",
-  "./platform.js?v=10.0.2","./styles.css?v=10.0.2",
-  "./core.js?v=10.0.2","./state.js?v=10.0.2","./finance.js?v=10.0.2","./imports.js?v=10.0.2","./work.js?v=10.0.2","./tennis.js?v=10.0.2","./knowledge.js?v=10.0.2","./gamification.js?v=10.0.2","./pwa.js?v=10.0.2","./ui.js?v=10.0.2","./bootstrap.js?v=10.0.2",
-  "./life-os.js?v=10.1.0","./projects-os.js?v=10.1.0","./review-os.js?v=10.1.0","./calendar-os.js?v=10.1.0","./tasks-os.js?v=10.1.0","./inbox-os.js?v=10.1.0","./rules-os.js?v=10.1.0","./insights-os.js?v=10.1.0",
-  "./manifest.webmanifest?v=10.0.2","./icon-192.png","./icon-512.png"
+  "./platform.js?v=10.2.0","./styles.css?v=10.2.0",
+  "./core.js?v=10.2.0","./state.js?v=10.2.0","./finance.js?v=10.2.0","./imports.js?v=10.2.0","./work.js?v=10.2.0","./tennis.js?v=10.2.0","./knowledge.js?v=10.2.0","./gamification.js?v=10.2.0","./pwa.js?v=10.2.0","./ui.js?v=10.2.0","./bootstrap.js?v=10.2.0",
+  "./life-os.js?v=10.2.0","./projects-os.js?v=10.2.0","./goals-os.js?v=10.2.0","./review-os.js?v=10.2.0","./calendar-os.js?v=10.2.0","./tasks-os.js?v=10.2.0","./routines-os.js?v=10.2.0","./inbox-os.js?v=10.2.0","./rules-os.js?v=10.2.0","./insights-os.js?v=10.2.0","./command-os.js?v=10.2.0",
+  "./manifest.webmanifest?v=10.2.0","./icon-192.png","./icon-512.png"
 ];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("life-rpg-v")&&k!==CACHE).map(k=>caches.delete(k))))));

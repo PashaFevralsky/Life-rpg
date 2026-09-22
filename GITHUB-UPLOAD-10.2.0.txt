@@ -1,0 +1,31 @@
+Life RPG 10.2.0 — upload to repository root
+
+NEW FILES:
+- goals-os.js
+- routines-os.js
+- command-os.js
+
+REPLACE EXISTING FILES:
+- architecture.test.js
+- bootstrap.js
+- calendar-os.js
+- core.js
+- e2e.test.js
+- index.html
+- insights-os.js
+- life-os.js
+- manifest.webmanifest
+- os-integration.test.js
+- package.json
+- review-os.js
+- rules-os.js
+- static-check.js
+- sw.js
+- vite.config.mjs
+
+Do not create a subfolder. All files go into the repository root.
+Upload the NEW + REPLACE files in one commit.
+The .txt files in this ZIP are documentation and do not need to be uploaded.
+
+After upload, send: залил
+Then verify GitHub Actions: npm test -> Vite/Workbox build -> mobile Playwright E2E -> Pages deploy.
