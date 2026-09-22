@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 11.0.0 — Automation / Rules OS
+/* Life RPG 11.1.0 — Automation / Rules OS
    Transparent heuristics only. Domain engines remain authoritative for finance/CRM/projects. */
 
 function ruleToggles(){if(!S.settings.ruleToggles||typeof S.settings.ruleToggles!=="object")S.settings.ruleToggles={};return S.settings.ruleToggles}

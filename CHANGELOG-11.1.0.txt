@@ -1,0 +1,76 @@
+Life RPG 11.1.0 — Calibration & Learning Loop
+
+BASE
+11.0.0 / STATE_VERSION 18
+
+WHAT CHANGED
+
+1. PLAN -> FACT CALIBRATION
+- Daily prospective snapshots capture the first meaningful task plan for the day.
+- Plan adherence is calculated only from tasks actually planned for that day.
+- Later estimate edits do not rewrite historical planned minutes.
+- Initial scheduling is not counted as a reschedule.
+- Manual and automatic reschedules are tracked separately.
+- Historical calibration data is bounded to prevent unlimited state growth.
+
+2. CONSERVATIVE EXECUTION CAPACITY LEARNING
+- Calendar capacity itself is NOT learned from task completion.
+- Calibration adjusts only the free task budget inside existing Calendar capacity.
+- Fixed commitments such as finance, CRM, routines and manual Calendar events are not reduced by task learning.
+- Auto-tune requires at least 8 loaded days with >=60 planned task minutes.
+- Adjustment is at most 5 percentage points per week.
+- Factor is bounded to 65%..115%.
+- Manual reset is available and prevents immediate re-tuning in the same week.
+- Every automatic adjustment stores sample size, before/after factor and reason.
+
+3. MEASURED TASK TIME
+- Tasks have Start/Stop timer controls.
+- Actual minutes are stored separately from estimated minutes.
+- Completing a running task closes the timer first.
+- Estimate accuracy is shown only after at least 5 timed completed tasks.
+- Stale timer segments over 8 hours are capped and excluded from accuracy statistics.
+
+4. DECISION LEARNING
+- Top Life OS recommendations are recorded as daily exposures without duplicate render spam.
+- Explicit reactions are tracked: execute, boost, snooze, hide, never suggest.
+- A task completed through another screen can still count as an observed accepted recommendation if it was shown that day.
+- Decision action rate and ignored recommendations are descriptive facts, not preference inference.
+
+5. EXECUTION INTELLIGENCE INTEGRATION
+- Planner uses calibrated free task capacity per day.
+- Existing fixed calendar load is always preserved.
+- Deadlines, not-before dates, dependencies and locked task dates keep their 11.0.0 semantics.
+- Applying an execution plan records real reschedules for calibration.
+- Execution UI shows current Task Budget factor.
+
+6. REVIEW / INSIGHTS
+- Weekly/monthly Review snapshots retain capacity factor, plan adherence and calibration sample size.
+- Insights adds Plan -> fact calibration and Estimate time -> measured time.
+- Small samples remain explicitly insufficient rather than being extrapolated.
+
+7. UX
+- Calibration dashboard lives in More / Overview.
+- Command Palette can open Calibration directly.
+- Today Flow shows current Task Budget factor and calibration sample progress.
+
+DATA / MIGRATION
+- APP_VERSION: 11.1.0
+- STATE_VERSION: 18 (unchanged)
+- No entity migration is required.
+- Existing 11.0.0 v18 data remains compatible.
+- New calibration history lives in settings.calibration.
+- New optional task fields are backward-compatible.
+
+LOCAL RELEASE GATES
+- Syntax checks passed.
+- static-check.js passed:
+  918 unique functions
+  329 unique static HTML ids
+  63 inline handlers
+  16 modular OS files
+- state-v18.test.js passed.
+- calibration.test.js passed.
+- os-integration.test.js passed.
+
+GitHub CI still needs to run after upload:
+npm test -> Vite/Workbox build -> mobile Playwright E2E -> Pages deploy.

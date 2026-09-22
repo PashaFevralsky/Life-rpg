@@ -11,7 +11,7 @@ context.window.window=context.window;context.window.document=context.document;
 for(const file of ["core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js"]){
   new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context)
 }
-for(const file of ["data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","execution-os.js","decision-os.js","recovery-os.js","life-os.js"]){
+for(const file of ["data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js","life-os.js"]){
   new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context)
 }
 const run=code=>new vm.Script(code).runInContext(context);
@@ -236,6 +236,12 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   assert.ok(fs.readFileSync(path.join(root,"decision-os.js"),"utf8").includes('id="todayFlowCommand"'));
   assert.ok(fs.readFileSync(path.join(root,"decision-os.js"),"utf8").includes("Не предлагать"));
 
+  // Calibration / Learning Loop: measured task time stays separate from estimates and capacity tuning is bounded.
+  run(`S=deepClone(DEFAULT_STATE);S.settings.calibration={version:1,taskEvents:[],decisionEvents:[],days:{},autoTuneEnabled:true,capacityFactor:1,lastAutoTuneWeek:'',lastAdjustment:null};S.entities.tasks=[];for(let i=1;i<=8;i++){const k=localDateKey(addDays(new Date(),-i));const a={id:'ca'+i,status:'done',plannedDate:k,minutes:60,actualMinutes:75,priority:2,area:'Работа',completedAt:k+'T12:00:00'},b={id:'cb'+i,status:'active',plannedDate:k,minutes:60,priority:2,area:'Работа'};S.entities.tasks.push(a,b);calibrationState().days[k]={dateKey:k,firstPlan:{taskIds:[a.id,b.id],plannedMinutes:120,taskCount:2,capturedAt:k+'T08:00:00'},latestPlan:{taskIds:[a.id,b.id],plannedMinutes:120,taskCount:2,capturedAt:k+'T08:00:00'}}}`);
+  assert.equal(run(`calibrationPlanStats(42).ready`),true);assert.equal(run(`calibrationRecommendation().delta`),-.05);assert.equal(run(`calibrationEstimateStats().ready`),true);assert.equal(run(`calibrationCapacityFor(180,60)`),180);
+  await run(`calibrationMaybeAutoTune(true)`);assert.ok(Math.abs(run(`calibrationCapacityFactor()`)-.95)<1e-9);assert.equal(run(`calibrationCapacityFor(180,60)`),174);
+  run(`calibrationRecordDecisionExposure([{id:'task:test',score:80,kind:'task',source:'Tasks OS'}]);calibrationRecordDecisionExposure([{id:'task:test',score:80,kind:'task',source:'Tasks OS'}]);calibrationRecordDecisionAction('boost','task:test')`);assert.equal(run(`calibrationDecisionStats().shown`),1);assert.equal(run(`calibrationDecisionStats().actions`),1);
+
   // Dynamically injected OS cards must participate in UX7 view switching.
   for(const file of ["work.js","tennis.js","knowledge.js","life-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","data-os.js","execution-os.js","decision-os.js","recovery-os.js"]){
     const src=fs.readFileSync(path.join(root,file),"utf8");
@@ -245,5 +251,5 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   }
   assert.ok(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8").length<8000,"bootstrap must stay modular");
 
-  console.log("OK — Life RPG 11.0.0 core intelligence integration tests passed");
+  console.log("OK — Life RPG 11.1.0 calibration integration tests passed");
 })().catch(e=>{console.error(e);process.exit(1)});

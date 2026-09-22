@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 11.0.0 — Goals / Horizons OS
+/* Life RPG 11.1.0 — Goals / Horizons OS
    Goal = desired outcome + horizon. Execution stays in Projects / Tasks. */
 
 function goalStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.goals))S.entities.goals=[];return S.entities.goals}

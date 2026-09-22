@@ -11,7 +11,7 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("11.0.0");
+  await expect(page.locator("#versionStatus")).toContainText("11.1.0");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.
@@ -120,9 +120,10 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
   await page.locator('[data-tab="more"]').click();
   await expect(page.locator("#more")).toHaveClass(/active/);
 
-  // Modular 11.0.0 systems are present in More / Overview.
+  // Modular 11.1.0 systems are present in More / Overview.
   await expect(page.locator("#rulesOsCommand")).toBeVisible();
   await expect(page.locator("#insightsOsCommand")).toBeVisible();
+  await expect(page.locator("#calibrationOsCommand")).toBeVisible();
   const settingsTab=page.locator('#more .ux7-tab[data-view="settings"]');
   await settingsTab.click();
   await expect(page.locator("#dataOsCommand")).toBeVisible();
@@ -188,6 +189,7 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#calendarOsCommand")).not.toBeVisible();
   await expect(page.locator("#rulesOsCommand")).not.toBeVisible();
   await expect(page.locator("#insightsOsCommand")).not.toBeVisible();
+  await expect(page.locator("#calibrationOsCommand")).not.toBeVisible();
 
   const addBookButton = page.locator('button[onclick="openModal(\'bookModal\')"]');
   await expect(addBookButton).toBeVisible();

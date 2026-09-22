@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 11.0.0 — Data Architecture / Entity Integrity */
+/* Life RPG 11.1.0 — Data Architecture / Entity Integrity */
 
 const DATA_ENTITY_KEYS=["projects","tasks","goals","routines","routineLogs","reviews","inbox","calendarEvents"];
 function entityStore(key){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities[key]))S.entities[key]=[];return S.entities[key]}

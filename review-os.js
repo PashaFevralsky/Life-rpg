@@ -18,7 +18,7 @@ function reviewCompletedProjects(a,b){
 }
 function reviewSnapshot(kind){
   const score=lifeScore(),projects=projectSummary(),life=lifeOsDailyPlan(),finance=typeof decisionEngineData==="function"?decisionEngineData():null,tasks=typeof taskSummary==="function"?taskSummary():{active:0,overdue:0,due:0,high:0,doneMonth:0},inboxRows=typeof inboxOpen==="function"?inboxOpen():[];
-  const inbox={open:inboxRows.length,old:inboxRows.filter(x=>typeof inboxAgeDays==="function"&&inboxAgeDays(x)>=2).length},goals=typeof goalSummary==="function"?goalSummary():{active:0,atRisk:0,overdue:0,avg:0,doneMonth:0},routines=typeof routine28Stats==="function"?routine28Stats():{scheduled:0,done:0,rate:0},execution=typeof executionPlan==="function"?executionPlan():{unscheduled:[],late:[],critical:0};
+  const inbox={open:inboxRows.length,old:inboxRows.filter(x=>typeof inboxAgeDays==="function"&&inboxAgeDays(x)>=2).length},goals=typeof goalSummary==="function"?goalSummary():{active:0,atRisk:0,overdue:0,avg:0,doneMonth:0},routines=typeof routine28Stats==="function"?routine28Stats():{scheduled:0,done:0,rate:0},execution=typeof executionPlan==="function"?executionPlan():{unscheduled:[],late:[],critical:0,capacityFactor:1},calibration=typeof calibrationSummary==="function"?calibrationSummary():null;
   if(kind==="month"){
     const r=currentMonthReport(),month=localMonthKey(),readDays=new Set((S.readingLogs||[]).filter(x=>String(x.dateKey||"").startsWith(month)).map(x=>x.dateKey)).size;
     return {
@@ -29,7 +29,7 @@ function reviewSnapshot(kind){
       knowledge:{minutes:r.readMinutes,books:r.books,days:readDays,reviewDue:typeof knowledgeReviewQueue==="function"?knowledgeReviewQueue().length:0},
       projects:{...projects,completed:r?projectCompletedThisMonth():0},
       tasks:{...tasks},inbox,goals,routines,
-      system:{hard:life.hardAll.length,deferred:life.deferred.length,unscheduled:execution.unscheduled.length,lateTasks:execution.late.length,executionCritical:execution.critical}
+      system:{hard:life.hardAll.length,deferred:life.deferred.length,unscheduled:execution.unscheduled.length,lateTasks:execution.late.length,executionCritical:execution.critical,capacityFactor:execution.capacityFactor||1,planAdherence:calibration?.plan?.ready?calibration.plan.adherence:null,calibrationDays:calibration?.plan?.n||0}
     }
   }
   const [a,b]=weekBounds(),w=workWeek(),t=tennisWeek(),reads=(S.readingLogs||[]).filter(x=>inRange(x.dateKey,a,b)),readDays=new Set(reads.map(x=>x.dateKey)).size;
@@ -44,7 +44,7 @@ function reviewSnapshot(kind){
     knowledge:{minutes:reads.reduce((n,x)=>n+(+x.minutes||0),0),days:readDays,target:Math.round(lifeOsSettingNumber("readingWeeklyDaysTarget",7,1,7)),reviewDue:typeof knowledgeReviewQueue==="function"?knowledgeReviewQueue().length:0},
     projects:{...projects,completed:reviewCompletedProjects(a,b)},
     tasks:{...tasks},inbox,goals,routines,
-    system:{hard:life.hardAll.length,deferred:life.deferred.length,unscheduled:execution.unscheduled.length,lateTasks:execution.late.length,executionCritical:execution.critical}
+    system:{hard:life.hardAll.length,deferred:life.deferred.length,unscheduled:execution.unscheduled.length,lateTasks:execution.late.length,executionCritical:execution.critical,capacityFactor:execution.capacityFactor||1,planAdherence:calibration?.plan?.ready?calibration.plan.adherence:null,calibrationDays:calibration?.plan?.n||0}
   }
 }
 function reviewProjectRank(p){
@@ -123,7 +123,7 @@ async function saveReview(kind){
   }
   store.sort((a,b)=>Date.parse(b.savedAt||0)-Date.parse(a.savedAt||0));if(store.length>36)store.length=36;
   audit(kind==="month"?"Месячный обзор":"Недельный обзор","system",`${key} • фокусы: ${plan.focusAreas.join(", ")||"нет"}`);
-  await save(kind==="month"?"Месячный обзор сохранён":"Недельный обзор и план сохранены")
+  await save(kind==="month"?"Месячный обзор сохранён":"Недельный обзор и план сохранены");if(kind==="week"&&typeof calibrationMaybeAutoTune==="function")await calibrationMaybeAutoTune(false)
 }
 function reviewTrendHtml(kind){
   const d=reviewDelta(kind);if(!d)return'<div class="sub">Предыдущего сохранённого периода пока нет — тренд появится после следующего обзора.</div>';

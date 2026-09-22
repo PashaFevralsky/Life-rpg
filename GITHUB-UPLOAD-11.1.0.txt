@@ -1,0 +1,20 @@
+Life RPG 11.1.0 — GitHub upload
+
+Upload ALL files from this ZIP to the ROOT of PashaFevralsky/Life-rpg in ONE commit.
+Replace existing files when GitHub asks.
+
+New required files:
+- calibration-os.js
+- calibration.test.js
+
+All other application/test files in this ZIP replace existing root files.
+
+STATE_VERSION remains 18.
+This release does not require a data migration from 11.0.0.
+
+Important:
+- Do not upload a containing folder; upload the files themselves to repository root.
+- Keep calibration-os.js together with bootstrap.js, vite.config.mjs, sw.js,
+  static-check.js and package.json in the same commit.
+
+After the commit, send: “залил”.

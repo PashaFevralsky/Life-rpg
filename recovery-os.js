@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 11.0.0 — Recovery / Disaster Recovery 2.0 */
+/* Life RPG 11.1.0 — Recovery / Disaster Recovery 2.0 */
 
 let recoverySnapshotsCache=[],recoverySelectedTs=0;
 const RECOVERY_ENTITY_TYPES=["projects","tasks","goals","routines","reviews","inbox","calendarEvents","crmDeals","books"];
