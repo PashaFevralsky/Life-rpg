@@ -70,7 +70,7 @@ function knowledgeReviewState(x){
   if(x.reviewedAt)anchor=new Date(x.reviewedAt);
   else anchor=parseLocal(x.dateKey||localDateKey());
   if(Number.isNaN(anchor.getTime()))anchor=new Date();
-  const dueAt=new Date(anchor.getTime()+interval*86400000);
+  const dueAt=x.reviewedAt?new Date(anchor.getTime()+interval*86400000):anchor;
   return {count,interval,dueAt,due:Date.now()>=dueAt.getTime(),complete:false}
 }
 knowledgeReviewQueue=function(){
@@ -162,7 +162,7 @@ function ensureKnowledgeOsUi(){
     <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Capture</div><div class="title">Фиксация и применение</div><div id="knowledgeOsCapture"></div></div>
     <div data-ux7-view="knowledge" class="card span-6"><div class="title">Очередь: горизонт</div><div id="knowledgeOsQueue"></div></div>
     <div data-ux7-view="knowledge" class="card span-6"><div class="title">Месяц: план → факт</div><div id="knowledgeOsMonth"></div></div>
-    <div data-ux7-view="knowledge" class="card span-12"><details><summary>Настройки Knowledge OS</summary><div class="formgrid" style="margin-top:12px"><div class="field"><label>Чтение / день, мин</label><input id="knowledgeOsDailyMin" type="number" min="1" max="1440"></div><div class="field"><label>Целевых дней чтения / неделю</label><input id="knowledgeOsWeeklyDays" type="number" min="1" max="7"></div><div class="field"><label>Базовый интервал повторения, дней</label><input id="knowledgeOsReviewBase" type="number" min="3" max="90"></div></div><button class="btn secondary" style="margin-top:12px" onclick="saveKnowledgeOsSettings()">Сохранить настройки</button><div class="notice" style="margin-top:10px">Повторения строятся ступенями: 1 день → 3 дня → базовый интервал → ×2 → ×4. После последней ступени используется самый длинный интервал повторно.</div></details></div>
+    <div data-ux7-view="knowledge" class="card span-12"><details><summary>Настройки Knowledge OS</summary><div class="formgrid" style="margin-top:12px"><div class="field"><label>Чтение / день, мин</label><input id="knowledgeOsDailyMin" type="number" min="1" max="1440"></div><div class="field"><label>Целевых дней чтения / неделю</label><input id="knowledgeOsWeeklyDays" type="number" min="1" max="7"></div><div class="field"><label>Базовый интервал повторения, дней</label><input id="knowledgeOsReviewBase" type="number" min="3" max="90"></div></div><button class="btn secondary" style="margin-top:12px" onclick="saveKnowledgeOsSettings()">Сохранить настройки</button><div class="notice" style="margin-top:10px">Новая заметка сразу попадает в очередь первого повторения. После него интервалы: 1 день → 3 дня → базовый интервал → ×2 → ×4. После последней ступени используется самый длинный интервал повторно.</div></details></div>
   `)
 }
 function renderKnowledgeOsCommand(){
