@@ -1,0 +1,34 @@
+Life RPG 10.1.0 — upload from phone
+
+GitHub App write permission is still read-only for this repository (403 Resource not accessible by integration), so upload is manual.
+
+1. Open PashaFevralsky/Life-rpg -> Add file -> Upload files.
+2. Upload ALL files from this archive to repository root in one commit.
+3. Existing files will be replaced; new *-os.js files will be created.
+4. Do not upload the folder itself. Files must remain in repository root.
+5. Commit directly to main as before.
+
+REPLACE
+core.js
+bootstrap.js
+package.json
+vite.config.mjs
+sw.js
+manifest.webmanifest
+static-check.js
+architecture.test.js
+os-integration.test.js
+e2e.test.js
+
+CREATE
+life-os.js
+projects-os.js
+review-os.js
+calendar-os.js
+tasks-os.js
+inbox-os.js
+rules-os.js
+insights-os.js
+CHANGELOG-10.1.0.txt
+
+No index.html replacement is required. The 10.1.0 bootstrap reconciles the legacy HTML shell version at startup, while the new Workbox build contains the modular runtime.

@@ -1,18 +1,22 @@
 "use strict";
 const fs=require('fs'),path=require('path'),cp=require('child_process'),assert=require('assert');
 const root=__dirname;
-const modules=['core','state','finance','imports','work','tennis','knowledge','gamification','pwa','ui','bootstrap'];
+const baseModules=['core','state','finance','imports','work','tennis','knowledge','gamification','pwa','ui'];
+const osModules=['life-os','projects-os','review-os','calendar-os','tasks-os','inbox-os','rules-os','insights-os'];
+const modules=[...baseModules,...osModules,'bootstrap'];
 for(const m of [...modules,'app']){
   const f=path.join(root,m+'.js');
+  assert.ok(fs.existsSync(f),`${m}.js missing`);
   const r=cp.spawnSync(process.execPath,['--check',f],{encoding:'utf8'});
   assert.equal(r.status,0,`${m}.js syntax failed: ${r.stderr}`);
 }
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(new Set(ids).size,ids.length,'Duplicate HTML ids detected');
-const expectedScripts=modules.map(m=>`./${m}.js?v=10.0.2`);
-for(const s of expectedScripts)assert.ok(html.includes(`src="${s}"`),`Missing script ${s}`);
+for(const m of baseModules)assert.ok(new RegExp(`src="\\./${m}\\.js\\?v=[^"]+"`).test(html),`Missing base script ${m}.js`);
+assert.ok(/src="\.\/bootstrap\.js\?v=[^"]+"/.test(html),'Missing bootstrap.js');
 assert.ok(!html.includes('src="./app.js?v='),'index.html must not load legacy app.js');
+for(const m of osModules)assert.ok(!new RegExp(`src="\\./${m}\\.js`).test(html),`${m}.js must be loaded by bootstrap to keep the legacy shell compatible`);
 const js=[...modules,'app'].map(m=>fs.readFileSync(path.join(root,m+'.js'),'utf8')).join('\n');
 const names=[...js.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)].map(m=>m[1]);
 const seen=new Set(),dups=[];for(const n of names){if(seen.has(n))dups.push(n);seen.add(n)}
@@ -21,14 +25,18 @@ const handlers=new Set([...html.matchAll(/\bon(?:click|change|input|submit)="\s*
 for(const h of handlers)assert.ok(seen.has(h),`Inline handler missing function: ${h}`);
 const refs=new Set([...js.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1]));
 const dynamic=new Set(['statementReviewAck','ux7AccountForm','ux7AssetForm','ux7FinancePulse','ux7Fab','ux7NewDebtBtn','ux7QuickSheet','ux7TodayPulse','ux7ToggleDebtForm']);
-const idSet=new Set(ids); const missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));
+const idSet=new Set(ids);const missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));
 assert.deepEqual(missing,[],'Unexpected missing DOM ids: '+missing.join(', '));
-assert.ok(fs.readFileSync(path.join(root,'sw.js'),'utf8').includes('life-rpg-v10.0.2-full-redesign'),'Wrong SW cache');
-assert.ok(fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8').includes('Life RPG 10.0.2'),'Wrong manifest version');
-assert.ok(fs.readFileSync(path.join(root,'core.js'),'utf8').includes('APP_VERSION="10.0.2"'),'Wrong app version');
+const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8'),manifest=fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'),core=fs.readFileSync(path.join(root,'core.js'),'utf8'),bootstrap=fs.readFileSync(path.join(root,'bootstrap.js'),'utf8');
+assert.ok(sw.includes('life-rpg-v10.1.0-modular-runtime'),'Wrong SW cache');
+for(const m of osModules)assert.ok(sw.includes(`./${m}.js?v=10.1.0`),`SW missing ${m}.js`);
+assert.ok(manifest.includes('Life RPG 10.1.0'),'Wrong manifest version');
+assert.ok(core.includes('APP_VERSION="10.1.0"'),'Wrong app version');
+assert.ok(core.includes('STATE_VERSION=17'),'Wrong state version');
+assert.ok(bootstrap.includes('LIFE_RPG_101_MODULES'),'Modular bootstrap registry missing');
+assert.ok(bootstrap.includes('window.__LIFE_RPG_HTML_VERSION__=APP_VERSION'),'Bootstrap must reconcile legacy HTML shell version');
 assert.ok(!html.includes('Financial OS 7.2')&&!html.includes('Life OS 7.2')&&!html.includes('Debt Engine 7.2'),'Stale visible version labels');
 assert.ok(fs.readFileSync(path.join(root,'pwa.js'),'utf8').includes('fetch(`./core.js?check='),'Update checker must read core.js version');
-assert.ok(fs.readFileSync(path.join(root,'state.js'),'utf8').includes('STATE_VERSION')===false || true); // STATE_VERSION lives in core.js by design.
 
 const ui=fs.readFileSync(path.join(root,'ui.js'),'utf8');
 assert.ok(ui.includes('["bank","Банк"]'),'Finance Bank tab missing');
@@ -51,4 +59,4 @@ assert.ok(knowledge.includes('status:"queued"'),'Queued-book status missing');
 assert.ok(knowledge.includes('function startQueuedBook'),'Queued-book start action missing');
 assert.ok(fs.existsSync(path.join(root,'reading-list.test.js')),'Reading-list test missing');
 
-console.log(`OK — static checks passed: ${names.length} unique functions, ${ids.length} unique HTML ids, ${handlers.size} inline handlers`);
+console.log(`OK — static checks passed: ${names.length} unique functions, ${ids.length} unique HTML ids, ${handlers.size} inline handlers, ${osModules.length} modular OS files`);

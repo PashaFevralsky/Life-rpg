@@ -11,8 +11,11 @@ context.window.window=context.window;context.window.document=context.document;
 for(const file of ["core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js"]){
   new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context)
 }
+for(const file of ["life-os.js","projects-os.js","review-os.js","calendar-os.js","tasks-os.js","inbox-os.js","rules-os.js","insights-os.js"]){
+  new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context)
+}
 const run=code=>new vm.Script(code).runInContext(context);
-run(`ux7InstallShell=()=>{}; initUi=()=>{}; loadState=()=>{};`);
+run(`window.__LIFE_RPG_MODULES_PRELOADED__=true; ux7InstallShell=()=>{}; initUi=()=>{}; loadState=async()=>{};`);
 new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"bootstrap.js"}).runInContext(context);
 
 (async()=>{
@@ -49,7 +52,7 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   assert.equal(run(`crmDecisionEngine().some(x=>x.kind==="stale")`),true);
 
   // Life OS never hides hard obligations behind the configurable soft cap.
-  run(`S=deepClone(DEFAULT_STATE); S.settings.lifeDailyPriorityLimit=2; lifeOsCandidates=()=>[
+  run(`S=deepClone(DEFAULT_STATE); S.settings.lifeDailyPriorityLimit=2; globalThis.__realLifeOsCandidates=lifeOsCandidates; lifeOsCandidates=()=>[
     {id:"h1",area:"Финансы",kind:"x",title:"H1",meta:"",score:150,hard:true,minutes:10},
     {id:"h2",area:"Работа",kind:"x",title:"H2",meta:"",score:140,hard:true,minutes:10},
     {id:"h3",area:"Система",kind:"x",title:"H3",meta:"",score:130,hard:true,minutes:10},
@@ -59,6 +62,7 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   assert.equal(run(`lifeOsDailyPlan().plan.length`),4);
   assert.equal(run(`lifeOsDailyPlan().plan.every(x=>x.hard)`),true);
   assert.equal(run(`lifeOsDailyPlan().overload`),true);
+  run(`lifeOsCandidates=globalThis.__realLifeOsCandidates; delete globalThis.__realLifeOsCandidates;`);
 
   // Semantic IDs de-duplicate one underlying obligation even when wording differs.
   assert.equal(run(`lifeOsDedupCandidates([{id:"same",area:"Финансы",title:"A",score:100},{id:"same",area:"Финансы",title:"B",score:90}]).length`),1);
@@ -143,13 +147,41 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   assert.equal(run(`calendarCapacity()`),240);
   assert.equal(run(`calendarHorizon()`),45);
 
+  // Tasks OS: overdue high-priority task becomes hard, calendar sees the due date,
+  // completion awards XP once and state v16 normalizes to v17 without losing settings data.
+  run(`S=normalizeState({version:16,settings:{tasks:[{id:"legacy-task",title:"Legacy",area:"Работа",priority:2,status:"active",dueDate:"",minutes:20}]}});`);
+  assert.equal(run(`S.version`),17);
+  assert.equal(run(`taskStore()[0].title`),"Legacy");
+  run(`S=deepClone(DEFAULT_STATE); S.settings.tasks=[]; save=async()=>{}; audit=()=>{}; toast=()=>{}; var tt=taskCreate({title:"Срочная задача",area:"Работа",priority:1,dueDate:localDateKey(addDays(new Date(),-1)),minutes:25});`);
+  assert.equal(run(`taskDecisionEngine()[0].hard`),true);
+  assert.ok(run(`calendarEvents(7,7).some(x=>x.source==="task"&&x.refId===tt.id)`));
+  const taskXpBefore=run(`S.xpEarned`);await run(`completeTask(tt.id)`);const taskXpAfter=run(`S.xpEarned`);assert.ok(taskXpAfter>taskXpBefore);await run(`completeTask(tt.id)`);assert.equal(run(`S.xpEarned`),taskXpAfter);
+
+  // Inbox: inference + routing to Task and CRM.
+  run(`S=deepClone(DEFAULT_STATE); S.settings.inbox=[]; S.settings.tasks=[]; save=async()=>{}; audit=()=>{}; toast=()=>{}; var ib=inboxCapture("позвонить клиенту завтра");`);
+  assert.equal(run(`ib.area`),"Работа");assert.equal(run(`ib.dateKey`),run(`localDateKey(addDays(new Date(),1))`));
+  await run(`inboxToTask(ib.id)`);assert.equal(run(`taskStore().length`),1);assert.equal(run(`inboxOpen().length`),0);
+  run(`var ib2=inboxCapture("обновить коммерческое предложение завтра"); S.crmDeals=[{id:"deal1",name:"Deal",stage:"Контакт",nextStep:"",nextDate:""}]; document.getElementById=id=>id==="inboxCrm_"+ib2.id?{value:"deal1"}:null;`);
+  await run(`inboxToCrm(ib2.id)`);assert.equal(run(`S.crmDeals[0].nextStep`),"обновить коммерческое предложение завтра");
+
+  // Rules OS: cross-domain overload rule fires, domain-delegated rules stay descriptive.
+  run(`S=deepClone(DEFAULT_STATE); S.settings.calendarEvents=[]; S.settings.calendarDailyCapacityMin=120; addCalendarPlan({title:"A",dateKey:localDateKey(addDays(new Date(),1)),type:"Личное",minutes:90,priority:2,repeatWeeks:1}); addCalendarPlan({title:"B",dateKey:localDateKey(addDays(new Date(),1)),type:"Тренировка",minutes:90,priority:2,repeatWeeks:1});`);
+  assert.ok(run(`rulesEvaluate().some(x=>x.ruleId==="calendar-tomorrow-overload")`));
+  assert.ok(run(`ruleDefinitions().some(x=>x.id==="crm-overdue"&&x.kind==="delegated")`));
+
+  // Insights OS: insufficient samples are explicit; with six varied weeks the work association becomes calculable.
+  run(`S=deepClone(DEFAULT_STATE); S.workLogs=[];`);assert.equal(run(`insightWorkAssociation().ready`),false);
+  run(`for(let w=0;w<6;w++){const d=addDays(new Date(),-(w*7+1));S.workLogs.push({id:"w"+w,date:localDateKey(d),contacts:w+1,followups:w,meetings:w%2,proposals:w%3,sales:(w+1)*100000});}`);
+  assert.equal(run(`insightWorkAssociation().ready`),true);assert.ok(run(`insightWorkAssociation().meta.includes("не доказательство причинности")`));
+
   // Dynamically injected OS cards must participate in UX7 view switching.
-  for(const file of ["work.js","tennis.js","knowledge.js","bootstrap.js"]){
+  for(const file of ["work.js","tennis.js","knowledge.js","life-os.js","projects-os.js","review-os.js","calendar-os.js","tasks-os.js","inbox-os.js","rules-os.js","insights-os.js"]){
     const src=fs.readFileSync(path.join(root,file),"utf8");
     const dynamic=[...src.matchAll(/data-ux7-view="[^"]+"\s+class="([^"]+)"/g)];
     assert.ok(dynamic.length>0,`${file}: no dynamic UX7 cards found`);
     assert.ok(dynamic.every(m=>m[1].split(/\s+/).includes("ux7-card")),`${file}: dynamic card missing ux7-card`);
   }
+  assert.ok(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8").length<8000,"bootstrap must stay modular");
 
-  console.log("OK — cross-domain OS integration tests passed");
+  console.log("OK — Life RPG 10.1.0 cross-domain OS integration tests passed");
 })().catch(e=>{console.error(e);process.exit(1)});

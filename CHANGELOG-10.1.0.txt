@@ -1,0 +1,81 @@
+Life RPG 10.1.0 — Modular Productivity Release
+Base: af210ae0f65380a270ec76d8b270a4365e39ad7d
+
+ARCHITECTURE
+- APP_VERSION: 10.1.0
+- STATE_VERSION: 17. Existing v16 data is normalized forward automatically.
+- bootstrap.js reduced from ~77 KB monolith to a ~2.5 KB loader/runtime installer.
+- Existing cross-domain systems moved into separate classic modules:
+  life-os.js
+  projects-os.js
+  review-os.js
+  calendar-os.js
+- New modules:
+  tasks-os.js
+  inbox-os.js
+  rules-os.js
+  insights-os.js
+- Vite/Workbox runtime copy list extended for all eight OS modules.
+- Service-worker source cache version bumped to 10.1.0.
+- No manual data migration is required. New collections are stored lazily in settings and survive normalizeState/export/restore.
+
+INBOX / CAPTURE OS
+- One quick capture field in Today / Focus.
+- Automatic lightweight inference of area: Work, Finance, Tennis, Knowledge or Personal.
+- Understands “today”, “tomorrow” and simple dd.mm dates.
+- Inbox item can be routed later to:
+  Task;
+  Calendar;
+  Project;
+  Knowledge note;
+  CRM next step (with explicit deal selection).
+- Old unprocessed Inbox items can surface in Life OS.
+- General Knowledge notes from Inbox are appended to Knowledge Base search results.
+
+TASKS / NEXT ACTIONS OS
+- Independent next actions without requiring a Project.
+- Fields: area, priority, due date, time estimate, optional Project link and note.
+- Overdue high-priority tasks become hard Life OS obligations.
+- Due dates appear automatically in Calendar / Timeline OS.
+- Project-linked tasks are de-duplicated against the same Project inside Life OS.
+- Completion XP once: 40 / 25 / 15 by priority.
+- Review OS snapshots task backlog and overdue count.
+
+AUTOMATION / RULES OS
+- Transparent rule registry with per-rule toggles.
+- Rules only surface conflicts/priorities; they never make payments, delete data or pause projects automatically.
+- Cross-domain rules include:
+  tomorrow calendar overload;
+  Project WIP over limit;
+  work pace deficit + large non-work calendar load;
+  aging Inbox;
+  stack of 3+ overdue tasks.
+- Existing Finance/CRM/Project priority rules are shown as delegated domain rules rather than duplicated.
+
+INSIGHTS OS
+- Descriptive evidence only; no pseudo-scientific “AI conclusions”.
+- Minimum-sample gates are mandatory.
+- Work activity ↔ sales correlation after >=6 work weeks.
+- Project WIP ↔ Life Score correlation after >=4 weekly Review snapshots.
+- Calendar load ↔ reading minutes after >=10 informative days.
+- Debt trend after >=2 monthly Review snapshots.
+- Every correlation explicitly states that association does not prove causality.
+
+CROSS-DOMAIN INTEGRATION
+- Life OS consumes Task, Inbox and Rules actions.
+- Calendar consumes Task due dates.
+- Review snapshots Tasks + Inbox.
+- Rules and Insights appear in More / Overview and respect UX7 subview hiding.
+- Inbox and Tasks live in Today / Focus.
+
+TESTS / RELEASE SAFETY
+- os-integration.test.js updated for modular preload and state v16 -> v17 normalization.
+- Added Task, Inbox, CRM routing, Rules and Insights regression coverage.
+- e2e.test.js updated to create a Task, capture and route Inbox, and verify Rules/Insights visibility.
+- static-check.js now syntax-checks all eight OS modules and rejects duplicate global function declarations.
+- architecture.test.js enforces modular bootstrap (<8 KB), module copy list and 10.1.0 version/state.
+- Local integration test on the actual GitHub Pages production runtime: PASS.
+- Local expanded static check on the actual production runtime: PASS.
+
+IMPORTANT
+Upload every file in this release in one commit. The new bootstrap is intentionally dependent on the new module files.

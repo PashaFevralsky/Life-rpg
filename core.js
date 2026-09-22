@@ -1,10 +1,10 @@
 "use strict";
 
-/* Life RPG 10.0.2 — Core utilities and constants • final audit */
+/* Life RPG 10.1.0 — Core utilities and constants */
 
-const APP_VERSION="10.0.2";
+const APP_VERSION="10.1.0";
 
-const STATE_VERSION=16;
+const STATE_VERSION=17;
 
 const DB_NAME="life-rpg-db";
 

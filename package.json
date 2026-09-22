@@ -1,6 +1,6 @@
 {
   "name": "life-rpg",
-  "version": "10.0.2",
+  "version": "10.1.0",
   "private": true,
   "scripts": {
     "test": "node static-check.js && node regression.test.js && node operational.test.js && node final-audit.test.js && node reading-list.test.js && node visual-layout.test.js && node visual-system.test.js && node architecture.test.js && node money-core.test.js && node domain-deep.test.js && node os-integration.test.js && node render-smoke.test.js && node reliability.test.js",
