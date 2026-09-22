@@ -1,0 +1,21 @@
+Life RPG 10.1.0 — SOURCE shell hotfix v2
+
+Replace ONLY root index.html.
+
+Why v2:
+The previous hotfix was built from the compiled GitHub Pages artifact rather than
+the repository source index. That accidentally introduced Vite-generated asset
+references (./assets/index-*.js / css / hashed manifest/icon) and removed the
+source module tag ./platform.vite.mjs.
+
+This corrected index restores the SOURCE shell:
+- ./platform.vite.mjs is present
+- ./styles.css?v=10.1.0
+- ./manifest.webmanifest?v=10.1.0
+- ./icon-192.png
+- all classic runtime scripts use ?v=10.1.0
+- bootstrap.js?v=10.1.0
+- no references to 10.0.2
+- no compiled ./assets/index-* references
+
+No application logic or user data is changed.
