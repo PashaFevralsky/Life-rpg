@@ -82,8 +82,151 @@ function renderWork(){const m=workMonth(),plan=S.settings.workMonthlyPlan||0,p=p
 
 function renderWorkPace(){const m=workMonth(),remain=Math.max(0,S.settings.workMonthlyPlan-m.sales),days=Math.max(1,workingDaysLeft()),need=remain/days,logged=new Set(S.workLogs.filter(x=>x.date.startsWith(localMonthKey())).map(x=>x.date)).size,avg=logged?m.sales/logged:0;$("workPace").innerHTML=`<div class="goal"><div class="goal-top"><span>Осталось до плана</span><b>${rub(remain)}</b></div><div class="goal-top" style="margin-top:7px"><span>Рабочих дней осталось</span><b>${days}</b></div><div class="goal-top" style="margin-top:7px"><span>Нужно в среднем / рабочий день</span><b>${rub(need)}</b></div><div class="goal-top" style="margin-top:7px"><span>Текущий средний факт / записанный день</span><b>${rub(avg)}</b></div></div>`}
 
-function renderWorkFunnel(){const m=workMonth(),pipeline=crmNewPipelineThisMonth(),wins=(S.crmDeals||[]).filter(d=>d.stage==="Выиграно"&&String(d.realizationDate||d.updatedAt||"").slice(0,7)===localMonthKey()).length,rows=[["Контакты",m.contacts],["ЛПР",m.lpr],["КП",m.proposals],["Выиграно CRM",wins]];$('workFunnel').innerHTML=`<div class="funnel">${rows.map((x,i)=>`<div class="funnel-row"><span>${x[0]}</span><div class="funnel-bar"><i style="width:${Math.min(100,i===0?100:(x[1]/Math.max(1,rows[0][1])*100))}%"></i></div><b>${x[1]}</b></div>`).join("")}</div><div class="status" style="margin-top:10px">Новая CRM-воронка за месяц: <b>${rub(pipeline)}</b>. Проценты между строками не называются «конверсией», потому что действия могут относиться к разным сделкам.</div>`}
+function renderWorkFunnel(){const m=workMonth(),pipeline=crmNewPipelineThisMonth(),wins=(S.crmDeals||[]).filter(d=>d.stage==="Выиграно"&&String(d.realizationDate||d.updatedAt||"").slice(0,7)===localMonthKey()).length,rows=[["Контакты",m.contacts],["ЛПР",m.lpr],["КП",m.proposals],["Выиграно CRM",wins]];$("workFunnel").innerHTML=`<div class="funnel">${rows.map((x,i)=>`<div class="funnel-row"><span>${x[0]}</span><div class="funnel-bar"><i style="width:${Math.min(100,i===0?100:(x[1]/Math.max(1,rows[0][1])*100))}%"></i></div><b>${x[1]}</b></div>`).join("")}</div><div class="status" style="margin-top:10px">Новая CRM-воронка за месяц: <b>${rub(pipeline)}</b>. Проценты между строками не называются «конверсией», потому что действия могут относиться к разным сделкам.</div>`}
 
 function renderMonthlyWorkQuest(){const key=`work:monthly:${localMonthKey()}:salesplan`,done=!!S.questDone[key],plan=+S.settings.workMonthlyPlan||0,ready=plan>0&&workMonth().sales>=plan,p=plan>0?clamp(workMonth().sales/plan*100,0,100):0;return `<div class="quest"><button class="check ${done?"done":""} ${!ready&&!done?"locked":""}" onclick="claimMonthlyWork()">${done?"✓":ready?"":"·"}</button><div class="qbody"><div class="qtitle">Выполнить месячный план продаж</div><div class="qmeta">Карьера • ${plan<=0?"сначала задай план":ready&&!done?"готово к получению":pct(p,0)}</div></div><div class="xp">+600 XP</div></div>`}
 
 async function claimMonthlyWork(){const key=`work:monthly:${localMonthKey()}:salesplan`,plan=+S.settings.workMonthlyPlan||0;if(S.questDone[key])return;if(plan<=0){toast("Сначала задай месячный план продаж");return}if(workMonth().sales<plan){toast("План ещё не выполнен");return}S.questDone[key]=true;addXp(600,"Карьера","Выполнен месячный план",key);await save("План продаж закрыт • +600 XP")}
+
+
+/* Work OS deep analytics layer — first iteration.
+   Uses existing state/settings; no schema migration is required. */
+
+function workOsNumber(key,fallback,min=0,max=Number.POSITIVE_INFINITY){
+  const v=Number(S.settings?.[key]);
+  return Number.isFinite(v)?clamp(v,min,max):fallback
+}
+function workMonthKeyFromDate(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
+function workDaysBetweenInclusive(a,b){
+  let n=0,x=new Date(a.getFullYear(),a.getMonth(),a.getDate(),12),end=new Date(b.getFullYear(),b.getMonth(),b.getDate(),12);
+  while(x<=end){const wd=x.getDay();if(wd!==0&&wd!==6)n++;x=addDays(x,1)}
+  return n
+}
+function workPaceData(d=new Date()){
+  const month=workMonthKeyFromDate(d),plan=Math.max(0,+S.settings.workMonthlyPlan||0),sales=aggregateWork((S.workLogs||[]).filter(x=>String(x.date||"").startsWith(month))).sales;
+  const start=new Date(d.getFullYear(),d.getMonth(),1,12),end=new Date(d.getFullYear(),d.getMonth()+1,0,12),yesterday=addDays(new Date(d.getFullYear(),d.getMonth(),d.getDate(),12),-1);
+  const total=workDaysBetweenInclusive(start,end),elapsedBefore=yesterday<start?0:workDaysBetweenInclusive(start,yesterday),left=workDaysBetweenInclusive(new Date(d.getFullYear(),d.getMonth(),d.getDate(),12),end);
+  const expectedBefore=total>0?plan*elapsedBefore/total:0,gap=Math.max(0,plan-sales),requiredDaily=left>0?gap/left:(gap>0?Number.POSITIVE_INFINITY:0);
+  return {month,plan,sales,total,elapsedBefore,left,expectedBefore,paceDelta:sales-expectedBefore,gap,requiredDaily}
+}
+function crmOpenDeals(){return (S.crmDeals||[]).filter(d=>!["Выиграно","Проиграно"].includes(d.stage))}
+function crmClosedDeals(){return (S.crmDeals||[]).filter(d=>["Выиграно","Проиграно"].includes(d.stage))}
+function crmMonthlyOpenDeals(month=localMonthKey()){return crmOpenDeals().filter(d=>String(d.closeDate||"").startsWith(month))}
+function crmWinRateStats(){
+  const closed=crmClosedDeals(),wins=closed.filter(d=>d.stage==="Выиграно").length,losses=closed.length-wins,empirical=closed.length?wins/closed.length*100:null;
+  const assumed=workOsNumber("workWinRateAssumption",25,0,100),minSample=Math.round(workOsNumber("workWinRateMinSample",5,1,100));
+  const useEmpirical=closed.length>=minSample,used=useEmpirical?(empirical??0):assumed;
+  return {wins,losses,closed:closed.length,empirical,assumed,minSample,used,source:useEmpirical?"history":"assumption"}
+}
+function crmCoverageData(month=localMonthKey()){
+  const plan=Math.max(0,+S.settings.workMonthlyPlan||0),sales=aggregateWork((S.workLogs||[]).filter(x=>String(x.date||"").startsWith(month))).sales,gap=Math.max(0,plan-sales);
+  const deals=crmMonthlyOpenDeals(month),raw=deals.reduce((s,d)=>s+(+d.potential||0),0),weighted=deals.reduce((s,d)=>s+(+d.potential||0)*(+d.probability||0)/100,0),wr=crmWinRateStats(),rate=wr.used/100;
+  const requiredRaw=gap<=0?0:(rate>0?gap/rate:Number.POSITIVE_INFINITY),additional=Number.isFinite(requiredRaw)?Math.max(0,requiredRaw-raw):Number.POSITIVE_INFINITY;
+  const rawCoverage=gap<=0?100:(Number.isFinite(requiredRaw)&&requiredRaw>0?raw/requiredRaw*100:0);
+  const probabilityForecast=sales+weighted,historyRateForecast=sales+raw*rate;
+  return {month,plan,sales,gap,deals:deals.length,raw,weighted,wr,requiredRaw,additional,rawCoverage,probabilityForecast,historyRateForecast}
+}
+function crmDataQuality(){
+  const today=localDateKey(),open=crmOpenDeals(),staleDays=Math.round(workOsNumber("workStaleDays",14,1,365)),staleMs=staleDays*86400000;
+  const missingNext=open.filter(d=>!String(d.nextStep||"").trim()||!d.nextDate);
+  const overdue=open.filter(d=>d.nextDate&&d.nextDate<today);
+  const noClose=open.filter(d=>!d.closeDate);
+  const pastClose=open.filter(d=>d.closeDate&&d.closeDate<today);
+  const stale=open.filter(d=>{const ts=Date.parse(d.updatedAt||d.createdAt||"");return Number.isFinite(ts)&&Date.now()-ts>staleMs});
+  const largeIncomplete=open.filter(d=>{const q=crmCompleteness(d);return q&&!q.ok});
+  return {open:open.length,staleDays,missingNext:missingNext.length,overdue:overdue.length,noClose:noClose.length,pastClose:pastClose.length,stale:stale.length,largeIncomplete:largeIncomplete.length}
+}
+function crmCreatedPipelineForMonth(month){return (S.crmDeals||[]).filter(d=>String(d.createdAt||"").slice(0,7)===month).reduce((s,d)=>s+(+d.potential||0),0)}
+function workRecentMonths(n=6,d=new Date()){
+  const rows=[];
+  for(let i=n-1;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1,12),month=workMonthKeyFromDate(x),sales=aggregateWork((S.workLogs||[]).filter(w=>String(w.date||"").startsWith(month))).sales,created=crmCreatedPipelineForMonth(month);rows.push({month,sales,created})}
+  return rows
+}
+function crmLostAnalysis(){
+  const lost=(S.crmDeals||[]).filter(d=>d.stage==="Проиграно"),total=lost.reduce((s,d)=>s+(+d.potential||0),0),map=new Map();
+  for(const d of lost){const reason=String(d.lostReason||"Причина не указана").trim().replace(/\s+/g," ")||"Причина не указана";const key=reason.toLocaleLowerCase("ru-RU"),cur=map.get(key)||{reason,count:0,potential:0};cur.count++;cur.potential+=+d.potential||0;map.set(key,cur)}
+  const reasons=[...map.values()].sort((a,b)=>b.potential-a.potential||b.count-a.count);
+  return {count:lost.length,total,reasons}
+}
+function workActivityGaps(){
+  const w=workWeek(),pairs=[["contacts","Контакты",w.contacts],["followups","Follow-up",w.followups],["lpr","ЛПР",w.lpr],["meetings","Встречи",w.meetings],["proposals","КП / расчёты",w.proposals]];
+  return pairs.map(([key,label,fact])=>{const target=workTarget(key,0);return {key,label,fact,target,missing:Math.max(0,target-fact),ratio:target>0?fact/target:1}}).filter(x=>x.target>0&&x.missing>0).sort((a,b)=>a.ratio-b.ratio)
+}
+function workDecisionEngineDeep(){
+  const items=[],pace=workPaceData(),coverage=crmCoverageData(),q=crmDataQuality(),crm=crmDecisionEngine();
+  if(pace.plan<=0)items.push({kind:"setup",title:"Задать месячный план продаж",meta:"Без плана нельзя оценить темп и достаточность воронки."});
+  else if(pace.paceDelta<0)items.push({kind:"pace",title:"Вернуться к темпу плана",meta:`Отставание от линейного рабочего темпа: ${rub(Math.abs(pace.paceDelta))}. Нужно в среднем ${Number.isFinite(pace.requiredDaily)?rub(pace.requiredDaily):"—"} за каждый оставшийся рабочий день.`});
+  if(coverage.gap>0&&coverage.additional>0)items.push({kind:"pipeline",title:"Нарастить воронку месяца",meta:Number.isFinite(coverage.additional)?`При используемой конверсии ${pct(coverage.wr.used,0)} не хватает примерно ${rub(coverage.additional)} сырой воронки.`:`Используемая конверсия равна 0%; требуемую воронку математически определить нельзя.`});
+  if(q.pastClose)items.push({kind:"date",title:"Перепланировать просроченные даты закрытия",meta:`Открытых сделок с датой закрытия в прошлом: ${q.pastClose}.`});
+  if(q.noClose)items.push({kind:"date",title:"Поставить даты закрытия",meta:`Без даты закрытия: ${q.noClose}. Эти сделки не участвуют в месячном прогнозе.`});
+  for(const a of crm.slice(0,4))items.push({kind:a.kind,title:a.title,meta:a.meta,dealId:a.dealId});
+  const ag=workActivityGaps()[0];if(ag)items.push({kind:"activity",title:`Добрать активность: ${ag.label}`,meta:`Неделя: ${ag.fact}/${ag.target}; осталось ${ag.missing}.`});
+  return items.slice(0,8)
+}
+function crmScenarioData(ratePct,extraPipeline=0,month=localMonthKey()){
+  const rate=clamp(Number(ratePct)||0,0,100)/100,coverage=crmCoverageData(month),extra=Math.max(0,Number(extraPipeline)||0),forecast=coverage.sales+(coverage.raw+extra)*rate,gap=Math.max(0,coverage.plan-forecast);
+  const requiredExtra=coverage.plan<=coverage.sales?0:(rate>0?Math.max(0,(coverage.plan-coverage.sales)/rate-coverage.raw):Number.POSITIVE_INFINITY);
+  return {rate:rate*100,extra,forecast,gap,requiredExtra,raw:coverage.raw,sales:coverage.sales,plan:coverage.plan}
+}
+function workOsMonthLabel(month){const [y,m]=String(month).split("-").map(Number);return new Date(y,m-1,1,12).toLocaleDateString("ru-RU",{month:"short",year:"2-digit"})}
+function workOsSetHtml(id,html){const el=$(id);if(el)el.innerHTML=html}
+function ensureWorkOsUi(){
+  if($("workOsCommand"))return;
+  const grid=document.querySelector?.("#work .grid");if(!grid)return;
+  const anchor=grid.querySelector?.(".work-hero")||null,target=anchor||grid;
+  if(typeof target.insertAdjacentHTML!=="function")return;
+  target.insertAdjacentHTML(anchor?"afterend":"beforeend",`
+    <div data-ux7-view="overview" class="card span-12"><div class="eyebrow">Work OS</div><div class="section-title">Центр управления продажами</div><div class="muted" style="margin-top:6px">Факт, рабочий темп, достаточность воронки и конкретные действия. Прогнозы — математические сценарии, а не гарантии продаж.</div><div id="workOsCommand" style="margin-top:12px"></div></div>
+    <div data-ux7-view="overview" class="card span-6"><div class="eyebrow">Pipeline Engine</div><div class="title">Хватит ли воронки</div><div id="workOsCoverage"></div></div>
+    <div data-ux7-view="crm" class="card span-6"><div class="eyebrow">CRM Hygiene</div><div class="title">Качество данных и дисциплина</div><div id="workOsQuality"></div></div>
+    <div data-ux7-view="overview" class="card span-6"><div class="title">Факт и созданная воронка • 6 месяцев</div><div id="workOsHistory"></div></div>
+    <div data-ux7-view="crm" class="card span-6"><div class="title">Проигранные сделки</div><div id="workOsLosses"></div></div>
+    <div data-ux7-view="crm" class="card span-12"><div class="eyebrow">Scenario Lab</div><div class="section-title">Что если?</div><div class="formgrid" style="margin-top:12px"><div class="field"><label>Конверсия в победу, %</label><input id="workScenarioRate" type="number" min="0" max="100" step="1" oninput="renderWorkScenario()"></div><div class="field"><label>Дополнительная воронка месяца, ₽</label><input id="workScenarioExtra" type="number" min="0" step="10000" value="0" oninput="renderWorkScenario()"></div></div><div id="workScenarioResult" style="margin-top:12px"></div></div>
+    <div data-ux7-view="crm" class="card span-12"><details><summary>Настройки Work OS</summary><div class="formgrid" style="margin-top:12px"><div class="field"><label>План продаж / месяц, ₽</label><input id="workOsPlan" type="number" min="0"></div><div class="field"><label>Базовая конверсия в победу, %</label><input id="workOsWinRate" type="number" min="0" max="100"></div><div class="field"><label>Минимум закрытых сделок для своей статистики</label><input id="workOsMinSample" type="number" min="1" max="100"></div><div class="field"><label>Сделка считается без обновлений через, дней</label><input id="workOsStaleDays" type="number" min="1" max="365"></div><div class="field"><label>Контакты / нед.</label><input id="workOsContacts" type="number" min="0"></div><div class="field"><label>Follow-up / нед.</label><input id="workOsFollowups" type="number" min="0"></div><div class="field"><label>ЛПР / нед.</label><input id="workOsLpr" type="number" min="0"></div><div class="field"><label>Встречи / нед.</label><input id="workOsMeetings" type="number" min="0"></div><div class="field"><label>КП / расчёты / нед.</label><input id="workOsProposals" type="number" min="0"></div></div><button class="btn secondary" style="margin-top:12px" onclick="saveWorkOsSettings()">Сохранить настройки</button><div class="notice" style="margin-top:10px">Своя историческая конверсия начинает использоваться только после заданного минимального числа закрытых CRM-сделок. До этого применяется базовая гипотеза.</div></details></div>
+  `)
+}
+function renderWorkOsCommand(){
+  const p=workPaceData(),c=crmCoverageData(),actions=workDecisionEngineDeep(),paceText=p.plan<=0?"План не задан":p.paceDelta>=0?`Выше ориентира к началу дня на ${rub(p.paceDelta)}`:`Ниже ориентира к началу дня на ${rub(Math.abs(p.paceDelta))}`;
+  workOsSetHtml("workOsCommand",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Факт месяца</div><b>${rub(p.sales)}</b></div><div class="report-item"><div class="smallcaps">Осталось до плана</div><b>${p.plan?rub(p.gap):"—"}</b></div><div class="report-item"><div class="smallcaps">Нужно / рабочий день</div><b>${p.plan?(Number.isFinite(p.requiredDaily)?rub(p.requiredDaily):"—"):"—"}</b></div><div class="report-item"><div class="smallcaps">Прогноз по вероятностям CRM</div><b>${p.plan?rub(c.probabilityForecast):"—"}</b></div></div><div class="status" style="margin-top:10px">${paceText}. Рабочих дней до конца месяца, включая сегодня: <b>${p.left}</b>.</div>${actions.length?`<div class="title" style="margin-top:14px">Что делать сейчас</div>${actions.map(a=>`<div class="quest"><span class="tag ${["overdue","pace"].includes(a.kind)?"bad":["pipeline","quality","date"].includes(a.kind)?"warn":""}">${a.kind==="pipeline"?"Воронка":a.kind==="pace"?"Темп":a.kind==="overdue"?"Срочно":a.kind==="quality"?"Качество":"Действие"}</span><div class="qbody"><div class="qtitle">${escapeHtml(a.title)}</div><div class="qmeta">${escapeHtml(a.meta)}</div></div>${a.dealId?`<button class="btn ghost small" onclick="editCrmDeal('${a.dealId}')">Открыть</button>`:""}</div>`).join("")}`:""}`)
+}
+function renderWorkOsCoverage(){
+  const c=crmCoverageData(),source=c.wr.source==="history"?`история CRM: ${c.wr.wins}/${c.wr.closed} побед`:`базовая гипотеза; закрытых сделок ${c.wr.closed}/${c.wr.minSample}`;
+  const required=c.gap<=0?"План уже закрыт":Number.isFinite(c.requiredRaw)?rub(c.requiredRaw):"не определяется при 0%";
+  const additional=c.gap<=0?"0 ₽":Number.isFinite(c.additional)?rub(c.additional):"не определяется";
+  workOsSetHtml("workOsCoverage",`<div class="goal"><div class="goal-top"><span>Открытая воронка с закрытием в этом месяце</span><b>${rub(c.raw)}</b></div><div class="goal-top" style="margin-top:7px"><span>Взвешенная по вероятностям сделок</span><b>${rub(c.weighted)}</b></div><div class="goal-top" style="margin-top:7px"><span>Используемая конверсия</span><b>${pct(c.wr.used,0)}</b></div><div class="qmeta">${escapeHtml(source)}</div><div class="goal-top" style="margin-top:7px"><span>Сырая воронка, нужная для остатка плана</span><b>${required}</b></div><div class="goal-top" style="margin-top:7px"><span>Не хватает сырой воронки</span><b>${additional}</b></div></div><div class="status" style="margin-top:10px">Модель 1 — вероятности каждой сделки: <b>${rub(c.probabilityForecast)}</b>. Модель 2 — единая историческая/базовая конверсия: <b>${rub(c.historyRateForecast)}</b>.</div><div class="sub" style="margin-top:8px">Вероятности и конверсия являются входными предпосылками модели. Они не превращают прогноз в факт.</div>`)
+}
+function renderWorkOsQuality(){
+  const q=crmDataQuality(),rows=[["Просрочен следующий шаг",q.overdue],["Нет следующего шага/даты",q.missingNext],["Нет даты закрытия",q.noClose],["Дата закрытия уже прошла",q.pastClose],[`Нет обновлений >${q.staleDays} дней`,q.stale],["Неполные карточки ≥500 тыс.",q.largeIncomplete]];
+  workOsSetHtml("workOsQuality",`<div class="report-grid">${rows.map(x=>`<div class="report-item"><div class="smallcaps">${x[0]}</div><b class="${x[1]?"income-bad":"income-good"}">${x[1]}</b></div>`).join("")}</div><div class="status" style="margin-top:10px">Открытых CRM-сделок: <b>${q.open}</b>. Нулевые значения означают, что соответствующее нарушение сейчас не найдено.</div>`)
+}
+function renderWorkOsHistory(){
+  const rows=workRecentMonths();
+  workOsSetHtml("workOsHistory",rows.map(r=>`<div class="goal"><div class="goal-top"><span>${escapeHtml(workOsMonthLabel(r.month))}</span><b>${rub(r.sales)}</b></div><div class="qmeta">Создано новой CRM-воронки: ${rub(r.created)}</div></div>`).join("")||'<div class="empty">Пока недостаточно данных.</div>')
+}
+function renderWorkOsLosses(){
+  const x=crmLostAnalysis();
+  workOsSetHtml("workOsLosses",x.count?`<div class="goal"><div class="goal-top"><span>Проиграно сделок</span><b>${x.count}</b></div><div class="goal-top" style="margin-top:7px"><span>Потенциал проигранных</span><b>${rub(x.total)}</b></div></div><div class="title" style="margin-top:12px">Причины по текущим карточкам</div>${x.reasons.slice(0,5).map(r=>`<div class="log-item"><div class="qtitle">${escapeHtml(r.reason)}</div><div class="qmeta">${r.count} сделок • ${rub(r.potential)}</div></div>`).join("")}`:'<div class="empty">Проигранных CRM-сделок пока нет.</div>')
+}
+function renderWorkScenario(){
+  const rateEl=$("workScenarioRate"),extraEl=$("workScenarioExtra");if(!rateEl||!extraEl)return;
+  if(!rateEl.dataset.ready){rateEl.value=String(Math.round(crmWinRateStats().used));rateEl.dataset.ready="1"}
+  const x=crmScenarioData(rateEl.value,extraEl.value),req=Number.isFinite(x.requiredExtra)?rub(x.requiredExtra):"не определяется при 0%";
+  workOsSetHtml("workScenarioResult",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Факт</div><b>${rub(x.sales)}</b></div><div class="report-item"><div class="smallcaps">Воронка месяца + добавка</div><b>${rub(x.raw+x.extra)}</b></div><div class="report-item"><div class="smallcaps">Сценарный прогноз</div><b>${rub(x.forecast)}</b></div><div class="report-item"><div class="smallcaps">Остаток до плана</div><b>${x.plan?rub(x.gap):"—"}</b></div></div><div class="status" style="margin-top:10px">При конверсии <b>${pct(x.rate,0)}</b> дополнительная сырая воронка, необходимая для математического покрытия плана: <b>${x.plan?req:"сначала задай план"}</b>.</div>`)
+}
+function renderWorkOsSettings(){
+  const vals={workOsPlan:+S.settings.workMonthlyPlan||0,workOsWinRate:workOsNumber("workWinRateAssumption",25,0,100),workOsMinSample:Math.round(workOsNumber("workWinRateMinSample",5,1,100)),workOsStaleDays:Math.round(workOsNumber("workStaleDays",14,1,365)),workOsContacts:workTarget("contacts",20),workOsFollowups:workTarget("followups",10),workOsLpr:workTarget("lpr",3),workOsMeetings:workTarget("meetings",3),workOsProposals:workTarget("proposals",3)};
+  for(const [id,v] of Object.entries(vals)){const el=$(id);if(el&&!el.dataset.ready){el.value=String(v);el.dataset.ready="1"}}
+}
+async function saveWorkOsSettings(){
+  const num=(id,min,max)=>clamp(Number($(id)?.value)||0,min,max);
+  S.settings.workMonthlyPlan=num("workOsPlan",0,1e12);S.settings.workWinRateAssumption=num("workOsWinRate",0,100);S.settings.workWinRateMinSample=Math.round(num("workOsMinSample",1,100));S.settings.workStaleDays=Math.round(num("workOsStaleDays",1,365));
+  S.workTargets={...(S.workTargets||{}),contacts:Math.round(num("workOsContacts",0,10000)),followups:Math.round(num("workOsFollowups",0,10000)),lpr:Math.round(num("workOsLpr",0,10000)),meetings:Math.round(num("workOsMeetings",0,10000)),proposals:Math.round(num("workOsProposals",0,10000))};
+  audit("Настройки Work OS","work",`План ${rub(S.settings.workMonthlyPlan)} • конверсия ${S.settings.workWinRateAssumption}%`);await save("Настройки Work OS сохранены")
+}
+function renderWorkOsPanels(){
+  if(!$("workOsCommand"))return;
+  renderWorkOsCommand();renderWorkOsCoverage();renderWorkOsQuality();renderWorkOsHistory();renderWorkOsLosses();renderWorkScenario();renderWorkOsSettings()
+}
+
+const renderWork1002=renderWork;
+renderWork=function(){renderWork1002();ensureWorkOsUi();renderWorkOsPanels()};
