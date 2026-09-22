@@ -117,6 +117,32 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   assert.equal(run(`reviewStore().length`),1);
   assert.equal(run(`reviewStore()[0].id`),"rw");
 
+  // Calendar / Timeline OS: persistence, recurrence, automatic deadlines,
+  // overload detection and Life OS routing for today's manual plan.
+  run(`S=deepClone(DEFAULT_STATE); S.settings.calendarEvents=[]; S.settings.calendarDailyCapacityMin=180; S.settings.calendarHorizonDays=30; save=async()=>{}; audit=()=>{}; toast=()=>{};`);
+  const made=run(`addCalendarPlan({title:"Тренировка",dateKey:localDateKey(),type:"Тренировка",minutes:120,priority:1,note:"зал",repeatWeeks:3})`);
+  assert.equal(made.length,3);
+  assert.equal(run(`calendarStore().length`),3);
+  assert.equal(run(`calendarStore()[1].dateKey`),run(`localDateKey(addDays(new Date(),7))`));
+  assert.ok(run(`calendarDecisionEngine().some(x=>x.kind==="calendar-today"&&x.area==="Теннис")`));
+  assert.ok(run(`lifeOsRawCandidates().some(x=>x.route==="calendar"&&x.area==="Теннис")`));
+
+  // A second commitment pushes today's estimated active load above capacity.
+  run(`addCalendarPlan({title:"Личное дело",dateKey:localDateKey(),type:"Личное",minutes:90,priority:2,repeatWeeks:1});`);
+  assert.equal(run(`calendarDayLoad(localDateKey()).level`),"bad");
+  assert.ok(run(`calendarOverloadedDays(1).length`)>0);
+
+  // Project/CRM dates appear automatically without manual calendar duplication.
+  run(`S.settings.projects=[{id:"cp",title:"Проект срок",area:"Работа",priority:2,status:"active",progress:20,nextStep:"Шаг",nextDate:localDateKey(addDays(new Date(),2)),deadline:localDateKey(addDays(new Date(),5)),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}]; S.crmDeals=[{id:"cd",name:"CRM срок",stage:"Контакт",potential:100000,probability:20,nextStep:"Позвонить",nextDate:localDateKey(addDays(new Date(),3)),closeDate:localDateKey(addDays(new Date(),10))}];`);
+  assert.ok(run(`calendarEvents(14,0).some(x=>x.source==="project"&&x.refId==="cp")`));
+  assert.ok(run(`calendarEvents(14,0).some(x=>x.source==="crm"&&x.refId==="cd")`));
+
+  // Calendar data survives normalizeState through settings.
+  run(`S=normalizeState({version:STATE_VERSION,settings:{calendarEvents:[{id:"ce",title:"Persist calendar",type:"Тренировка",dateKey:localDateKey(),minutes:60,priority:2,status:"planned"}],calendarDailyCapacityMin:240,calendarHorizonDays:45}});`);
+  assert.equal(run(`calendarStore().length`),1);
+  assert.equal(run(`calendarCapacity()`),240);
+  assert.equal(run(`calendarHorizon()`),45);
+
   // Dynamically injected OS cards must participate in UX7 view switching.
   for(const file of ["work.js","tennis.js","knowledge.js","bootstrap.js"]){
     const src=fs.readFileSync(path.join(root,file),"utf8");

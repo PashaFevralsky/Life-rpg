@@ -97,12 +97,27 @@ test("Life RPG 10 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#reviewHistory")).toContainText("Неделя");
   await expect(page.locator("#reviewHistory")).toContainText("E2E результат недели");
 
+  // Calendar / Timeline OS -> create a future planned training.
+  await expect(page.locator("#calendarOsCommand")).toBeVisible();
+  await page.locator('button:has-text("+ Событие")').click();
+  await page.locator("#calendarTitle").fill("E2E тренировка");
+  const tomorrow = await page.evaluate(() => {
+    const d=new Date(); d.setDate(d.getDate()+1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  });
+  await page.locator("#calendarDate").fill(tomorrow);
+  await page.locator("#calendarType").selectOption({label:"Тренировка"});
+  await page.locator("#calendarMinutes").fill("90");
+  await page.locator('button[onclick="saveCalendarEvent()"]').click();
+  await expect(page.locator("#calendarTimeline")).toContainText("E2E тренировка");
+
   const knowledgeTab = page.locator('#more .ux7-tab[data-view="knowledge"]');
   await expect(knowledgeTab).toBeVisible();
   await knowledgeTab.click();
   await expect(page.locator("#knowledgeOsCommand")).toBeVisible();
   await expect(page.locator("#projectsOsCommand")).not.toBeVisible();
   await expect(page.locator("#reviewOsCommand")).not.toBeVisible();
+  await expect(page.locator("#calendarOsCommand")).not.toBeVisible();
 
   const addBookButton = page.locator('button[onclick="openModal(\'bookModal\')"]');
   await expect(addBookButton).toBeVisible();

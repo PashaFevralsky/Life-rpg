@@ -1,0 +1,86 @@
+Life RPG — Calendar / Timeline OS
+Base commit: a98778afa797830793971a18e27197548b86c39a
+
+WHAT IS NEW
+
+Calendar / Timeline OS
+- One temporal axis for the next 7–90 days.
+- Automatic events from:
+  - debt payments and mandatory regular payments;
+  - expected income events;
+  - CRM next steps, decision dates, tender dates and close dates;
+  - project next steps and deadlines;
+  - weekly and monthly Review / Planning OS checkpoints.
+- Manual planned events for:
+  - training;
+  - tournaments;
+  - work;
+  - finance;
+  - knowledge;
+  - personal;
+  - other.
+- Manual events can repeat weekly for 1–12 weeks.
+- Manual plan is separate from factual Tennis/Work logs.
+  A planned training never creates a completed Tennis OS session automatically.
+
+CAPACITY / OVERLOAD ENGINE
+- Configurable active-commitment capacity per day, default 180 min.
+- Configurable timeline horizon, default 30 days.
+- Day status:
+  OK;
+  warning at >=75% capacity / multiple hard commitments / many active events;
+  overload above capacity or with >=3 hard obligations.
+- Weekly roll-up:
+  minutes, number of events, hard obligations and overloaded days.
+- Calendar shows the nearest overloaded day.
+- Life OS guardrails surface overload in the next few days.
+
+LIFE OS INTEGRATION
+- Today's manually planned event can become a Life OS action.
+- Overdue high-priority manual event becomes a hard obligation.
+- Calendar overload can become a System action.
+- Automatic CRM / project / finance events are not duplicated as separate
+  Calendar actions in Life OS; their domain engines remain the source of action priority.
+- Calendar actions route back to the Calendar OS / relevant domain.
+
+MANUAL EVENT ACTIONS
+- create;
+- edit;
+- mark done;
+- delete;
+- weekly repeat.
+- Done events remain available as timeline context but no longer create Life OS actions.
+
+PERSISTENCE
+- No state schema migration.
+- settings.calendarEvents
+- settings.calendarDailyCapacityMin
+- settings.calendarHorizonDays
+Existing backup/export/restore preserves these settings.
+
+TEST COVERAGE
+os-integration.test.js:
+- weekly recurrence;
+- persistence;
+- today's training -> Life OS;
+- overload detection;
+- automatic project deadline;
+- automatic CRM date.
+
+e2e.test.js:
+- create a future planned training in the real mobile UI;
+- verify it appears in the timeline;
+- verify Calendar OS hides when switching More -> Knowledge.
+
+LOCAL CHECKS
+- node --check bootstrap.js: OK
+- node --check os-integration.test.js: OK
+- node --check e2e.test.js: OK
+- Review / Planning OS smoke after integration: OK
+- Calendar / Timeline OS runtime smoke: OK
+
+UPLOAD
+Replace:
+- bootstrap.js
+- os-integration.test.js
+- e2e.test.js
