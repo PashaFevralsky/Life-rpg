@@ -45,5 +45,5 @@ const run=code=>new vm.Script(code).runInContext(context);
   run(`S=deepClone(DEFAULT_STATE); S.workLogs=[]; S.trash=[{kind:'work',item:{id:'w1',date:localDateKey(),sales:0,contacts:1,followups:0,lpr:0,meetings:0,proposals:0,wins:0,pipeline:0,xpAward:3}}]; save=async()=>{}; audit=()=>{}; toast=()=>{};`);
   await run('restoreLastDeleted()');assert.equal(run('S.workLogs.length'),1);assert.equal(run('S.trash.length'),0);
 
-  console.log('OK — Life RPG 10.0.0 deep domain tests passed');
+  console.log('OK — Life RPG 10.0.1 deep domain tests passed');
 })().catch(e=>{console.error(e);process.exit(1)});

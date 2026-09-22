@@ -13,13 +13,13 @@ export default defineConfig({
     copyClassicRuntime(),
     VitePWA({
       strategies:"generateSW",
-      registerType:"autoUpdate",
+      registerType:"prompt",
       injectRegister:null,
       manifest:false,
       includeAssets:["icon-192.png","icon-512.png"],
       workbox:{
-        clientsClaim:true,
-        skipWaiting:true,
+        clientsClaim:false,
+        skipWaiting:false,
         cleanupOutdatedCaches:true,
         navigateFallback:"index.html",
         globPatterns:["**/*.{html,js,css,png,json,webmanifest}"],

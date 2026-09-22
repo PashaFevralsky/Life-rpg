@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.0.0 — Life OS 2, quests and explainable analytics */
+/* Life RPG 10.0.1 — Life OS 2, quests and explainable analytics */
 
 const DAILY_QUESTS=[
   {id:"expenses",title:"Учёт расходов за день",stat:"Дисциплина",xp:10,auto:date=>(S.expenses||[]).some(x=>x.dateKey===date)},

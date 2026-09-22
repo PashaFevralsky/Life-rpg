@@ -13,4 +13,4 @@ assert.ok(elements.crmSummary.innerHTML!==undefined);
 assert.ok(elements.tennisAnalytics.innerHTML!==undefined);
 assert.ok(elements.readingDashboard.innerHTML!==undefined);
 assert.ok(elements.systemDiagnostics.innerHTML.length>0);
-console.log("OK — Life RPG 10.0.0 full render smoke passed");
+console.log("OK — Life RPG 10.0.1 full render smoke passed");

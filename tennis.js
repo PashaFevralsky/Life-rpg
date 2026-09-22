@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.0.0 — Tennis OS */
+/* Life RPG 10.0.1 — Tennis OS */
 
 const TENNIS_WEEKLY=[
   {id:"sessions3",title:"3 тренировки за неделю",stat:"Теннис",xp:180,condition:()=>tennisWeek().sessions>=3},

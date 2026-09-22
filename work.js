@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.0.0 — Work OS and CRM Decision Engine */
+/* Life RPG 10.0.1 — Work OS and CRM Decision Engine */
 
 const WORK_WEEKLY=[
   {id:"contacts20",title:()=>`${workTarget("contacts",20)} новых целевых контактов`,stat:"Карьера",xp:120,enabled:()=>workTarget("contacts",20)>0,condition:()=>workWeek().contacts>=workTarget("contacts",20)},

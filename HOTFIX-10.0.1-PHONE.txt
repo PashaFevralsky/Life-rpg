@@ -1,0 +1,5 @@
+LIFE RPG 10.0.1 HOTFIX
+
+Upload the root files from the package as usual. The .github workflow does not change.
+After GitHub Actions is green, fully close the installed PWA and open it again once.
+Do NOT clear site data and do NOT uninstall the PWA. STATE_VERSION remains 16.

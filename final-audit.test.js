@@ -106,8 +106,8 @@ function run(code){return new vm.Script(code).runInContext(context)}
   assert.ok(di.some(x=>x.title.includes('Счёт не сверялся')));
   assert.ok(di.some(x=>x.title.includes('Нет следующей даты')));
 
-  // UX: inbox shortcut must open the dedicated Bank view in 10.0.0.
+  // UX: inbox shortcut must open the dedicated Bank view in 10.0.1.
   assert.ok(run('ux7OpenInbox.toString().includes("finance\",\"bank")'));
 
-  console.log('OK — Life RPG 10.0.0 final audit tests passed');
+  console.log('OK — Life RPG 10.0.1 final audit tests passed');
 })().catch(e=>{console.error(e);process.exit(1)});

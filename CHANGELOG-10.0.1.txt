@@ -1,0 +1,9 @@
+Life RPG 10.0.1 — PWA update-loop hotfix
+
+- Removed automatic reload on service-worker controller changes.
+- Removed hard location.replace loop on HTML/runtime version mismatch.
+- Workbox updates no longer take over an open app session (skipWaiting=false, clientsClaim=false).
+- New worker activates on the next normal app launch after closing the current PWA.
+- Initial raw HTML is hidden until the first state-backed render, eliminating old→new interface flash.
+- Manual update check no longer forces navigation/reload.
+- STATE_VERSION remains 16; finance/data schema unchanged.

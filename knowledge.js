@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 10.0.0 — Knowledge OS */
+/* Life RPG 10.0.1 — Knowledge OS */
 
 function readingDaysThisWeek(){const wk=isoWeekKey();return new Set(S.readingLogs.filter(x=>isoWeekKey(parseLocal(x.dateKey))===wk).map(x=>x.dateKey)).size}
 function currentBook(){return S.books.find(b=>b.status==="reading")||null}
