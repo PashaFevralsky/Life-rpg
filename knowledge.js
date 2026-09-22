@@ -71,7 +71,7 @@ function knowledgeReviewState(x){
   else anchor=parseLocal(x.dateKey||localDateKey());
   if(Number.isNaN(anchor.getTime()))anchor=new Date();
   const dueAt=x.reviewedAt?new Date(anchor.getTime()+interval*86400000):anchor;
-  return {count,interval,dueAt,due:Date.now()>=dueAt.getTime(),complete:false}
+  return {count,interval,dueAt,due:!x.reviewedAt||Date.now()>=dueAt.getTime(),complete:false}
 }
 knowledgeReviewQueue=function(){
   return (S.readingLogs||[])
