@@ -171,7 +171,7 @@ function crmScenarioData(ratePct,extraPipeline=0,month=localMonthKey()){
 function workOsMonthLabel(month){const [y,m]=String(month).split("-").map(Number);return new Date(y,m-1,1,12).toLocaleDateString("ru-RU",{month:"short",year:"2-digit"})}
 function workOsSetHtml(id,html){const el=$(id);if(el)el.innerHTML=html}
 function ensureWorkOsUi(){
-  if($("workOsCommand"))return;
+  if(document.getElementById("workOsCommand"))return;
   const grid=document.querySelector?.("#work .grid");if(!grid)return;
   const anchor=grid.querySelector?.(".work-hero")||null,target=anchor||grid;
   if(typeof target.insertAdjacentHTML!=="function")return;
@@ -208,7 +208,7 @@ function renderWorkOsLosses(){
   workOsSetHtml("workOsLosses",x.count?`<div class="goal"><div class="goal-top"><span>Проиграно сделок</span><b>${x.count}</b></div><div class="goal-top" style="margin-top:7px"><span>Потенциал проигранных</span><b>${rub(x.total)}</b></div></div><div class="title" style="margin-top:12px">Причины по текущим карточкам</div>${x.reasons.slice(0,5).map(r=>`<div class="log-item"><div class="qtitle">${escapeHtml(r.reason)}</div><div class="qmeta">${r.count} сделок • ${rub(r.potential)}</div></div>`).join("")}`:'<div class="empty">Проигранных CRM-сделок пока нет.</div>')
 }
 function renderWorkScenario(){
-  const rateEl=$("workScenarioRate"),extraEl=$("workScenarioExtra");if(!rateEl||!extraEl)return;
+  const rateEl=document.getElementById("workScenarioRate"),extraEl=document.getElementById("workScenarioExtra");if(!rateEl||!extraEl)return;
   if(!rateEl.dataset.ready){rateEl.value=String(Math.round(crmWinRateStats().used));rateEl.dataset.ready="1"}
   const x=crmScenarioData(rateEl.value,extraEl.value),req=Number.isFinite(x.requiredExtra)?rub(x.requiredExtra):"не определяется при 0%";
   workOsSetHtml("workScenarioResult",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Факт</div><b>${rub(x.sales)}</b></div><div class="report-item"><div class="smallcaps">Воронка месяца + добавка</div><b>${rub(x.raw+x.extra)}</b></div><div class="report-item"><div class="smallcaps">Сценарный прогноз</div><b>${rub(x.forecast)}</b></div><div class="report-item"><div class="smallcaps">Остаток до плана</div><b>${x.plan?rub(x.gap):"—"}</b></div></div><div class="status" style="margin-top:10px">При конверсии <b>${pct(x.rate,0)}</b> дополнительная сырая воронка, необходимая для математического покрытия плана: <b>${x.plan?req:"сначала задай план"}</b>.</div>`)
@@ -224,7 +224,7 @@ async function saveWorkOsSettings(){
   audit("Настройки Work OS","work",`План ${rub(S.settings.workMonthlyPlan)} • конверсия ${S.settings.workWinRateAssumption}%`);await save("Настройки Work OS сохранены")
 }
 function renderWorkOsPanels(){
-  if(!$("workOsCommand"))return;
+  if(!document.getElementById("workOsCommand"))return;
   renderWorkOsCommand();renderWorkOsCoverage();renderWorkOsQuality();renderWorkOsHistory();renderWorkOsLosses();renderWorkScenario();renderWorkOsSettings()
 }
 

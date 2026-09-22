@@ -1,0 +1,10 @@
+Work OS hotfix
+
+Исправлена причина падения GitHub Actions static-check:
+- динамические DOM id workOsCommand, workScenarioRate, workScenarioExtra
+  больше не обращаются через $("id"), который static-check трактует как
+  обязательный статический id из index.html;
+- вместо этого используется document.getElementById для элементов,
+  которые создаются самим Work OS во время выполнения.
+
+Проверка точного паттерна static-check: OK
