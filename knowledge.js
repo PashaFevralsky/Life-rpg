@@ -49,3 +49,167 @@ function renderKnowledgeBase(){const box=$("knowledgeBase");if(!box)return;const
 function renderReadingDashboard(){const month=S.readingLogs.filter(x=>x.dateKey?.startsWith(localMonthKey())),mins=month.reduce((a,x)=>a+(+x.minutes||0),0),pages=month.reduce((a,x)=>a+(+x.pages||0),0),completed=S.books.filter(b=>b.status==="done"&&String(b.completed||"").startsWith(localMonthKey())).length,pace=readingPaceData(),review=knowledgeReviewQueue(),recent=S.readingLogs.slice(0,8);$("readingDashboard").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Минуты месяца</div><b>${mins}</b></div><div class="report-item"><div class="smallcaps">Страницы</div><b>${pages}</b></div><div class="report-item"><div class="smallcaps">Книг завершено</div><b>${completed}</b></div><div class="report-item"><div class="smallcaps">На повторение</div><b>${review.length}</b></div></div>${pace?`<div class="notice" style="margin-top:10px"><b>${escapeHtml(pace.book.title)}</b>: ${pace.remaining} стр. осталось • темп ${pace.pace.toFixed(1)} стр./день чтения${pace.readingDays!=null?` • примерно ${pace.readingDays} дней чтения до конца`:""}.</div>`:""}<div class="title" style="margin-top:14px">Повторить знания</div>${review.length?review.slice(0,4).map(x=>{const b=S.books.find(q=>q.id===x.bookId);return `<div class="log-item"><div class="qtitle">${escapeHtml(b?.title||"Книга")}</div><div class="qmeta">${escapeHtml(x.note||x.application||"")}</div><button class="btn ghost small" style="margin-top:7px" onclick="markKnowledgeReviewed('${x.id}')">Повторил</button></div>`}).join(""):`<div class="empty">Очередь повторения пуста.</div>`}<div class="title" style="margin-top:14px">Последние сессии</div>${recent.length?recent.map(x=>{const b=S.books.find(q=>q.id===x.bookId);return `<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(x.dateKey))} • ${escapeHtml(b?.title||"Архивная книга")} • ${x.minutes} мин</div><div class="qmeta">${x.pages||0} стр. • +${x.xpAward||0} XP${x.chapter?` • ${escapeHtml(x.chapter)}`:""}</div><div class="split" style="margin-top:7px"><button class="btn ghost small" onclick="editReading('${x.id}')">Изменить</button><button class="btn ghost small" onclick="deleteReading('${x.id}')">Удалить</button></div></div>`}).join(""):`<div class="empty">Сессий пока нет.</div>`}`}
 function renderBooks(){const reading=(S.books||[]).filter(b=>b.status==="reading"),queued=readingQueueSorted(),paused=(S.books||[]).filter(b=>b.status==="paused"),done=(S.books||[]).filter(b=>b.status==="done").slice().sort((a,b)=>String(b.completed||"").localeCompare(String(a.completed||""))),dropped=(S.books||[]).filter(b=>b.status==="dropped"),ordered=[...reading,...queued,...paused,...done,...dropped];$("readBook").innerHTML=reading.length?reading.map(b=>`<option value="${b.id}">${escapeHtml(b.title)}</option>`).join(""):'<option value="">Сначала начни книгу из очереди</option>';$("bookList").innerHTML=ordered.length?ordered.map(b=>{const isDone=b.status==="done",isQueued=b.status==="queued",isPaused=b.status==="paused",pages=Math.max(0,+b.totalPages||0),current=Math.max(0,+b.currentPage||0),p=pages>0?clamp(current/pages*100,0,100):0,tag=isDone?"прочитано":isQueued?`№${+b.readingOrder||"—"} в очереди`:isPaused?"пауза":b.status==="dropped"?"отложено":`читаю • ${current}/${pages}`;return `<div class="book"><div class="book-head"><div><b>${escapeHtml(b.title)}</b><div class="sub">${escapeHtml(b.author||"")}</div></div><span class="tag ${isDone?"good":""}">${tag}</span></div>${isQueued?`<div class="sub" style="margin-top:9px">${pages?`${pages} стр.`:"Количество страниц укажешь при старте книги."}</div>`:`<div class="progress" style="margin-top:9px"><i style="width:${p}%"></i></div>`}<div class="split" style="margin-top:9px">${isQueued?`<button class="btn secondary small" onclick="startQueuedBook('${b.id}')">Начать</button><button class="btn ghost small" onclick="moveBookQueue('${b.id}',-1)">↑</button><button class="btn ghost small" onclick="moveBookQueue('${b.id}',1)">↓</button>`:isPaused?`<button class="btn secondary small" onclick="startQueuedBook('${b.id}')">Продолжить</button>`:!isDone&&b.status==="reading"?`<button class="btn ghost small" onclick="openReadingFor('${b.id}')">+ Читать</button><button class="btn ghost small" onclick="setBookStatus('${b.id}','paused')">Пауза</button>`:""}${!isDone?`<button class="btn ghost small" onclick="setBookStatus('${b.id}','dropped')">Отложить</button>`:""}<button class="btn ghost small" onclick="deleteBook('${b.id}')">Архив</button></div></div>`}).join(""):'<div class="empty">Добавь книгу или импортируй список чтения.</div>'}
 function openReadingFor(id){const b=S.books.find(x=>x.id===id);if(!b||b.status!=="reading"){toast("Эта книга сейчас не активна");return}openModal("readingModal");if($("readBook"))$("readBook").value=id}
+
+
+/* Knowledge OS deep analytics layer — first iteration.
+   No new mandatory input fields. Existing readingReviewDays becomes the anchor
+   for the staged review schedule: 1, 3, N, 2N, 4N days. */
+
+function knowledgeOsNumber(key,fallback,min=0,max=Number.POSITIVE_INFINITY){
+  const v=Number(S.settings?.[key]);
+  return Number.isFinite(v)?clamp(v,min,max):fallback
+}
+function knowledgeReviewIntervals(){
+  const base=Math.max(3,Math.round(knowledgeOsNumber("readingReviewDays",7,3,90)));
+  return [...new Set([1,3,base,base*2,base*4])].sort((a,b)=>a-b)
+}
+function knowledgeReviewState(x){
+  const intervals=knowledgeReviewIntervals(),legacyReviewed=!!x.reviewedAt&&x.reviewCount==null,count=Math.max(0,Math.round(legacyReviewed?1:(+x.reviewCount||0)));
+  const interval=intervals[Math.min(count,intervals.length-1)];
+  let anchor;
+  if(x.reviewedAt)anchor=new Date(x.reviewedAt);
+  else anchor=parseLocal(x.dateKey||localDateKey());
+  if(Number.isNaN(anchor.getTime()))anchor=new Date();
+  const dueAt=new Date(anchor.getTime()+interval*86400000);
+  return {count,interval,dueAt,due:Date.now()>=dueAt.getTime(),complete:false}
+}
+knowledgeReviewQueue=function(){
+  return (S.readingLogs||[])
+    .filter(x=>x.note||x.application)
+    .map(x=>({x,s:knowledgeReviewState(x)}))
+    .filter(z=>z.s.due)
+    .sort((a,b)=>a.s.dueAt-b.s.dueAt||String(a.x.dateKey||"").localeCompare(String(b.x.dateKey||"")))
+    .map(z=>z.x)
+    .slice(0,30)
+};
+markKnowledgeReviewed=async function(id){
+  const x=S.readingLogs.find(z=>z.id===id);if(!x)return;
+  const s=knowledgeReviewState(x);
+  x.reviewCount=s.count+1;x.reviewedAt=new Date().toISOString();
+  audit("Повторение знания","knowledge",`${x.note||x.application||id} • повтор ${x.reviewCount}`);
+  await save(`Тезис повторён • следующий интервал ${knowledgeReviewState(x).interval} дн.`)
+};
+
+function readingWindowLogs(days=28,bookId=""){
+  const start=localDateKey(addDays(new Date(),-(days-1)));
+  return (S.readingLogs||[]).filter(x=>String(x.dateKey||"")>=start&&(!bookId||x.bookId===bookId))
+}
+function readingTodayMinutes(){
+  const today=localDateKey();
+  return (S.readingLogs||[]).filter(x=>x.dateKey===today).reduce((s,x)=>s+Math.max(0,+x.minutes||0),0)
+}
+function readingConsistencyData(days=28){
+  const logs=readingWindowLogs(days),byDay=new Map();
+  for(const x of logs)byDay.set(x.dateKey,(byDay.get(x.dateKey)||0)+Math.max(0,+x.minutes||0));
+  const target=Math.max(1,Math.round(knowledgeOsNumber("readingDailyMin",30,1,1440)));
+  let compliant=0;for(const v of byDay.values())if(v>=target)compliant++;
+  let streak=0,d=new Date();
+  while(true){const k=localDateKey(d),v=byDay.get(k)||0;if(v<target)break;streak++;d=addDays(d,-1)}
+  const activeDays=byDay.size,weeklyDays=days>0?activeDays/days*7:0;
+  return {days,target,activeDays,compliant,weeklyDays,streak,today:byDay.get(localDateKey())||0}
+}
+function readingVelocityData(days=28){
+  const b=currentBook(),logs=readingWindowLogs(days,b?.id||""),minutes=logs.reduce((s,x)=>s+Math.max(0,+x.minutes||0),0),pages=logs.reduce((s,x)=>s+Math.max(0,+x.pages||0),0);
+  const pagesPerHour=minutes>0?pages/(minutes/60):0,activeDays=new Set(logs.map(x=>x.dateKey)).size,pagesPerReadingDay=activeDays?pages/activeDays:0;
+  const consistency=readingConsistencyData(days),calendarPagesPerDay=pagesPerReadingDay*(consistency.weeklyDays/7);
+  const remaining=b?Math.max(0,(+b.totalPages||0)-(+b.currentPage||0)):0,calendarDays=b&&calendarPagesPerDay>0?Math.ceil(remaining/calendarPagesPerDay):null;
+  const finishDate=calendarDays!=null?addDays(new Date(),calendarDays):null;
+  return {book:b,days,minutes,pages,pagesPerHour,activeDays,pagesPerReadingDay,calendarPagesPerDay,remaining,calendarDays,finishDate}
+}
+function knowledgeCaptureData(days=28){
+  const logs=readingWindowLogs(days),withKnowledge=logs.filter(x=>String(x.note||"").trim()||String(x.application||"").trim()),withApplication=logs.filter(x=>String(x.application||"").trim()),tagged=logs.filter(x=>Array.isArray(x.tags)&&x.tags.length);
+  return {sessions:logs.length,withKnowledge:withKnowledge.length,withApplication:withApplication.length,tagged:tagged.length,captureRate:logs.length?withKnowledge.length/logs.length*100:0,applicationRate:logs.length?withApplication.length/logs.length*100:0}
+}
+function knowledgeReviewStats(){
+  const all=(S.readingLogs||[]).filter(x=>x.note||x.application),due=knowledgeReviewQueue(),reviewed=all.filter(x=>x.reviewedAt),rounds=all.reduce((s,x)=>s+Math.max(0,+x.reviewCount||0),0);
+  return {items:all.length,due:due.length,reviewed:reviewed.length,rounds,intervals:knowledgeReviewIntervals()}
+}
+function readingQueueHorizon(){
+  const v=readingVelocityData(28),books=[...(currentBook()?[currentBook()]:[]),...readingQueueSorted()],known=books.filter(b=>(+b.totalPages||0)>0),unknown=books.length-known.length;
+  let pages=0;
+  for(const b of known)pages+=b.status==="reading"?Math.max(0,(+b.totalPages||0)-(+b.currentPage||0)):Math.max(0,+b.totalPages||0);
+  const hours=v.pagesPerHour>0?pages/v.pagesPerHour:null,weeks=hours!=null&&v.minutes>0?(hours/(v.minutes/60))*4:null;
+  return {books:books.length,known:known.length,unknown,pages,hours,weeks,next:nextQueuedBook()}
+}
+function knowledgeMonthData(){
+  const month=localMonthKey(),logs=(S.readingLogs||[]).filter(x=>String(x.dateKey||"").startsWith(month)),mins=logs.reduce((s,x)=>s+Math.max(0,+x.minutes||0),0),pages=logs.reduce((s,x)=>s+Math.max(0,+x.pages||0),0),days=new Set(logs.map(x=>x.dateKey)).size,done=(S.books||[]).filter(b=>b.status==="done"&&String(b.completed||"").startsWith(month)).length;
+  const now=new Date(),elapsed=now.getDate(),target=Math.max(1,knowledgeOsNumber("readingDailyMin",30,1,1440)),planned=elapsed*target;
+  return {mins,pages,days,done,planned,pace:planned>0?mins/planned*100:0}
+}
+function knowledgeDecisionEngine(){
+  const out=[],review=knowledgeReviewStats(),today=readingTodayMinutes(),target=Math.max(1,Math.round(knowledgeOsNumber("readingDailyMin",30,1,1440))),b=currentBook(),queue=readingQueueSorted(),v=readingVelocityData(28),c=knowledgeCaptureData(28),cons=readingConsistencyData(28);
+  if(review.due)out.push({kind:"review",title:"Повторить знания",meta:`Сейчас к повторению готовы ${review.due} тезисов. Начни с самых просроченных.`});
+  if(!b&&queue.length)out.push({kind:"book",title:`Начать следующую книгу: ${queue[0].title}`,meta:"Активной книги сейчас нет; порядок берётся из твоей очереди."});
+  if(b&&today<target)out.push({kind:"read",title:`Дочитать дневной минимум: ещё ${target-today} мин`,meta:`Сегодня зафиксировано ${today}/${target} мин.`});
+  if(b&&v.minutes>0&&v.pages===0)out.push({kind:"data",title:"Указывать страницы после чтения",meta:"Без страниц приложение видит время, но не может оценить скорость и срок завершения книги."});
+  if(c.sessions>=5&&c.captureRate<40)out.push({kind:"capture",title:"Зафиксировать хотя бы один тезис",meta:`За 28 дней знания сохранены в ${pct(c.captureRate,0)} сессий. Не нужно конспектировать всё — достаточно ключевых идей.`});
+  if(cons.activeDays<Math.max(1,Math.round(knowledgeOsNumber("readingWeeklyDaysTarget",7,1,7)))&&cons.days>=7)out.push({kind:"consistency",title:"Вернуть регулярность чтения",meta:`За последние 28 дней чтение было в ${cons.activeDays} днях; средняя частота ${cons.weeklyDays.toFixed(1)} дн./нед.`});
+  if(b&&v.calendarDays!=null)out.push({kind:"pace",title:`Текущий прогноз: закончить примерно за ${v.calendarDays} дн.`,meta:`${v.remaining} стр. осталось • ${v.pagesPerHour.toFixed(1)} стр./ч • ${cons.weeklyDays.toFixed(1)} дней чтения в неделю.`});
+  return out.slice(0,7)
+}
+function knowledgeOsSetHtml(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html}
+function knowledgeOsDate(d){return d&&d instanceof Date&&!Number.isNaN(d.getTime())?d.toLocaleDateString("ru-RU"):"—"}
+
+function ensureKnowledgeOsUi(){
+  if(document.getElementById("knowledgeOsCommand"))return;
+  const grid=document.querySelector?.("#more .grid");if(!grid)return;
+  const anchor=grid.querySelector?.(".book-hero")||null,target=anchor||grid;if(typeof target.insertAdjacentHTML!=="function")return;
+  target.insertAdjacentHTML(anchor?"afterend":"beforeend",`
+    <div data-ux7-view="knowledge" class="card span-12"><div class="eyebrow">Knowledge OS</div><div class="section-title">Центр чтения и удержания знаний</div><div class="muted" style="margin-top:6px">Темп, регулярность, повторение и фиксация идей. Метрики повторения показывают дисциплину работы с заметками, а не измеряют память напрямую.</div><div id="knowledgeOsCommand" style="margin-top:12px"></div></div>
+    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Reading Engine</div><div class="title">Темп и прогноз книги</div><div id="knowledgeOsPace"></div></div>
+    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Consistency</div><div class="title">Регулярность</div><div id="knowledgeOsConsistency"></div></div>
+    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Review Engine</div><div class="title">Интервальные повторения</div><div id="knowledgeOsReview"></div></div>
+    <div data-ux7-view="knowledge" class="card span-6"><div class="eyebrow">Capture</div><div class="title">Фиксация и применение</div><div id="knowledgeOsCapture"></div></div>
+    <div data-ux7-view="knowledge" class="card span-6"><div class="title">Очередь: горизонт</div><div id="knowledgeOsQueue"></div></div>
+    <div data-ux7-view="knowledge" class="card span-6"><div class="title">Месяц: план → факт</div><div id="knowledgeOsMonth"></div></div>
+    <div data-ux7-view="knowledge" class="card span-12"><details><summary>Настройки Knowledge OS</summary><div class="formgrid" style="margin-top:12px"><div class="field"><label>Чтение / день, мин</label><input id="knowledgeOsDailyMin" type="number" min="1" max="1440"></div><div class="field"><label>Целевых дней чтения / неделю</label><input id="knowledgeOsWeeklyDays" type="number" min="1" max="7"></div><div class="field"><label>Базовый интервал повторения, дней</label><input id="knowledgeOsReviewBase" type="number" min="3" max="90"></div></div><button class="btn secondary" style="margin-top:12px" onclick="saveKnowledgeOsSettings()">Сохранить настройки</button><div class="notice" style="margin-top:10px">Повторения строятся ступенями: 1 день → 3 дня → базовый интервал → ×2 → ×4. После последней ступени используется самый длинный интервал повторно.</div></details></div>
+  `)
+}
+function renderKnowledgeOsCommand(){
+  const m=knowledgeMonthData(),r=knowledgeReviewStats(),v=readingVelocityData(28),actions=knowledgeDecisionEngine();
+  knowledgeOsSetHtml("knowledgeOsCommand",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Сегодня</div><b>${readingTodayMinutes()} мин</b></div><div class="report-item"><div class="smallcaps">Месяц</div><b>${m.mins} мин</b></div><div class="report-item"><div class="smallcaps">Страниц месяца</div><b>${m.pages}</b></div><div class="report-item"><div class="smallcaps">На повторение</div><b>${r.due}</b></div><div class="report-item"><div class="smallcaps">Скорость</div><b>${v.pagesPerHour?v.pagesPerHour.toFixed(1)+" стр./ч":"—"}</b></div><div class="report-item"><div class="smallcaps">Книг завершено</div><b>${m.done}</b></div></div>${actions.length?`<div class="title" style="margin-top:14px">Что делать дальше</div>${actions.map(a=>`<div class="quest"><span class="tag ${a.kind==="review"?"warn":""}">${a.kind==="review"?"Повтор":a.kind==="read"?"Чтение":a.kind==="book"?"Книга":"Приоритет"}</span><div class="qbody"><div class="qtitle">${escapeHtml(a.title)}</div><div class="qmeta">${escapeHtml(a.meta)}</div></div></div>`).join("")}`:""}`)
+}
+function renderKnowledgeOsPace(){
+  const v=readingVelocityData(28);
+  if(!v.book){knowledgeOsSetHtml("knowledgeOsPace",'<div class="empty">Нет активной книги.</div>');return}
+  knowledgeOsSetHtml("knowledgeOsPace",`<div class="goal"><div class="goal-top"><span>${escapeHtml(v.book.title)}</span><b>${v.book.currentPage||0}/${v.book.totalPages||0}</b></div><div class="goal-top" style="margin-top:7px"><span>Осталось</span><b>${v.remaining} стр.</b></div><div class="goal-top" style="margin-top:7px"><span>Скорость за 28 дней</span><b>${v.pagesPerHour?v.pagesPerHour.toFixed(1)+" стр./ч":"—"}</b></div><div class="goal-top" style="margin-top:7px"><span>Страниц / день чтения</span><b>${v.pagesPerReadingDay?v.pagesPerReadingDay.toFixed(1):"—"}</b></div><div class="goal-top" style="margin-top:7px"><span>Прогноз завершения</span><b>${knowledgeOsDate(v.finishDate)}</b></div></div><div class="sub" style="margin-top:8px">Прогноз использует фактическую скорость и частоту чтения за последние 28 дней, поэтому при изменении режима автоматически перестраивается.</div>`)
+}
+function renderKnowledgeOsConsistency(){
+  const x=readingConsistencyData(28),target=Math.round(knowledgeOsNumber("readingWeeklyDaysTarget",7,1,7));
+  knowledgeOsSetHtml("knowledgeOsConsistency",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Дней с чтением • 28</div><b>${x.activeDays}</b></div><div class="report-item"><div class="smallcaps">Средне / неделю</div><b>${x.weeklyDays.toFixed(1)}/${target}</b></div><div class="report-item"><div class="smallcaps">Дней с дневным минимумом</div><b>${x.compliant}</b></div><div class="report-item"><div class="smallcaps">Текущая серия</div><b>${x.streak} дн.</b></div></div><div class="status" style="margin-top:10px">Дневной минимум: <b>${x.target} мин</b>. Сегодня: <b>${x.today} мин</b>.</div>`)
+}
+function renderKnowledgeOsReview(){
+  const r=knowledgeReviewStats(),q=knowledgeReviewQueue(),ints=r.intervals;
+  knowledgeOsSetHtml("knowledgeOsReview",`<div class="goal"><div class="goal-top"><span>Заметок / применений</span><b>${r.items}</b></div><div class="goal-top" style="margin-top:7px"><span>Сейчас к повторению</span><b>${r.due}</b></div><div class="goal-top" style="margin-top:7px"><span>Всего раундов повторения</span><b>${r.rounds}</b></div><div class="qmeta">Интервалы: ${ints.join(" → ")} дней</div></div>${q.length?`<div class="title" style="margin-top:12px">Ближайшие</div>${q.slice(0,5).map(x=>{const b=S.books.find(z=>z.id===x.bookId),s=knowledgeReviewState(x);return `<div class="log-item"><div class="qtitle">${escapeHtml(b?.title||"Книга")} • раунд ${s.count+1}</div><div class="qmeta">${escapeHtml(x.note||x.application||"")}</div><button class="btn ghost small" style="margin-top:7px" onclick="markKnowledgeReviewed('${x.id}')">Повторил</button></div>`}).join("")}`:'<div class="empty" style="margin-top:10px">Просроченных повторений нет.</div>'}`)
+}
+function renderKnowledgeOsCapture(){
+  const c=knowledgeCaptureData(28);
+  knowledgeOsSetHtml("knowledgeOsCapture",`<div class="report-grid"><div class="report-item"><div class="smallcaps">Сессий • 28 дней</div><b>${c.sessions}</b></div><div class="report-item"><div class="smallcaps">С тезисом / применением</div><b>${c.withKnowledge}</b></div><div class="report-item"><div class="smallcaps">Доля фиксации</div><b>${pct(c.captureRate,0)}</b></div><div class="report-item"><div class="smallcaps">С применением</div><b>${c.withApplication}</b></div></div><div class="sub" style="margin-top:8px">Доля фиксации — это только показатель ведения заметок. Она не является измерением понимания или запоминания текста.</div>`)
+}
+function renderKnowledgeOsQueue(){
+  const q=readingQueueHorizon();
+  knowledgeOsSetHtml("knowledgeOsQueue",`<div class="goal"><div class="goal-top"><span>Активная + очередь</span><b>${q.books} книг</b></div><div class="goal-top" style="margin-top:7px"><span>Известно страниц</span><b>${q.pages}</b></div><div class="goal-top" style="margin-top:7px"><span>Без объёма страниц</span><b>${q.unknown}</b></div><div class="goal-top" style="margin-top:7px"><span>Оценка часов по текущей скорости</span><b>${q.hours!=null?q.hours.toFixed(1):"—"}</b></div></div>${q.next?`<div class="status" style="margin-top:10px">Следующая по очереди: <b>${escapeHtml(q.next.title)}</b>${q.next.author?` • ${escapeHtml(q.next.author)}`:""}.</div>`:""}`)
+}
+function renderKnowledgeOsMonth(){
+  const m=knowledgeMonthData(),p=m.planned>0?clamp(m.mins/m.planned*100,0,100):0;
+  knowledgeOsSetHtml("knowledgeOsMonth",`<div class="goal"><div class="goal-top"><span>Чтение</span><b>${m.mins}/${m.planned} мин к текущей дате</b></div><div class="progress"><i style="width:${p}%"></i></div><div class="goal-top" style="margin-top:9px"><span>Выполнение текущего темпа</span><b>${pct(m.pace,0)}</b></div><div class="goal-top" style="margin-top:7px"><span>Дней чтения</span><b>${m.days}</b></div><div class="goal-top" style="margin-top:7px"><span>Страниц</span><b>${m.pages}</b></div><div class="goal-top" style="margin-top:7px"><span>Завершено книг</span><b>${m.done}</b></div></div>`)
+}
+function renderKnowledgeOsSettings(){
+  const vals={knowledgeOsDailyMin:Math.round(knowledgeOsNumber("readingDailyMin",30,1,1440)),knowledgeOsWeeklyDays:Math.round(knowledgeOsNumber("readingWeeklyDaysTarget",7,1,7)),knowledgeOsReviewBase:Math.round(knowledgeOsNumber("readingReviewDays",7,3,90))};
+  for(const [id,v] of Object.entries(vals)){const el=document.getElementById(id);if(el&&!el.dataset.ready){el.value=String(v);el.dataset.ready="1"}}
+}
+async function saveKnowledgeOsSettings(){
+  const n=(id,min,max)=>clamp(Number(document.getElementById(id)?.value)||0,min,max);
+  S.settings.readingDailyMin=Math.round(n("knowledgeOsDailyMin",1,1440));
+  S.settings.readingWeeklyDaysTarget=Math.round(n("knowledgeOsWeeklyDays",1,7));
+  S.settings.readingReviewDays=Math.round(n("knowledgeOsReviewBase",3,90));
+  audit("Настройки Knowledge OS","knowledge",`Чтение ${S.settings.readingDailyMin} мин • ${S.settings.readingWeeklyDaysTarget} дн./нед.`);
+  await save("Настройки Knowledge OS сохранены")
+}
+function renderKnowledgeOsPanels(){
+  if(!document.getElementById("knowledgeOsCommand"))return;
+  renderKnowledgeOsCommand();renderKnowledgeOsPace();renderKnowledgeOsConsistency();renderKnowledgeOsReview();renderKnowledgeOsCapture();renderKnowledgeOsQueue();renderKnowledgeOsMonth();renderKnowledgeOsSettings()
+}
+
+const renderReadingDashboard1002=renderReadingDashboard;
+renderReadingDashboard=function(){renderReadingDashboard1002();ensureKnowledgeOsUi();renderKnowledgeOsPanels()};
