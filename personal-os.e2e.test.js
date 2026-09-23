@@ -37,7 +37,7 @@ test("Personal OS 12 critical flows stay coherent on mobile", async ({page})=>{
   // Focus <-> Task date synchronization and timer mutual exclusion.
   const tomorrow=await page.evaluate(()=>localDateKey(addDays(new Date(),1)));
   await page.evaluate(()=>{taskCreate({title:"E2E Focus Task",area:"Личное",priority:2,minutes:30});render()});
-  await page.locator("#focusOsCommand").getByRole("button",{name:"+ Блок",exact:true}).click();
+  await page.getByRole("button",{name:"+ Блок",exact:true}).click();
   await page.locator("#focusTask").selectOption({label:"E2E Focus Task"});
   await page.locator("#focusDate").fill(tomorrow);
   await page.locator("#focusMinutes").fill("25");
