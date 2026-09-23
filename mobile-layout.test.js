@@ -1,0 +1,11 @@
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");
+const root=__dirname,css=fs.readFileSync(path.join(root,"mobile-layout.css"),"utf8"),html=fs.readFileSync(path.join(root,"index.html"),"utf8");
+assert.ok(html.includes('mobile-layout.css?v=11.1.1'),"mobile layout stylesheet is not loaded after base CSS");
+assert.ok(css.includes('.quest:has(>.split)'),"actionable quest mobile layout missing");
+assert.ok(css.includes('grid-template-columns:minmax(72px,110px) minmax(0,1fr) max-content'),"stat clipping fix missing");
+assert.ok(css.includes('#inboxOsCommand'),"Inbox mobile grid missing");
+assert.ok(css.includes('.book>.split'),"book action mobile grid missing");
+assert.ok(css.includes('padding-bottom:calc(156px + env(safe-area-inset-bottom))'),"bottom navigation safe-space missing");
+assert.ok(css.includes('.ux7-card>.split:first-child:has(.section-title)'),"dynamic OS header wrap missing");
+console.log("OK — Life RPG 11.1.1 mobile layout static contract passed");

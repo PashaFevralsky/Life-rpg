@@ -1,10 +1,10 @@
-const CACHE="life-rpg-v11.1.0-calibration-learning";
+const CACHE="life-rpg-v11.1.1-mobile-layout";
 const ASSETS=[
   "./","./index.html",
-  "./platform.js?v=11.1.0","./styles.css?v=11.1.0",
-  "./core.js?v=11.1.0","./state.js?v=11.1.0","./finance.js?v=11.1.0","./imports.js?v=11.1.0","./work.js?v=11.1.0","./tennis.js?v=11.1.0","./knowledge.js?v=11.1.0","./gamification.js?v=11.1.0","./pwa.js?v=11.1.0","./ui.js?v=11.1.0","./bootstrap.js?v=11.1.0",
-  "./data-os.js?v=11.1.0","./projects-os.js?v=11.1.0","./goals-os.js?v=11.1.0","./review-os.js?v=11.1.0","./calendar-os.js?v=11.1.0","./tasks-os.js?v=11.1.0","./routines-os.js?v=11.1.0","./inbox-os.js?v=11.1.0","./rules-os.js?v=11.1.0","./insights-os.js?v=11.1.0","./command-os.js?v=11.1.0","./calibration-os.js?v=11.1.0","./execution-os.js?v=11.1.0","./decision-os.js?v=11.1.0","./recovery-os.js?v=11.1.0","./life-os.js?v=11.1.0",
-  "./manifest.webmanifest?v=11.1.0","./icon-192.png","./icon-512.png"
+  "./platform.js?v=11.1.1","./styles.css?v=11.1.1","./mobile-layout.css?v=11.1.1",
+  "./core.js?v=11.1.1","./state.js?v=11.1.1","./finance.js?v=11.1.1","./imports.js?v=11.1.1","./work.js?v=11.1.1","./tennis.js?v=11.1.1","./knowledge.js?v=11.1.1","./gamification.js?v=11.1.1","./pwa.js?v=11.1.1","./ui.js?v=11.1.1","./bootstrap.js?v=11.1.1",
+  "./data-os.js?v=11.1.1","./projects-os.js?v=11.1.1","./goals-os.js?v=11.1.1","./review-os.js?v=11.1.1","./calendar-os.js?v=11.1.1","./tasks-os.js?v=11.1.1","./routines-os.js?v=11.1.1","./inbox-os.js?v=11.1.1","./rules-os.js?v=11.1.1","./insights-os.js?v=11.1.1","./command-os.js?v=11.1.1","./calibration-os.js?v=11.1.1","./execution-os.js?v=11.1.1","./decision-os.js?v=11.1.1","./recovery-os.js?v=11.1.1","./life-os.js?v=11.1.1",
+  "./manifest.webmanifest?v=11.1.1","./icon-192.png","./icon-512.png"
 ];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("life-rpg-v")&&k!==CACHE).map(k=>caches.delete(k))))));

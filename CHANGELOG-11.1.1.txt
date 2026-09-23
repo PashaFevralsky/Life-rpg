@@ -1,0 +1,48 @@
+Life RPG 11.1.1 — Mobile Layout Hardening
+
+BASE
+11.1.0 / STATE_VERSION 18
+
+WHAT WAS WRONG
+- Life OS day-plan rows rendered tag + text + five Decision buttons in one flex row.
+  On narrow screens the button group consumed the content width and squeezed text into a few characters per line.
+- Tasks, Routines and Calendar used the same actionable quest pattern and had the same structural risk.
+- Stat rows reserved 46/52/54 px for the value while .stat-xp required min-width:74px.
+  Because cards use overflow:hidden, right-side values were visibly clipped.
+- Book queue actions could place 5 controls in a dense wrapping row.
+- Inbox routing and CRM controls used uncontrolled flex wrapping.
+- Dynamic OS card headers could compress long titles against their add/action button.
+- Bottom navigation had almost no spare scroll-safe area beyond its own height, so final content could remain behind it.
+- Existing visual-layout tests asserted CSS tokens, not rendered geometry, so CI could be green while mobile layout was broken.
+
+FIXES
+1. New mobile-layout.css loaded after styles.css as a geometry override layer.
+2. Actionable quest rows at <=600 px become:
+   content row -> dedicated 2-column action row.
+   Odd final action spans the full row.
+3. Direct-action Calendar rows use a full-width action below content on mobile.
+4. Stat rows use max-content for the right value and minmax(0,1fr) for the bar.
+5. Book actions become a deterministic 2-column mobile grid with primary action full width.
+6. Inbox capture/routes/CRM controls use deterministic grids instead of arbitrary flex wrapping.
+7. Dynamic OS headers stack title then action on narrow screens.
+8. Long titles/meta receive min-width:0 + overflow-wrap safeguards.
+9. Mobile shell gets 156px + safe-area bottom scroll space; toast/FAB are lifted above bottom navigation.
+10. App-wide inputs/buttons/images are constrained to their container width on narrow screens.
+
+CI / TESTING
+- New mobile-layout.test.js static layout contract.
+- Playwright e2e.test.js now runs geometry gates at 360 / 390 / 430 / 768 px.
+- Geometry checks cover:
+  * no body horizontal overflow;
+  * actionable quest controls stack below content at <=600 px;
+  * stat values stay inside cards and are not clipped;
+  * buttons stay within cards;
+  * long text does not create hidden horizontal overflow;
+  * bottom navigation has sufficient scroll-safe space;
+  * Knowledge book actions remain inside the card;
+  * Finance / Bank / Work / CRM / More views do not introduce horizontal page overflow.
+
+DATA
+APP_VERSION: 11.1.1
+STATE_VERSION: 18 (unchanged)
+No data migration. No finance/work/tennis/knowledge state is rewritten.

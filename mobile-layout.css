@@ -1,0 +1,81 @@
+/* Life RPG 11.1.1 — Mobile Layout Hardening
+   Geometry overrides only. No domain/state behavior lives here. */
+
+html{scroll-padding-bottom:calc(156px + env(safe-area-inset-bottom));overflow-x:clip}
+body.ui82{overflow-x:clip}
+.ui82 .shell,.ui82 .section,.ui82 .grid,.ui82 .card,.ui82 .qbody,.ui82 .book-head>div,.ui82 .crm-head>div,.ui82 .boss-top>div,.ui82 .goal-top>div,.ui82 .split>*{min-width:0}
+.ui82 .qtitle,.ui82 .qmeta,.ui82 .sub,.ui82 .muted,.ui82 .title,.ui82 .section-title,.ui82 .debt-name,.ui82 .book-head b,.ui82 .crm-head,.ui82 .goal-top,.ui82 .notice,.ui82 .status{overflow-wrap:anywhere;word-break:normal}
+.ui82 img,.ui82 svg,.ui82 canvas{max-width:100%}
+
+/* Stats must never be clipped by the card's overflow:hidden. */
+.ui82 .stat-row{grid-template-columns:minmax(72px,110px) minmax(0,1fr) max-content}
+.ui82 .stat-xp{min-width:0;max-width:none;white-space:nowrap;text-align:right}
+
+/* Flexible heads may wrap instead of compressing primary text. */
+.ui82 .book-head,.ui82 .crm-head,.ui82 .boss-top,.ui82 .goal-top,.ui82 .envelope-top,.ui82 .cash-line{min-width:0}
+.ui82 .book-head>*,.ui82 .crm-head>*,.ui82 .boss-top>*,.ui82 .goal-top>*,.ui82 .envelope-top>*,.ui82 .cash-line>*{min-width:0}
+
+/* Fixed bottom chrome must leave a real scrollable safe area. */
+@media(max-width:850px){
+  .ui82 .shell{padding-bottom:calc(156px + env(safe-area-inset-bottom))!important}
+  .ui82 .bottom{bottom:max(8px,env(safe-area-inset-bottom))}
+  .ui82 .toast{bottom:calc(112px + env(safe-area-inset-bottom))}
+  .ui82 .toast.show{bottom:calc(122px + env(safe-area-inset-bottom))}
+  .ui82 .ux7-fab{bottom:calc(116px + env(safe-area-inset-bottom))}
+}
+
+@media(max-width:600px){
+  /* OS card headers: title first, action below. */
+  .ui82 .ux7-card>.split:first-child:has(.section-title){display:grid;grid-template-columns:minmax(0,1fr);gap:9px;align-items:start}
+  .ui82 .ux7-card>.split:first-child:has(.section-title)>.btn{width:100%;justify-self:stretch}
+
+  /* Any actionable quest becomes content row + dedicated action row. */
+  .ui82 .quest:has(>.split),
+  .ui82 .quest:has(>.btn:last-child){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;row-gap:8px;align-items:start}
+  .ui82 .quest:has(>.split)>.tag:first-child,
+  .ui82 .quest:has(>.btn:last-child)>.tag:first-child{grid-column:1;grid-row:1;align-self:start}
+  .ui82 .quest:has(>.split)>.qbody,
+  .ui82 .quest:has(>.btn:last-child)>.qbody{grid-column:2;grid-row:1;min-width:0}
+  .ui82 .quest:has(>.split)>.split{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;margin-top:1px}
+  .ui82 .quest:has(>.split)>.split>.btn{width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.2}
+  .ui82 .quest:has(>.split)>.split>.btn:last-child:nth-child(odd){grid-column:1/-1}
+  .ui82 .quest:has(>.btn:last-child)>.btn:last-child{grid-column:1/-1;width:100%;min-width:0;white-space:normal}
+
+  /* Long labels/meta may use the full content column. */
+  .ui82 .quest .qtitle,.ui82 .quest .qmeta{max-width:100%;white-space:normal}
+
+  /* Inbox: deterministic 2-column route grid, CRM select on its own row. */
+  .ui82 .split:has(>#inboxCaptureInput){display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+  .ui82 .split:has(>#inboxCaptureInput)>.btn{width:100%}
+  .ui82 #inboxOsCommand .log-item>.split:has(>.btn){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .ui82 #inboxOsCommand .log-item>.split:has(>.btn)>.btn{width:100%;min-width:0;white-space:normal}
+  .ui82 #inboxOsCommand .log-item>.split:has(>select)>select{grid-column:1/-1;width:100%;min-width:0}
+
+  /* Reading list: one strong action, compact secondary actions below. */
+  .ui82 .book>.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .ui82 .book>.split>.btn{width:100%;min-width:0;white-space:normal}
+  .ui82 .book>.split>.btn:first-child{grid-column:1/-1}
+  .ui82 .book>.split>.btn:last-child:nth-child(even){grid-column:1/-1}
+  .ui82 .book-head{flex-wrap:wrap;align-items:flex-start}
+  .ui82 .book-head>.tag{flex:0 0 auto;max-width:100%;white-space:normal}
+
+  /* Generic long flex heads. */
+  .ui82 .crm-head,.ui82 .boss-top,.ui82 .goal-top,.ui82 .envelope-top,.ui82 .cash-line{flex-wrap:wrap}
+
+  /* Controls in list rows must fit their card. */
+  .ui82 select,.ui82 input,.ui82 textarea,.ui82 button{max-width:100%}
+}
+
+@media(max-width:430px){
+  .ui82 .stat-row{grid-template-columns:minmax(66px,92px) minmax(0,1fr) max-content;gap:8px}
+  .ui82 .stat-xp{font-size:11px}
+  .ui82 .quest:has(>.split)>.split{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ui82 .book>.split{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ui82 #inboxOsCommand .log-item>.split:first-child{align-items:flex-start}
+}
+
+@media(max-width:370px){
+  .ui82 .stat-row{grid-template-columns:minmax(62px,82px) minmax(0,1fr) max-content;gap:7px}
+  .ui82 .quest:has(>.split)>.split,.ui82 #inboxOsCommand .log-item>.split:has(>.btn){grid-template-columns:1fr 1fr}
+  .ui82 .book>.split{grid-template-columns:1fr 1fr}
+}

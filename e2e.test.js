@@ -11,7 +11,7 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("11.1.0");
+  await expect(page.locator("#versionStatus")).toContainText("11.1.1");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.
@@ -120,7 +120,7 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
   await page.locator('[data-tab="more"]').click();
   await expect(page.locator("#more")).toHaveClass(/active/);
 
-  // Modular 11.1.0 systems are present in More / Overview.
+  // Modular 11.1.1 systems are present in More / Overview.
   await expect(page.locator("#rulesOsCommand")).toBeVisible();
   await expect(page.locator("#insightsOsCommand")).toBeVisible();
   await expect(page.locator("#calibrationOsCommand")).toBeVisible();
@@ -275,3 +275,63 @@ test("completed book editing and CRM double-tap preserve data", async ({ page })
   });
   expect(result).toEqual({sales:1,selected:"finished"});
 });
+
+
+const layoutWidths=[360,390,430,768];
+
+async function seedLayoutStress(page){
+  await page.evaluate(()=>{
+    const today=localDateKey(),dow=((new Date().getDay()+6)%7)+1,stamp=new Date().toISOString();
+    S.entities.tasks.unshift(taskNormalize({id:"layout-task",title:"Подготовить очень длинное коммерческое предложение и проверить все приложения перед отправкой заказчику",area:"Работа",priority:1,status:"active",dueDate:today,plannedDate:today,minutes:45,blockedByIds:[],createdAt:stamp,updatedAt:stamp}));
+    S.entities.routines.unshift({id:"layout-routine",title:"Тренировка техники с длинным названием для проверки мобильной строки действий",area:"Теннис",priority:1,status:"active",minutes:35,days:[dow],createdAt:stamp,updatedAt:stamp});
+    S.entities.inbox.unshift({id:"layout-inbox",text:"Позвонить клиенту по большой заявке и уточнить длинный перечень технических вопросов",area:"Работа",status:"open",dateKey:today,createdAt:stamp,updatedAt:stamp});
+    S.crmDeals.unshift({id:"layout-deal",name:"Очень длинное название CRM сделки для проверки выпадающего списка",stage:"Переговоры",probability:50,amount:100000,nextAction:"Позвонить",nextDate:today});
+    S.books.unshift({id:"layout-book",title:"Очень длинное название книги для проверки переноса текста и мобильной сетки действий",author:"Автор с длинным именем",totalPages:500,currentPage:0,status:"queued",readingOrder:1,created:today,started:"",notes:""});
+    render();
+  });
+}
+
+async function geometryAudit(page){
+  return page.evaluate(()=>{
+    const visible=el=>{if(!el)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=="none"&&s.visibility!=="hidden"&&r.width>0&&r.height>0};
+    const viewport=document.documentElement.clientWidth;
+    const bodyOverflow=Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-viewport;
+    const actionRows=[...document.querySelectorAll('.quest:has(> .split)')].filter(visible).map(q=>{const body=q.querySelector(':scope > .qbody'),actions=q.querySelector(':scope > .split');if(!body||!actions||!visible(body)||!visible(actions))return null;const br=body.getBoundingClientRect(),ar=actions.getBoundingClientRect(),qr=q.getBoundingClientRect();return {bodyWidth:br.width,rowWidth:qr.width,stacked:ar.top>=br.bottom-1,inside:ar.left>=qr.left-1&&ar.right<=qr.right+1}}).filter(Boolean);
+    const statBad=[...document.querySelectorAll('.stat-row')].filter(visible).filter(row=>{const v=row.querySelector('.stat-xp'),card=row.closest('.card');if(!v||!card)return false;const r=v.getBoundingClientRect(),c=card.getBoundingClientRect();return r.right>c.right+1||r.left<c.left-1||v.scrollWidth>v.clientWidth+1}).length;
+    const buttonBad=[...document.querySelectorAll('.card .btn')].filter(visible).filter(btn=>{const card=btn.closest('.card'),r=btn.getBoundingClientRect(),c=card?.getBoundingClientRect();return c&&(r.right>c.right+1||r.left<c.left-1)}).length;
+    const shell=document.querySelector('.shell'),bottom=document.querySelector('.bottom');const pad=parseFloat(getComputedStyle(shell).paddingBottom)||0,bh=bottom?.getBoundingClientRect().height||0;
+    const wrapBad=[...document.querySelectorAll('.qtitle,.qmeta,.book-head>div')].filter(visible).filter(el=>el.scrollWidth>el.clientWidth+2).length;
+    return {viewport,bodyOverflow,actionRows,statBad,buttonBad,pad,bh,wrapBad};
+  });
+}
+
+for(const width of layoutWidths){
+  test(`layout gate ${width}px: no squeeze, clipping or horizontal overflow`,async({page})=>{
+    await page.setViewportSize({width,height:900});
+    await page.goto("/",{waitUntil:"domcontentloaded"});
+    await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
+    await seedLayoutStress(page);
+
+    // Today / Focus: Life OS, Tasks, Routines and Inbox share the same mobile row contract.
+    await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});
+    let a=await geometryAudit(page);
+    expect(a.bodyOverflow).toBeLessThanOrEqual(1);expect(a.statBad).toBe(0);expect(a.buttonBad).toBe(0);expect(a.wrapBad).toBe(0);expect(a.pad).toBeGreaterThanOrEqual(a.bh+36);
+    if(width<=600){expect(a.actionRows.length).toBeGreaterThan(0);for(const row of a.actionRows){expect(row.bodyWidth).toBeGreaterThan(120);expect(row.stacked).toBe(true);expect(row.inside).toBe(true)}}
+
+    // Tennis / Progress-like stats: right values must not be clipped.
+    await page.evaluate(()=>{switchTab("tennis");ux7SetView("tennis","overview",false)});
+    a=await geometryAudit(page);expect(a.bodyOverflow).toBeLessThanOrEqual(1);expect(a.statBad).toBe(0);expect(a.buttonBad).toBe(0);
+
+    // Knowledge: long title + five actions must remain inside the book card.
+    await page.evaluate(()=>{switchTab("more");ux7SetView("more","knowledge",false)});
+    await expect(page.locator("#bookList")).toContainText("Очень длинное название книги");
+    a=await geometryAudit(page);expect(a.bodyOverflow).toBeLessThanOrEqual(1);expect(a.buttonBad).toBe(0);expect(a.wrapBad).toBe(0);
+    if(width<=600){const book=await page.evaluate(()=>{const b=[...document.querySelectorAll('#bookList .book')].find(x=>x.textContent.includes('Очень длинное название книги')),g=b?.querySelector(':scope > .split');if(!b||!g)return null;const br=b.getBoundingClientRect();return {display:getComputedStyle(g).display,buttons:[...g.querySelectorAll('.btn')].map(x=>{const r=x.getBoundingClientRect();return {w:r.width,inside:r.left>=br.left-1&&r.right<=br.right+1}})}});expect(book).not.toBeNull();expect(book.display).toBe("grid");for(const b of book.buttons){expect(b.w).toBeGreaterThan(44);expect(b.inside).toBe(true)}}
+
+    // Money / Work: broad smoke for whole-app horizontal geometry.
+    for(const [section,view] of [["finance","overview"],["finance","bank"],["work","overview"],["work","crm"],["more","overview"],["more","settings"]]){
+      await page.evaluate(([s,v])=>{switchTab(s);ux7SetView(s,v,false)},[section,view]);
+      a=await geometryAudit(page);expect(a.bodyOverflow,`${section}/${view} overflows at ${width}px`).toBeLessThanOrEqual(1);expect(a.buttonBad,`${section}/${view} buttons leave cards at ${width}px`).toBe(0);
+    }
+  });
+}

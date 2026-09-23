@@ -1,0 +1,24 @@
+Life RPG 11.1.1 — GitHub upload
+
+Upload ALL application/test files from this ZIP to the ROOT of PashaFevralsky/Life-rpg in ONE commit.
+Replace existing files when GitHub asks.
+
+NEW files:
+- mobile-layout.css
+- mobile-layout.test.js
+
+REPLACE:
+- architecture.test.js
+- core.js
+- e2e.test.js
+- index.html
+- manifest.webmanifest
+- package.json
+- static-check.js
+- sw.js
+- vite.config.mjs
+
+The changelog / upload guide / release manifest are optional audit documentation.
+
+STATE_VERSION remains 18. No re-import or migration is required.
+After the commit send: “залил”.

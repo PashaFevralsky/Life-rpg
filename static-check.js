@@ -28,11 +28,12 @@ const dynamic=new Set(['statementReviewAck','ux7AccountForm','ux7AssetForm','ux7
 const idSet=new Set(ids);const missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));
 assert.deepEqual(missing,[],'Unexpected missing DOM ids: '+missing.join(', '));
 const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8'),manifest=fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'),core=fs.readFileSync(path.join(root,'core.js'),'utf8'),bootstrap=fs.readFileSync(path.join(root,'bootstrap.js'),'utf8');
-assert.ok(sw.includes('life-rpg-v11.1.0-calibration-learning'),'Wrong SW cache');
-assert.ok(!sw.includes('?v=10.0.2')&&!sw.includes('?v=10.1.0')&&!sw.includes('?v=10.2.0')&&!sw.includes('?v=11.0.0'),'Stale SW asset query versions');
-for(const m of osModules)assert.ok(sw.includes(`./${m}.js?v=11.1.0`),`SW missing ${m}.js`);
-assert.ok(manifest.includes('Life RPG 11.1.0'),'Wrong manifest version');
-assert.ok(core.includes('APP_VERSION="11.1.0"'),'Wrong app version');
+assert.ok(sw.includes('life-rpg-v11.1.1-mobile-layout'),'Wrong SW cache');
+assert.ok(!sw.includes('?v=10.0.2')&&!sw.includes('?v=10.1.0')&&!sw.includes('?v=10.2.0')&&!sw.includes('?v=11.0.0')&&!sw.includes('?v=11.1.0'),'Stale SW asset query versions');
+for(const m of osModules)assert.ok(sw.includes(`./${m}.js?v=11.1.1`),`SW missing ${m}.js`);
+assert.ok(manifest.includes('Life RPG 11.1.1'),'Wrong manifest version');
+assert.ok(html.includes('mobile-layout.css?v=11.1.1'),'Mobile layout stylesheet missing from HTML shell');assert.ok(fs.existsSync(path.join(root,'mobile-layout.test.js')),'mobile-layout.test.js missing');assert.ok(sw.includes('./mobile-layout.css?v=11.1.1'),'SW source cache missing mobile layout stylesheet');
+assert.ok(core.includes('APP_VERSION="11.1.1"'),'Wrong app version');
 assert.ok(core.includes('STATE_VERSION=18'),'Wrong state version');
 const state=fs.readFileSync(path.join(root,'state.js'),'utf8');
 assert.ok(state.includes('entities:{projects:[],tasks:[],goals:[],routines:[],routineLogs:[],reviews:[],inbox:[],calendarEvents:[]}'),'v18 entity layer missing');
@@ -44,9 +45,9 @@ assert.ok(fs.readFileSync(path.join(root,'recovery-os.js'),'utf8').includes('fun
 const decision=fs.readFileSync(path.join(root,'decision-os.js'),'utf8');assert.ok(decision.includes("decisionSetPreference('${t}','never')")&&decision.includes('Не предлагать'),'Visible never-suggest action missing');assert.ok(decision.includes('id="todayFlowCommand"'),'Today Flow consolidation missing');
 assert.ok(bootstrap.includes('LIFE_RPG_111_MODULES'),'Modular bootstrap registry missing');assert.ok(bootstrap.includes('calibration-os.js'),'Calibration module not registered');
 assert.ok(bootstrap.includes('window.__LIFE_RPG_HTML_VERSION__=APP_VERSION'),'Bootstrap must reconcile legacy HTML shell version');
-assert.ok(html.includes('window.__LIFE_RPG_HTML_VERSION__="11.1.0"'),'HTML shell version mismatch');
-assert.ok(html.includes('<title>Life RPG 11.1.0</title>'),'HTML title mismatch');
-assert.ok(!html.includes('11.0.0')&&!html.includes('10.2.0')&&!html.includes('10.1.0'),'Stale release references remain in HTML shell');
+assert.ok(html.includes('window.__LIFE_RPG_HTML_VERSION__="11.1.1"'),'HTML shell version mismatch');
+assert.ok(html.includes('<title>Life RPG 11.1.1</title>'),'HTML title mismatch');
+assert.ok(!html.includes('11.1.0')&&!html.includes('11.0.0')&&!html.includes('10.2.0')&&!html.includes('10.1.0'),'Stale release references remain in HTML shell');
 assert.ok(!html.includes('Financial OS 7.2')&&!html.includes('Life OS 7.2')&&!html.includes('Debt Engine 7.2'),'Stale visible version labels');
 assert.ok(fs.readFileSync(path.join(root,'pwa.js'),'utf8').includes('fetch(`./core.js?check='),'Update checker must read core.js version');
 

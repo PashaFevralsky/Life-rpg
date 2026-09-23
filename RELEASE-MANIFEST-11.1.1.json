@@ -1,0 +1,60 @@
+{
+  "release": "11.1.1",
+  "stateVersion": 18,
+  "baseRelease": "11.1.0",
+  "baseCommit": "c4e2c0242541c4f376f08d1efe81057b85e19a27",
+  "files": {
+    "architecture.test.js": {
+      "bytes": 3748,
+      "sha256": "68dcd8eb6be72cc48f7642306e73f4d3928bd36fba6b1819f4ae238592a98104"
+    },
+    "core.js": {
+      "bytes": 3742,
+      "sha256": "70f6556d3cf4f100cc968ac4a62890c7cf8badc9d4ca697ecd168bdb394dbcd3"
+    },
+    "e2e.test.js": {
+      "bytes": 21914,
+      "sha256": "82491dde779fedeac53b68ed0f751dc25c84e5d0dab9580330d21f2d7161a3a6"
+    },
+    "index.html": {
+      "bytes": 69029,
+      "sha256": "8239973fa050f60e19b96db210e71a040e6495226ed04b592fda225d68ff9328"
+    },
+    "manifest.webmanifest": {
+      "bytes": 590,
+      "sha256": "545079af82ddc13f32d37d75841794353750f6b4422a5499986f8967e7c9b006"
+    },
+    "mobile-layout.css": {
+      "bytes": 5042,
+      "sha256": "2f75945424d74e71d4a44985c4fac3582a03fad21d652d0df719a7caa3734a27"
+    },
+    "mobile-layout.test.js": {
+      "bytes": 1009,
+      "sha256": "26d4c9ddc00b1852dc131f1327e226f2d4bd3979f146eadd85799ffd561d8022"
+    },
+    "package.json": {
+      "bytes": 983,
+      "sha256": "ad8abebb7d38f004c383b8738ff4a5daed6253eede7d744868bed7dda8630b30"
+    },
+    "static-check.js": {
+      "bytes": 7714,
+      "sha256": "4eed9fdaf0b8d04d0f2660dada02c8791938faec9d17255cd1d9352024f4c363"
+    },
+    "sw.js": {
+      "bytes": 1895,
+      "sha256": "188730a801cfaefbfbecd3d5c5364ee6885e6d8a373c0a393206a9f17f8d02dd"
+    },
+    "vite.config.mjs": {
+      "bytes": 1922,
+      "sha256": "c89229b14c89543b2449be94d15f365c6783b0a18626122003c2e6d19daca10e"
+    },
+    "CHANGELOG-11.1.1.txt": {
+      "bytes": 2664,
+      "sha256": "2766cb8c0d935815e3b1654714c496946038268da61618112039ad7ab4368ba5"
+    },
+    "GITHUB-UPLOAD-11.1.1.txt": {
+      "bytes": 576,
+      "sha256": "fcea99fa9126256b245657b09149098bd65166c1cec4bc5c75d364d0e53e4da4"
+    }
+  }
+}
