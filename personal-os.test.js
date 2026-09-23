@@ -3,7 +3,7 @@ const fs=require("fs"),vm=require("vm"),path=require("path"),assert=require("ass
 const ctx=vm.createContext({console,Date,Math,JSON,Intl,Promise,setTimeout:()=>0,clearTimeout:()=>{},setInterval:()=>0,structuredClone:global.structuredClone,Blob:global.Blob,URL:global.URL,Map,Set,Number,String,Array,Object,RegExp,
   document:{getElementById:()=>null,querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>({}),head:{appendChild(){}},body:{}},window:{},navigator:{},localStorage:{getItem:()=>null,setItem(){}},NodeFilter:{SHOW_TEXT:4},toast:()=>{},audit:()=>{},save:async()=>{},render:()=>{}});
 ctx.window=ctx;ctx.renderKnowledgeBase=()=>{};ctx.S={settings:{growthOS:{trackers:[],events:[],knowledgeNotes:[],tennisTemplates:[],tennisDetails:[],activeTimers:{},initializedAt:new Date().toISOString()},personalOS:{journal:[],decisions:[],people:[],interactions:[],timeboxes:[],focusSessions:[],chores:[],choreLogs:[],inventory:[],shopping:[],importFingerprints:[],dashboard:{order:[],hidden:[],compact:false},activeFocus:{},version:1}},entities:{tasks:[],routines:[],routineLogs:[],calendarEvents:[],inbox:[]},readingLogs:[],tennis:[],books:[],crmDeals:[]};
-for(const f of ["core.js","tasks-os.js","personal-os.js","inbox-os.js","tracking-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","personal-import-os.js","calibration-os.js","personal-stabilization-os.js"])new vm.Script(fs.readFileSync(path.join(root,f),"utf8"),{filename:f}).runInContext(ctx);
+for(const f of ["core.js","tasks-os.js","personal-os.js","inbox-os.js","tracking-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","personal-import-os.js","calibration-os.js"])new vm.Script(fs.readFileSync(path.join(root,f),"utf8"),{filename:f}).runInContext(ctx);
 const run=code=>new vm.Script(code).runInContext(ctx);
 (async()=>{
   assert.equal(run('personalImportParseDate("23.09.2026")'),"2026-09-23");
@@ -29,8 +29,8 @@ const run=code=>new vm.Script(code).runInContext(ctx);
   const rate=run('growthHabitTrackerStrength(h).rate30');assert.ok(rate>60&&rate<70,'habit must count unique days by default');
   run('h.countMode="events"');assert.equal(Math.round(run('growthHabitTrackerStrength(h).rate30')),100);
 
-  run(`S.entities.tasks=[{id:'t1',title:'Task',status:'active',plannedDate:'',timerStartedAt:'',actualMinutes:0,updatedAt:''}];focusSyncLinkedTaskStable({taskId:'t1',dateKey:'2026-09-30'});`);assert.equal(run('S.entities.tasks[0].plannedDate'),"2026-09-30");
+  run(`S.entities.tasks=[{id:'t1',title:'Task',status:'active',plannedDate:'',timerStartedAt:'',actualMinutes:0,updatedAt:''}];focusSyncLinkedTask({taskId:'t1',dateKey:'2026-09-30'});`);assert.equal(run('S.entities.tasks[0].plannedDate'),"2026-09-30");
   run(`S.settings.personalOS.activeFocus={taskId:'t1',startedAt:new Date().toISOString()};`);assert.equal(run('calibrationStartTaskTimer("t1")'),false);
 
-  console.log("OK — Personal OS 12.0.0 stabilization regression tests passed");
+  console.log("OK — Personal OS 12.0.1 native-module refactor regression tests passed");
 })().catch(e=>{console.error(e);process.exit(1)});

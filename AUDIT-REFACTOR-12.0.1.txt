@@ -1,0 +1,52 @@
+Life RPG 12.0.1 — audit-driven stabilization refactor
+Date: 2026-09-23
+Base production commit: 019454f101002d4ba8137fb65d69264f14508f00 (Life RPG 12.0.0)
+
+WHY THIS RELEASE EXISTS
+The 12.0.0 update eventually passed all tests, but several consecutive CI failures exposed architectural fragility rather than a single feature bug. Most late failures were test-infrastructure issues, yet they revealed real coupling: read functions replaced state objects, a stabilization layer monkey-patched other modules, and one long Personal OS E2E hid later failures until earlier ones were fixed.
+
+FIXED IN 12.0.1
+1. Entity identity
+   taskAll(), goalAll(), routineAll() and inboxAll() no longer replace valid entity objects while reading/normalizing them. Existing references stay live.
+
+2. Personal stabilization layer
+   The behavior previously patched by personal-stabilization-os.js is moved into the owning modules. The old file is an inert compatibility shim and is not loaded by the new bootstrap.
+
+3. Focus / Tasks
+   Planning dates synchronize natively. A Task timer and a linked Focus timer cannot run simultaneously. Focus fact is written to the linked Task without stale-reference behavior.
+
+4. Body / People / Home / Habits
+   Body aggregates by day, People does not invent a recent contact from creation time, shopping completion does not invent stock quantity, flexible habits count unique days unless event counting is explicitly selected.
+
+5. Browser-test stability
+   Capture, Focus and People receive stable data-testid/data-route hooks. Personal OS browser coverage is split into independent tests so a failure in one area does not prevent the rest from running.
+
+6. Runtime render flow
+   bootstrap uses one ordered render pipeline rather than a long manually interleaved call chain. Order is preserved to avoid behavioral change.
+
+7. CI architecture gates
+   Added entity identity regression coverage, a refactor guard forbidding new global monkey-patches outside an explicit legacy allowlist, and a post-build audit of the generated Workbox service worker. Dependency install changes to npm ci.
+
+NOT CHANGED
+- STATE_VERSION remains 18.
+- No user-data migration or reset.
+- Finance business logic and persistence/state.js are not rewritten.
+- IndexedDB/localStorage strategy remains unchanged.
+- No framework migration; vanilla JS + Vite + Workbox + Playwright remains the engine.
+
+KNOWN LEGACY DEBT, NOW EXPLICITLY GUARDED
+Older generations still contain a small allowlisted set of runtime overrides in Work/Tennis/Knowledge/Life, routines/inbox and personal-integration. They are not expanded in this release. CI fails if new overrides appear without an intentional allowlist review.
+
+VERSIONING NOTE
+Runtime APP_VERSION/cache namespace is 12.0.1. index.html still carries historical ?v=11.1.1 query labels and package-lock root package-version metadata is historical. Neither changes the dependency graph or STATE_VERSION. They are intentionally deferred because reconstructing those large files solely for cosmetic metadata would widen this stabilization release.
+
+LOCAL PRE-PACKAGE VALIDATION
+- node syntax check: all changed JS/MJS files passed.
+- state-identity.test.js: passed.
+- personal-os.test.js: passed.
+- refactor-guard.test.js: passed for all files available in the refactor workspace.
+- Personal OS E2E is split into 7 independent scenarios.
+
+FULL VALIDATION AFTER UPLOAD
+GitHub Actions remains authoritative for the complete repository:
+npm ci -> npm test -> Vite/Workbox build -> dist-audit.test.js -> Chromium mobile E2E -> GitHub Pages deploy.

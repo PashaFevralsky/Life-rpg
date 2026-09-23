@@ -1,0 +1,163 @@
+{
+  "release": "12.0.1",
+  "stateVersion": 18,
+  "baseCommit": "019454f101002d4ba8137fb65d69264f14508f00",
+  "scope": "audit-driven stabilization refactor; no user-data migration; finance/state persistence untouched",
+  "files": [
+    {
+      "path": ".github/workflows/deploy-pages.yml",
+      "size": 1325,
+      "sha256": "6d45092c36191eada5ab48447bd65e0f83e2db15be4c9396db4290c7f89e0223"
+    },
+    {
+      "path": "DEPLOY-PAGES-WORKFLOW.yml",
+      "size": 1325,
+      "sha256": "6d45092c36191eada5ab48447bd65e0f83e2db15be4c9396db4290c7f89e0223"
+    },
+    {
+      "path": "AUDIT-REFACTOR-12.0.1.txt",
+      "size": 3575,
+      "sha256": "38674a6d3a3f43b8bb243348c9a4c4078fc6f6fc0ed1aca82e8bfecab4e6d192"
+    },
+    {
+      "path": "CHANGELOG-12.0.1.txt",
+      "size": 1810,
+      "sha256": "e31ad68e3b7efb5ebd07c3caf29fd9e8f3ac8f27d0871bd85f755e4116e46619"
+    },
+    {
+      "path": "GITHUB-UPLOAD-12.0.1-REFACTOR.txt",
+      "size": 810,
+      "sha256": "dc4f8f8c97c94d5a92536f7eb8d8dde9c2c6fa77cc79a96271ebda7125ec5b57"
+    },
+    {
+      "path": "architecture.test.js",
+      "size": 3732,
+      "sha256": "8f9338016f487956dc6f0629140a0f2e4b83cf653f010e176409272a15a842e8"
+    },
+    {
+      "path": "body-os.js",
+      "size": 7204,
+      "sha256": "627a1fdb43ab7210a19c1148f006258e613ed6e230033633be41ee3482f721fb"
+    },
+    {
+      "path": "bootstrap.js",
+      "size": 4078,
+      "sha256": "6217193854d59a0c82d3568c6fc6d684cb1a96121e1faaf86c47e9e7471fe407"
+    },
+    {
+      "path": "calibration-os.js",
+      "size": 17069,
+      "sha256": "44d8aea079cb71a5ee1cff096ef4a614d10654a4e44dc4783ed76148ad0809e9"
+    },
+    {
+      "path": "capture2-os.js",
+      "size": 6915,
+      "sha256": "d3f177011584c2f09d6e9a597ed0709ce5a4eb22b921e9e5af196e4e88164250"
+    },
+    {
+      "path": "core.js",
+      "size": 3713,
+      "sha256": "2d7e16efc0b58c563ccf10c11d3ff273aaf58f0b8a92f4ad6a87f26b59f635db"
+    },
+    {
+      "path": "dist-audit.test.js",
+      "size": 656,
+      "sha256": "cc08ea702a8d4b78d0c56044040c72c9351b924f03f11c33491b967e3cbf5ff9"
+    },
+    {
+      "path": "e2e.test.js",
+      "size": 22782,
+      "sha256": "8336f4bcbd2d513634218c22cbf9b6b77b7333908c0c70771e8106d4137e0fe8"
+    },
+    {
+      "path": "focus-os.js",
+      "size": 9588,
+      "sha256": "0442b7b3f4da0440c0693ce3a5a2efdd555e4cc561f301557b09b5e6f68f578b"
+    },
+    {
+      "path": "goals-os.js",
+      "size": 13904,
+      "sha256": "603c190ab55a95d7e307b161edd6cdb7adc04f65d4e39260fb087bedba5ab184"
+    },
+    {
+      "path": "home-os.js",
+      "size": 7706,
+      "sha256": "abde5ca63672e1c0d370939e9867507d56af7b9e81d498227422c3cb91ffc5e5"
+    },
+    {
+      "path": "inbox-os.js",
+      "size": 6322,
+      "sha256": "41f329d49e68220ff7f417c300e041b5b95c59ba210aa27c6926786bfab654ef"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "size": 558,
+      "sha256": "f89e214e6fd293590607ee2de4e0172de6d85a1aa3355e53de283aa9318f246a"
+    },
+    {
+      "path": "package.json",
+      "size": 1073,
+      "sha256": "16cfe71599355810bc8788f5e0a86c7bf60ac27ce5bc304671043801ed76a429"
+    },
+    {
+      "path": "people-os.js",
+      "size": 8146,
+      "sha256": "4c737a5d920134bd9997c907c0dbdf56b066297af83b04ae95d6476aa78e2627"
+    },
+    {
+      "path": "personal-os.e2e.test.js",
+      "size": 7811,
+      "sha256": "aa26e1ed4f644a0fcc4dfe823a707f7f888648c31fa815bfdc5f3e815cdfc2f5"
+    },
+    {
+      "path": "personal-os.test.js",
+      "size": 4091,
+      "sha256": "59f18aa16e3cbb32af6f1123d5e101d8e4e8bdac65e979359068652067f97574"
+    },
+    {
+      "path": "personal-stabilization-os.js",
+      "size": 223,
+      "sha256": "57843148df3ece1b95502a706b2f3503712ec1f07a59bfbf1c907695fd965105"
+    },
+    {
+      "path": "refactor-guard.test.js",
+      "size": 2319,
+      "sha256": "5491568175ef89fa64b435419a7f58bdf0b5d682432b94651b0ab8820ab1ff27"
+    },
+    {
+      "path": "routines-os.js",
+      "size": 12150,
+      "sha256": "843a7b8b8bd8c41b05966a0fe2261fbf4c44f9ef1010272c32e445d8b28f6677"
+    },
+    {
+      "path": "state-identity.test.js",
+      "size": 1788,
+      "sha256": "bd5adaefe790a5c66f0fec1b3a897f941d34dabf85cb4c34f897c3706fe3af42"
+    },
+    {
+      "path": "static-check.js",
+      "size": 7297,
+      "sha256": "6c18a31eaa2103e7dccc8e07355e4995f86244017bc327f34acfbad947a42026"
+    },
+    {
+      "path": "sw.js",
+      "size": 2306,
+      "sha256": "e8b276fc31e747e0ebb8c62a18529ddc1f4ad170d88fd7d09c504dc22d9e18c9"
+    },
+    {
+      "path": "tasks-os.js",
+      "size": 13759,
+      "sha256": "674b4537edabb083677f7614c8b9a8b6c8e661a9666219de147c5f76b818f266"
+    },
+    {
+      "path": "tracking-os.js",
+      "size": 18947,
+      "sha256": "51bcd9db10f02e8298621fb4f79831a6753dff47e9073dd09fe523de54897549"
+    },
+    {
+      "path": "vite.config.mjs",
+      "size": 2039,
+      "sha256": "5466b2c63df9964401daf2e173e63c31d13db14ba9fb4ab448f69fd83ccad4c1"
+    }
+  ]
+}

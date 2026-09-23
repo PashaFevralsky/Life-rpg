@@ -1,0 +1,18 @@
+Life RPG 12.0.1 — architecture refactor / stabilization
+
+- Moved Personal OS stabilization fixes into their owning modules.
+- personal-stabilization-os.js is now an inert compatibility shim; new bootstrap does not execute it. The shim still ships in dist for safe transition from older cached bootstraps.
+- Tasks, Goals, Routines and Inbox read paths now preserve object identity instead of replacing entities during normalization.
+- Focus ↔ Task planning sync and timer mutual exclusion now live in native modules.
+- Body metrics use day-weighted averages; People no longer fabricates a first-contact freshness score; Home purchases do not fabricate inventory.
+- Flexible habits count unique days by default, with explicit event-count mode.
+- Added stable data-testid/data-route hooks for browser tests.
+- Split the monolithic Personal OS browser scenario into independent E2E tests so one failure no longer hides later failures.
+- Replaced the bootstrap render call chain with a declarative render pipeline while preserving module order.
+- Added entity-identity regression gate and a refactor guard that forbids new global monkey-patches outside an explicit legacy allowlist.
+- Added production dist/Workbox audit. CI uses npm ci and verifies the generated service worker before browser E2E.
+- APP_VERSION is 12.0.1; STATE_VERSION remains 18. No user-data migration and no finance-domain rewrite.
+
+Deferred intentionally for a later architecture pass:
+- legacy overrides in routines/inbox/personal-integration and older Work/Tennis/Knowledge/Life layers; they are now explicitly allowlisted by CI so the debt cannot grow silently;
+- legacy ?v=11.1.1 query strings in index.html and root package-lock package-version metadata. Runtime release/cache versioning is 12.0.1 and dependency graph is unchanged.

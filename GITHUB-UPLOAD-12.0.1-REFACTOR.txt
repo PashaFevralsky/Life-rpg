@@ -1,0 +1,17 @@
+Life RPG 12.0.1 — stabilization refactor
+
+Upload/replace every file from this package preserving its path.
+Important: .github/workflows/deploy-pages.yml must stay inside .github/workflows/.
+DEPLOY-PAGES-WORKFLOW.yml is the root mirror used by architecture checks.
+
+Do NOT clear browser/PWA storage. STATE_VERSION remains 18, so this release does not migrate or reset user data.
+Finance business logic and state.js are not replaced by this package.
+
+Local pre-package gates passed:
+- syntax check for all changed JS/MJS files;
+- state-identity.test.js;
+- personal-os.test.js;
+- refactor-guard.test.js against the available refactor workspace.
+
+The authoritative full-repository validation runs after upload in GitHub Actions:
+npm test → Vite/Workbox build → dist SW audit → mobile E2E → Pages deploy.

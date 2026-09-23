@@ -16,12 +16,16 @@ function bodyEnsureTrackers(){
   for(const x of g.trackers){const d=BODY_TRACKERS.find(q=>q.id===x.id);if(d&&x.area==="Личное")x.area="Тело"}
 }
 function bodyEvents(id,days=30){const start=localDateKey(addDays(new Date(),-(days-1)));return (typeof growthExplicitEvents==="function"?growthExplicitEvents():[]).filter(x=>x.trackerId===id&&growthEventDate(x)>=start&&x.value!=null)}
-function bodyAvg(id,days=7){const a=bodyEvents(id,days).map(x=>+x.value).filter(Number.isFinite);return a.length?a.reduce((s,x)=>s+x,0)/a.length:null}
-function bodyTrend(id){const a=bodyAvg(id,7),all=bodyEvents(id,14),cut=localDateKey(addDays(new Date(),-7)),prev=all.filter(x=>growthEventDate(x)<cut).map(x=>+x.value).filter(Number.isFinite),b=prev.length?prev.reduce((s,x)=>s+x,0)/prev.length:null;return {now:a,prev:b,delta:a!=null&&b!=null?a-b:null}}
-function bodyLatest(id){return bodyEvents(id,365).sort((a,b)=>String(b.occurredAt).localeCompare(String(a.occurredAt)))[0]||null}
+function bodyDailySeries(id,days=30){
+  const map=new Map();for(const x of bodyEvents(id,days)){const k=growthEventDate(x),v=+x.value;if(!Number.isFinite(v))continue;const a=map.get(k)||[];a.push(v);map.set(k,a)}
+  return [...map.entries()].map(([dateKey,a])=>({dateKey,value:a.reduce((s,x)=>s+x,0)/a.length})).sort((a,b)=>a.dateKey.localeCompare(b.dateKey))
+}
+function bodyAvg(id,days=7){const a=bodyDailySeries(id,days);return a.length?a.reduce((s,x)=>s+x.value,0)/a.length:null}
+function bodyTrend(id){const all=bodyDailySeries(id,14),cut=localDateKey(addDays(new Date(),-6)),now=all.filter(x=>x.dateKey>=cut),prev=all.filter(x=>x.dateKey<cut),avg=a=>a.length?a.reduce((s,x)=>s+x.value,0)/a.length:null,a=avg(now),b=avg(prev);return {now:a,prev:b,delta:a!=null&&b!=null?a-b:null}}
+function bodyLatest(id){return bodyEvents(id,365).slice().sort((a,b)=>growthEventDate(b).localeCompare(growthEventDate(a))||String(b.occurredAt||b.createdAt||"").localeCompare(String(a.occurredAt||a.createdAt||"")))[0]||null}
 function bodyReadiness(){
-  const sleep=bodyAvg("tracker-sleep",7),energy=bodyAvg("tracker-energy",7),rec=bodyAvg("tracker-recovery",7);
-  let vals=[];if(sleep!=null)vals.push(clamp(sleep/8*100,0,100));if(energy!=null)vals.push(clamp(energy/10*100,0,100));if(rec!=null)vals.push(clamp(rec/10*100,0,100));
+  const last=id=>{const a=bodyEvents(id,7).slice().sort((x,y)=>growthEventDate(y).localeCompare(growthEventDate(x))||String(y.occurredAt||y.createdAt||"").localeCompare(String(x.occurredAt||x.createdAt||"")));return a[0]?.value},sleep=last("tracker-sleep"),energy=last("tracker-energy"),rec=last("tracker-recovery"),vals=[];
+  if(Number.isFinite(+sleep))vals.push(clamp(+sleep/8*100,0,100));if(Number.isFinite(+energy))vals.push(clamp(+energy/10*100,0,100));if(Number.isFinite(+rec))vals.push(clamp(+rec/10*100,0,100));
   return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null
 }
 async function bodyQuickLog(id){

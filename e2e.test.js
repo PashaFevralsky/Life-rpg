@@ -11,7 +11,7 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("12.0.0");
+  await expect(page.locator("#versionStatus")).toContainText("12.0.1");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.

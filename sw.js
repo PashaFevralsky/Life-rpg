@@ -1,8 +1,8 @@
-const CACHE="life-rpg-v12.0.0-personal-stable";
-const SHELL_VERSION="11.1.1";
-const RUNTIME_VERSION="12.0.0";
+const CACHE="life-rpg-v12.0.1-refactor";
+const SHELL_VERSION="12.0.1";
+const RUNTIME_VERSION="12.0.1";
 const BASE=["platform.js","styles.css","mobile-layout.css","core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js","bootstrap.js"];
-const MODULES=["data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js","tracking-os.js","personal-os.js","journal-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","personal-import-os.js","dashboard-os.js","personal-stabilization-os.js","knowledge-growth.js","tennis-growth.js","rpg-growth.js","life-os.js","personal-integration-os.js"];
+const MODULES=["data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js","tracking-os.js","personal-os.js","journal-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","personal-import-os.js","dashboard-os.js","knowledge-growth.js","tennis-growth.js","rpg-growth.js","life-os.js","personal-integration-os.js","personal-stabilization-os.js"];
 const ASSETS=["./","./index.html",...BASE.map(x=>`./${x}?v=${SHELL_VERSION}`),...MODULES.map(x=>`./${x}?v=${RUNTIME_VERSION}`),`./manifest.webmanifest?v=${SHELL_VERSION}`,"./icon-192.png","./icon-512.png"];
 self.addEventListener("install",e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);for(const url of ASSETS){const response=await fetch(new Request(url,{cache:"reload"}));if(!response.ok)throw new Error(`Cache install failed ${url}: ${response.status}`);await c.put(url,response.clone())}})()));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("life-rpg-v")&&k!==CACHE).map(k=>caches.delete(k))))));

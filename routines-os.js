@@ -6,7 +6,7 @@
 function routineStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.routines))S.entities.routines=[];return S.entities.routines}
 function routineLogStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.routineLogs))S.entities.routineLogs=[];return S.entities.routineLogs}
 function routineNormalize(x={}){return {id:String(x.id||uid()),title:String(x.title||"Рутина").trim(),area:String(x.area||"Личное"),priority:clamp(Math.round(+x.priority||2),1,3),days:Array.isArray(x.days)?[...new Set(x.days.map(Number).filter(n=>n>=1&&n<=7))].sort((a,b)=>a-b):[1,2,3,4,5,6,7],minutes:clamp(Math.round(+x.minutes||15),0,360),status:["active","paused","archived"].includes(x.status)?x.status:"active",createdAt:String(x.createdAt||new Date().toISOString()),updatedAt:String(x.updatedAt||x.createdAt||new Date().toISOString())}}
-function routineAll(){const a=routineStore();for(let i=0;i<a.length;i++)a[i]=routineNormalize(a[i]);return a}
+function routineAll(){const a=routineStore();for(let i=0;i<a.length;i++){const current=a[i],normalized=routineNormalize(current);if(current&&typeof current==="object"&&!Array.isArray(current))Object.assign(current,normalized);else a[i]=normalized}return a}
 function routineActive(){return routineAll().filter(x=>x.status==="active")}
 function routineDayNumber(d=new Date()){const n=d.getDay();return n===0?7:n}
 function routineScheduledOn(r,date){return (r.days||[]).includes(routineDayNumber(date instanceof Date?date:parseLocal(date)))}

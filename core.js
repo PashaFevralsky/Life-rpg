@@ -1,8 +1,8 @@
 "use strict";
 
-/* Life RPG 12.0.0 — Core utilities and constants */
+/* Life RPG 12.0.1 — Core utilities and constants */
 
-const APP_VERSION="12.0.0";
+const APP_VERSION="12.0.1";
 
 const STATE_VERSION=18;
 
