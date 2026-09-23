@@ -17,8 +17,8 @@ test("Personal OS 12 critical flows stay coherent on mobile", async ({page})=>{
   await page.locator('button[onclick="captureInbox()"]',).click();
   const captureRow=page.locator("#inboxOsCommand .log-item").filter({hasText:"E2E решение"});
   await expect(captureRow).toBeVisible();
-  await expect(captureRow.getByRole("button",{name:"Решение",exact:true})).toBeVisible();
-  await captureRow.getByRole("button",{name:"Решение",exact:true}).click();
+  await expect(captureRow.getByRole("button",{name:"→ Решение",exact:true})).toBeVisible();
+  await captureRow.getByRole("button",{name:"→ Решение",exact:true}).click();
   expect(await page.evaluate(()=>personalData().decisions.some(x=>x.title.includes("E2E решение")))).toBe(true);
 
   // Unsafe free-form person routing is rejected; structured routing succeeds.
@@ -37,7 +37,7 @@ test("Personal OS 12 critical flows stay coherent on mobile", async ({page})=>{
   // Focus <-> Task date synchronization and timer mutual exclusion.
   const tomorrow=await page.evaluate(()=>localDateKey(addDays(new Date(),1)));
   await page.evaluate(()=>{taskCreate({title:"E2E Focus Task",area:"Личное",priority:2,minutes:30});render()});
-  await page.locator('button[onclick*="focusEditor"]').click();
+  await page.locator("#focusOsCommand").getByRole("button",{name:"+ Блок",exact:true}).click();
   await page.locator("#focusTask").selectOption({label:"E2E Focus Task"});
   await page.locator("#focusDate").fill(tomorrow);
   await page.locator("#focusMinutes").fill("25");
@@ -50,7 +50,7 @@ test("Personal OS 12 critical flows stay coherent on mobile", async ({page})=>{
 
   // People without a factual interaction do not get a fake freshness score.
   await page.locator('[data-tab="more"]').click();await page.locator('#more .ux7-tab[data-view="overview"]').click();
-  await page.locator('button[onclick*="peopleEditor"]').click();await page.locator("#peopleName").fill("E2E No Contact");await page.locator("#peopleCadence").fill("7");await page.locator('button[onclick="peopleSave()"]',).click();
+  await page.locator("#peopleOsCommand").getByRole("button",{name:"+ Человек",exact:true}).click();await page.locator("#peopleName").fill("E2E No Contact");await page.locator("#peopleCadence").fill("7");await page.locator('button[onclick="peopleSave()"]',).click();
   const personRow=page.locator("#peopleOsList .log-item").filter({hasText:"E2E No Contact"});await expect(personRow).toContainText("связь —");
 
   // Body means are day-weighted.

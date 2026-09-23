@@ -1,0 +1,11 @@
+Life RPG 12.0.0 — CI hotfix 3
+
+Replace in repository root:
+- capture2-os.js
+- personal-os.e2e.test.js
+
+Changes:
+- Universal Capture no longer renders the suggested route twice.
+- Personal OS E2E uses exact button labels for Focus and People editors.
+- No state migration. STATE_VERSION remains 18.
+- No user data changes. Do not clear PWA/browser storage.
