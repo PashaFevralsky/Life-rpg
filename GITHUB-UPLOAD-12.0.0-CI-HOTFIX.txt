@@ -1,0 +1,9 @@
+Life RPG 12.0.0 — CI hotfix
+
+Replace in repository root:
+- personal-os.test.js
+
+Reason:
+The VM regression test loads inbox-os.js without the normal browser load order. inbox-os.js wraps renderKnowledgeBase at module load time, so the isolated test needs a harmless renderKnowledgeBase stub. Runtime application code is unchanged.
+
+STATE_VERSION remains 18. No user data changes.
