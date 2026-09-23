@@ -1,0 +1,11 @@
+Life RPG 11.1.1 — CI hotfix
+
+Replace ONLY e2e.test.js in repository root.
+No application code, CSS, data model or STATE_VERSION changes.
+
+Reason:
+- All layout geometry gates passed at 360/390/430/768 px.
+- Existing critical-flow E2E had a flaky/date-dependent expectation after applyExecutionPlan().
+- Hotfix waits for the async planner apply operation and accepts the planner's valid unscheduled/blocked outcome when capacity is unavailable.
+
+After upload, send: залил

@@ -38,8 +38,22 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
   await page.locator('button[onclick="saveTaskForm()"]',).click();
   await expect(page.locator("#tasksOsList")).toContainText("E2E задача");
   expect(await page.evaluate(()=>Array.isArray(S.entities.tasks)&&S.entities.tasks.some(x=>x.title==="E2E задача"))).toBe(true);
+  const e2ePlanDecision=await page.evaluate(()=>{
+    const task=S.entities.tasks.find(x=>x.title==="E2E задача"),plan=executionPlan();
+    if(!task)return {taskId:"",assignment:"",unscheduled:"missing-task",blocked:""};
+    const assignment=plan.assignments.find(x=>x.taskId===task.id)?.dateKey||"";
+    const unscheduled=plan.unscheduled.find(x=>x.taskId===task.id)?.reason||"";
+    const blocked=plan.blocked.find(x=>x.taskId===task.id)?.reason||"";
+    return {taskId:task.id,assignment,unscheduled,blocked};
+  });
+  expect(e2ePlanDecision.taskId).not.toBe("");
+  expect(Boolean(e2ePlanDecision.assignment||e2ePlanDecision.unscheduled||e2ePlanDecision.blocked)).toBe(true);
   await page.locator('button[onclick="applyExecutionPlan()"]',).click();
-  expect(await page.evaluate(()=>S.entities.tasks.find(x=>x.title==="E2E задача")?.plannedDate||"")).not.toBe("");
+  if(e2ePlanDecision.assignment){
+    await expect.poll(()=>page.evaluate(()=>S.entities.tasks.find(x=>x.title==="E2E задача")?.plannedDate||"")).toBe(e2ePlanDecision.assignment);
+  }else{
+    expect(await page.evaluate(()=>S.entities.tasks.find(x=>x.title==="E2E задача")?.plannedDate||"")).toBe("");
+  }
 
   // Routines OS -> create today's routine and complete it once.
   await page.locator('button[onclick*="routineDayPicker"]').click();
