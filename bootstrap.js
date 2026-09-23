@@ -20,14 +20,18 @@ function lifeInstallRuntime(){
   if(window.__LIFE_RPG_RUNTIME__)return;window.__LIFE_RPG_RUNTIME__=true;
   const baseRender=render;
   const renderPipeline=[
-    [ensureProjectsOsUi,renderProjectsOs],[ensureGoalsOsUi,renderGoalsOs],[ensureReviewOsUi,renderReviewOs],[ensureCalendarOsUi,renderCalendarOs],[ensureTasksOsUi,renderTasksOs],[ensureRoutinesOsUi,renderRoutinesOs],
-    [ensureTrackingOsUi,renderTrackingOs],[ensureJournalOsUi,renderJournalOs],[ensurePeopleOsUi,renderPeopleOs],[ensureFocusOsUi,renderFocusOs],[ensureBodyOsUi,renderBodyOs],[ensureHomeOsUi,renderHomeOs],[ensureCapture2Ui,renderCapture2],
-    [ensureExecutionOsUi,renderExecutionOs],[ensureCalibrationOsUi,renderCalibrationOs],[ensureDecisionOsUi,renderDecisionOs],[ensureRulesOsUi,renderRulesOs],[ensureInsightsOsUi,renderInsightsOs],[ensureCommandOsUi,renderCommandOs],[ensureDataOsUi,renderDataOs],[ensureRecoveryOsUi,renderRecoveryOs],
-    [ensureKnowledgeGrowthUi,renderKnowledgeGrowth],[ensureTennisGrowthUi,renderTennisGrowth],[ensureRpgGrowthUi,renderRpgGrowth],[ensurePersonalImportUi,renderPersonalImportUi],[ensureDashboardOsUi,renderDashboardOs]
+    ["ensureProjectsOsUi","renderProjectsOs"],["ensureGoalsOsUi","renderGoalsOs"],["ensureReviewOsUi","renderReviewOs"],["ensureCalendarOsUi","renderCalendarOs"],["ensureTasksOsUi","renderTasksOs"],["ensureRoutinesOsUi","renderRoutinesOs"],
+    ["ensureTrackingOsUi","renderTrackingOs"],["ensureJournalOsUi","renderJournalOs"],["ensurePeopleOsUi","renderPeopleOs"],["ensureFocusOsUi","renderFocusOs"],["ensureBodyOsUi","renderBodyOs"],["ensureHomeOsUi","renderHomeOs"],["ensureCapture2Ui","renderCapture2"],
+    ["ensureExecutionOsUi","renderExecutionOs"],["ensureCalibrationOsUi","renderCalibrationOs"],["ensureDecisionOsUi","renderDecisionOs"],["ensureRulesOsUi","renderRulesOs"],["ensureInsightsOsUi","renderInsightsOs"],["ensureCommandOsUi","renderCommandOs"],["ensureDataOsUi","renderDataOs"],["ensureRecoveryOsUi","renderRecoveryOs"],
+    ["ensureKnowledgeGrowthUi","renderKnowledgeGrowth"],["ensureTennisGrowthUi","renderTennisGrowth"],["ensureRpgGrowthUi","renderRpgGrowth"],["ensurePersonalImportUi","renderPersonalImportUi"],["ensureDashboardOsUi","renderDashboardOs"]
   ];
   render=function(){
     baseRender();
-    for(const [ensureUi,renderUi] of renderPipeline){ensureUi();renderUi()}
+    for(const [ensureName,renderName] of renderPipeline){
+      const ensureUi=globalThis[ensureName],renderUi=globalThis[renderName];
+      if(typeof ensureUi==="function")ensureUi();
+      if(typeof renderUi==="function")renderUi()
+    }
     requestAnimationFrame(()=>{lifeRefreshReleaseLabels();renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);window.LifePlatform?.refreshIcons?.();if(typeof dashboardApply==="function")dashboardApply()})
   };
   const baseSwitchTab=switchTab;switchTab=function(id){baseSwitchTab(id);requestAnimationFrame(()=>{const view=UX7_PREFS[id]||UX7_DEFAULTS[id];ux7SetView(id,view,false);ux7RefreshHeaders();ui82SyncChrome(id,view);if(typeof dashboardApply==="function")dashboardApply()})}

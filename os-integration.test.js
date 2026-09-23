@@ -243,7 +243,7 @@ new vm.Script(fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),{filename:"
   run(`calibrationRecordDecisionExposure([{id:'task:test',score:80,kind:'task',source:'Tasks OS'}]);calibrationRecordDecisionExposure([{id:'task:test',score:80,kind:'task',source:'Tasks OS'}]);calibrationRecordDecisionAction('boost','task:test')`);assert.equal(run(`calibrationDecisionStats().shown`),1);assert.equal(run(`calibrationDecisionStats().actions`),1);
 
   // Dynamically injected OS cards must participate in UX7 view switching.
-  for(const file of ["work.js","tennis.js","knowledge.js","life-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","data-os.js","execution-os.js","decision-os.js","recovery-os.js"]){
+  for(const file of ["work.js","tennis.js","knowledge.js","life-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","capture2-os.js","rules-os.js","insights-os.js","data-os.js","execution-os.js","decision-os.js","recovery-os.js"]){
     const src=fs.readFileSync(path.join(root,file),"utf8");
     const dynamic=[...src.matchAll(/data-ux7-view="[^"]+"\s+class="([^"]+)"/g)];
     assert.ok(dynamic.length>0,`${file}: no dynamic UX7 cards found`);
