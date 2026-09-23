@@ -1,0 +1,38 @@
+{
+  "base": "Life RPG 11.1.1",
+  "stateVersion": 18,
+  "files": {
+    "tracking-os.js": {
+      "bytes": 18306,
+      "sha256": "73104a1bd55e76e6f8ec5c14f70840deb6536816eadcb9d2f4dde2a3989f14d9"
+    },
+    "knowledge-growth.js": {
+      "bytes": 11787,
+      "sha256": "ccbfdda81ddfd64fef5f0e92efb9be09326442807c8e0e470a6cba7c5581b7b3"
+    },
+    "tennis-growth.js": {
+      "bytes": 11719,
+      "sha256": "7b313beaf169a5db435c09c05eb246ea3b8d27b40fdd937887163ba397c6ce99"
+    },
+    "rpg-growth.js": {
+      "bytes": 6101,
+      "sha256": "9322b6d75dd031a5df07b178a75d0af6c3e6d505d2bba7cac6e6e32656114371"
+    },
+    "bootstrap.js": {
+      "bytes": 3082,
+      "sha256": "8406dc35fc78fd82a4afe737504c8b50a092498a9e3efa595d2a132de67fdb14"
+    },
+    "vite.config.mjs": {
+      "bytes": 1801,
+      "sha256": "99361a853c14f3e305526960843cd3305683f6c9b3575b02cf0e5b540b69df99"
+    },
+    "sw.js": {
+      "bytes": 2016,
+      "sha256": "ca020cf81cfb2c07e28b7263bc8ef6ee05fa6afefac4bb9b2117a8d9836e8a09"
+    },
+    "GITHUB-UPLOAD-GROWTH-OS.txt": {
+      "bytes": 1803,
+      "sha256": "231f549ccfb4348a8620779cf720dcd32f4871ae33cd83393f52dc29eee92389"
+    }
+  }
+}

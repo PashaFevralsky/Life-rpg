@@ -1,0 +1,58 @@
+Life RPG — Growth OS feature pack
+Compatible base: 11.1.1 / STATE_VERSION 18
+
+WHAT THIS ADDS
+1) Universal Tracking Engine
+   - single timeline from reading, tennis, routines, completed tasks and custom trackers
+   - tracker types: tick, flexible habit (N/week), number, 1–10 range, timer
+   - plan vs fact for today's minutes
+   - 35-day activity heatmap
+
+2) Habit Strength
+   - weighted 90-day strength instead of fragile all-or-nothing streaks
+   - 30-day adherence and trend
+   - flexible habits with weekly targets
+
+3) Knowledge OS 2
+   - reading speed and finish forecast
+   - ideas / questions / quotes / applications
+   - tags and lightweight topic graph
+   - spaced review queue (1 / 7 / 30 / 90 / 180 days)
+   - reading/knowledge heatmap
+
+4) Tennis OS 2
+   - reusable training templates
+   - exact drill-minute split for saved sessions
+   - technique exposure dashboard
+   - acute vs baseline load
+   - match results vs stronger / peer / lower-rated opponents
+
+5) RPG Growth 2
+   - XP-backed domain levels
+   - evidence dashboard
+   - milestones based on actual logged behavior
+   - no penalties for missed days
+
+DATA SAFETY
+- STATE_VERSION stays 18.
+- Existing finance/work/tennis/reading/routine data is NOT migrated or rewritten.
+- New data lives in S.settings.growthOS, which the current state normalizer already preserves.
+- Removing the four new modules later does not destroy old domain data.
+
+UPLOAD TO REPOSITORY ROOT
+NEW:
+- tracking-os.js
+- knowledge-growth.js
+- tennis-growth.js
+- rpg-growth.js
+
+REPLACE:
+- bootstrap.js
+- vite.config.mjs
+- sw.js
+
+IMPORTANT
+Upload all 7 files together (one GitHub upload commit if possible), replacing existing bootstrap.js, vite.config.mjs and sw.js.
+Do not change index.html, core.js, state.js or your data file.
+
+After upload send: залил
