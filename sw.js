@@ -1,14 +1,10 @@
-const CACHE="life-rpg-v11.1.1-mobile-layout";
-const ASSETS=[
-  "./","./index.html",
-  "./platform.js?v=11.1.1","./styles.css?v=11.1.1","./mobile-layout.css?v=11.1.1",
-  "./core.js?v=11.1.1","./state.js?v=11.1.1","./finance.js?v=11.1.1","./imports.js?v=11.1.1","./work.js?v=11.1.1","./tennis.js?v=11.1.1","./knowledge.js?v=11.1.1","./gamification.js?v=11.1.1","./pwa.js?v=11.1.1","./ui.js?v=11.1.1","./bootstrap.js?v=11.1.1",
-  "./data-os.js?v=11.1.1","./projects-os.js?v=11.1.1","./goals-os.js?v=11.1.1","./review-os.js?v=11.1.1","./calendar-os.js?v=11.1.1","./tasks-os.js?v=11.1.1","./routines-os.js?v=11.1.1","./inbox-os.js?v=11.1.1","./rules-os.js?v=11.1.1","./insights-os.js?v=11.1.1","./command-os.js?v=11.1.1","./calibration-os.js?v=11.1.1","./execution-os.js?v=11.1.1","./decision-os.js?v=11.1.1","./recovery-os.js?v=11.1.1",
-  "./tracking-os.js?v=11.1.1","./personal-os.js?v=11.1.1","./journal-os.js?v=11.1.1","./people-os.js?v=11.1.1","./focus-os.js?v=11.1.1","./body-os.js?v=11.1.1","./home-os.js?v=11.1.1","./capture2-os.js?v=11.1.1","./personal-import-os.js?v=11.1.1","./dashboard-os.js?v=11.1.1",
-  "./knowledge-growth.js?v=11.1.1","./tennis-growth.js?v=11.1.1","./rpg-growth.js?v=11.1.1","./life-os.js?v=11.1.1","./personal-integration-os.js?v=11.1.1",
-  "./manifest.webmanifest?v=11.1.1","./icon-192.png","./icon-512.png"
-];
-self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
+const CACHE="life-rpg-v12.0.0-personal-stable";
+const SHELL_VERSION="11.1.1";
+const RUNTIME_VERSION="12.0.0";
+const BASE=["platform.js","styles.css","mobile-layout.css","core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js","bootstrap.js"];
+const MODULES=["data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js","tracking-os.js","personal-os.js","journal-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","personal-import-os.js","dashboard-os.js","personal-stabilization-os.js","knowledge-growth.js","tennis-growth.js","rpg-growth.js","life-os.js","personal-integration-os.js"];
+const ASSETS=["./","./index.html",...BASE.map(x=>`./${x}?v=${SHELL_VERSION}`),...MODULES.map(x=>`./${x}?v=${RUNTIME_VERSION}`),`./manifest.webmanifest?v=${SHELL_VERSION}`,"./icon-192.png","./icon-512.png"];
+self.addEventListener("install",e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);for(const url of ASSETS){const response=await fetch(new Request(url,{cache:"reload"}));if(!response.ok)throw new Error(`Cache install failed ${url}: ${response.status}`);await c.put(url,response.clone())}})()));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("life-rpg-v")&&k!==CACHE).map(k=>caches.delete(k))))));
-self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;const url=new URL(e.request.url);if(url.origin!==self.location.origin||url.searchParams.has("check"))return;e.respondWith(caches.open(CACHE).then(async cache=>{const cached=await cache.match(e.request);if(cached)return cached;try{return await fetch(e.request)}catch(error){if(e.request.mode==="navigate")return cache.match("./index.html");throw error}}))});
+self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;const url=new URL(e.request.url);if(url.origin!==self.location.origin||url.searchParams.has("check"))return;e.respondWith(caches.open(CACHE).then(async cache=>{const cached=await cache.match(e.request);if(cached)return cached;try{const response=await fetch(e.request);if(response.ok)cache.put(e.request,response.clone());return response}catch(error){if(e.request.mode==="navigate")return cache.match("./index.html");throw error}}))});
 self.addEventListener("message",e=>{if(e.data?.type==="SKIP_WAITING")self.skipWaiting();if(e.data?.type==="NOTIFY")self.registration.showNotification(e.data.title||"Life RPG",{body:e.data.body||"",icon:"./icon-192.png",badge:"./icon-192.png",tag:e.data.tag||"life-rpg"})});

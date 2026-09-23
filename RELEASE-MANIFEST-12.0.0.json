@@ -1,0 +1,83 @@
+{
+  "release": "Life RPG 12.0.0 — Personal OS Stabilization",
+  "baseCommit": "5598590445cc4a90a752388b13320d6b7f9211e1",
+  "appVersion": "12.0.0",
+  "stateVersion": 18,
+  "dataMigration": false,
+  "clearLocalStorage": false,
+  "workboxCacheId": "life-rpg-12.0.0",
+  "files": {
+    "CHANGELOG-12.0.0.txt": {
+      "bytes": 1758,
+      "sha256": "2a05bcdd38e933a98547acd06a8ff1ea1d1fc4cdf9eb79cbe4a401d0a0a96267"
+    },
+    "GITHUB-UPLOAD-12.0.0-STABILIZATION.txt": {
+      "bytes": 1015,
+      "sha256": "a7a63e453c9d75f13bdd6591b370a8da3f306d9e57833eaa17b152bc18592970"
+    },
+    "architecture.test.js": {
+      "bytes": 3109,
+      "sha256": "f6f3a6c5934c13bf978fa4f184b34cf5b0d711ff855471c022a82cfec94ca07c"
+    },
+    "bootstrap.js": {
+      "bytes": 4104,
+      "sha256": "7ebb38a599c2a1710c80e42af39c39cdc77d26ba5229257c8bb0371901167011"
+    },
+    "capture2-os.js": {
+      "bytes": 7179,
+      "sha256": "ce12c6e583ce6dceecd38fd7d071b3f0b0a6905e620d1c1e12d4ae63684bd867"
+    },
+    "core.js": {
+      "bytes": 3713,
+      "sha256": "fc25cdb9c9e7afca2159bd35e96c2de7620029513e0193878acd8a7efde00504"
+    },
+    "dashboard-os.js": {
+      "bytes": 6513,
+      "sha256": "93d11de94d0820b444222789133c6035ba2ea2d8cfd5e9170c1f573612102069"
+    },
+    "e2e.test.js": {
+      "bytes": 20918,
+      "sha256": "b49b1ad864f11eea457d75c7ae5fa8d85f5538bf9548e217d9df35a66fe0407c"
+    },
+    "manifest.webmanifest": {
+      "bytes": 558,
+      "sha256": "e6067a5dc119f1ead742ab3ed0386a6ff6e690a86fa073e3ea549b21e7af1a26"
+    },
+    "package.json": {
+      "bytes": 948,
+      "sha256": "dc6e57797988376b423de97000398d6aa1e50ce1203d61818b48be0e761067e4"
+    },
+    "personal-import-os.js": {
+      "bytes": 11160,
+      "sha256": "76d7bbe4058681d304fce02243f25a42c4cfe4f3a186c8424d831ed460912d36"
+    },
+    "personal-os.e2e.test.js": {
+      "bytes": 7247,
+      "sha256": "7d7d78fe45fd13db2a9a102bb714bb8283b8571541331e10f577a9550ce6a297"
+    },
+    "personal-os.test.js": {
+      "bytes": 4074,
+      "sha256": "7c7b573519e15f0443e7711910166ec16e8683ac9cea6d8568a6785913fdf997"
+    },
+    "personal-stabilization-os.js": {
+      "bytes": 9461,
+      "sha256": "ae773d1c2de4320d30dcd565fde19d0f9a5812c5950e95f38e8f64700942c6b1"
+    },
+    "playwright.config.mjs": {
+      "bytes": 477,
+      "sha256": "bb4ad5918b4bf3173e474fe9e45dc16f6268d3c4428cc3d87291b4d1b23bbd38"
+    },
+    "static-check.js": {
+      "bytes": 6604,
+      "sha256": "ce5e9659e54b45c3405981e327e0977e21edc9b83687c112d29947c7fb7eb630"
+    },
+    "sw.js": {
+      "bytes": 2313,
+      "sha256": "85f7f73a98dd4e051af5fccfa9afc0be4dd74d5b2274f2bb187d23d385e696e9"
+    },
+    "vite.config.mjs": {
+      "bytes": 2039,
+      "sha256": "9ebc4fffe87c0aac45c932fccf141efc2782478f33747db684711cc9b85b287c"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+Life RPG 12.0.0 — Personal OS Stabilization
+
+Release goal: stabilize Growth OS + Personal OS without changing STATE_VERSION or rewriting existing domain data.
+
+FIXED
+- Real app version bumped to 12.0.0; STATE_VERSION remains 18.
+- Workbox gets a new cacheId (life-rpg-12.0.0), preventing old/new PWA asset mixing.
+- Legacy HTML shell is reconciled by bootstrap; no forced reload and no storage reset.
+- One Universal Capture surface; legacy Inbox stays as the underlying store/router.
+- Capture → Person rejects unsafe free-form contact creation; structured "Name: note" is accepted.
+- Personal Import is preview-first, validates dates/numbers, supports DD.MM.YYYY, handles durationMin correctly, filters duplicates, and restores Personal OS portable exports non-destructively.
+- Backdated imported events receive date-consistent timestamps.
+- Focus and Tasks synchronize planned dates; linked Task and Focus timers cannot run together for the same task.
+- Body averages are day-weighted; readiness uses latest recent measurements; backdated measurements are ordered by measurement date.
+- People with no logged interaction no longer receive a fake freshness score.
+- Home purchase completion no longer fabricates inventory quantity.
+- Flexible habits count unique days by default and can opt into event counting.
+- Personal Dashboard search covers more Personal/Growth/Task entities and offers navigation.
+- Static, architecture, regression, Personal OS and mobile E2E gates expanded.
+
+DATA SAFETY
+- STATE_VERSION = 18.
+- No reset, migration or deletion of finance/work/tasks/calendar/tennis/reading data.
+- Personal OS stays in S.settings.personalOS.
+- Growth OS stays in S.settings.growthOS.
+- Do NOT clear browser/PWA storage as part of this update.

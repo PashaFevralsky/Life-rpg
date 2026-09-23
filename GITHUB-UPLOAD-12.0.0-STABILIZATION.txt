@@ -1,0 +1,41 @@
+Life RPG 12.0.0 Stabilization — phone upload instructions
+
+Upload EVERY file from this package to the repository root in one GitHub commit if possible.
+
+REPLACE EXISTING
+- core.js
+- package.json
+- manifest.webmanifest
+- sw.js
+- bootstrap.js
+- vite.config.mjs
+- playwright.config.mjs
+- capture2-os.js
+- personal-import-os.js
+- dashboard-os.js
+- static-check.js
+- architecture.test.js
+- e2e.test.js
+
+ADD NEW
+- personal-stabilization-os.js
+- personal-os.test.js
+- personal-os.e2e.test.js
+- CHANGELOG-12.0.0.txt
+- RELEASE-MANIFEST-12.0.0.json
+- GITHUB-UPLOAD-12.0.0-STABILIZATION.txt
+
+DO NOT REPLACE / DELETE
+- state.js
+- finance.js
+- work.js
+- tennis.js / knowledge.js
+- existing user data
+- any other repository file not listed above
+
+IMPORTANT
+- STATE_VERSION stays 18.
+- Do not clear PWA/browser storage.
+- index.html is intentionally not part of this upload. Bootstrap 12.0.0 reconciles the legacy HTML shell while the new Workbox cache namespace safely refreshes runtime assets.
+
+After upload, send: залил
