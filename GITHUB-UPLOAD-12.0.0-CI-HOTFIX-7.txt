@@ -1,0 +1,3 @@
+Replace only personal-os.e2e.test.js in repository root.
+Fix: Focus timer mutual-exclusion E2E now re-fetches the normalized task before mutating timerStartedAt, avoiding stale object references created by taskAll() normalization.
+Runtime/state are unchanged. STATE_VERSION remains 18.

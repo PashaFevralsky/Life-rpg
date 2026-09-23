@@ -44,7 +44,7 @@ test("Personal OS 12 critical flows stay coherent on mobile", async ({page})=>{
   await page.locator('button[onclick="focusAddTimebox()"]',).click();
   expect(await page.evaluate(()=>taskAll().find(x=>x.title==="E2E Focus Task")?.plannedDate)).toBe(tomorrow);
   const focusCheck=await page.evaluate(async()=>{
-    const task=taskAll().find(x=>x.title==="E2E Focus Task"),tb=focusTimeboxes().find(x=>x.taskId===task.id);tb.dateKey=localDateKey();task.plannedDate=localDateKey();task.timerStartedAt=new Date().toISOString();await focusStart(tb.id);const blockedFocus=!personalData().activeFocus?.startedAt;task.timerStartedAt="";await focusStart(tb.id);const blockedTask=calibrationStartTaskTimer(task.id)===false;personalData().activeFocus.startedAt=new Date(Date.now()-125000).toISOString();await focusStop();return {blockedFocus,blockedTask,actual:taskAll().find(x=>x.id===task.id)?.actualMinutes||0}
+    const taskId=taskAll().find(x=>x.title==="E2E Focus Task").id,tb=focusTimeboxes().find(x=>x.taskId===taskId);tb.dateKey=localDateKey();let currentTask=taskAll().find(x=>x.id===taskId);currentTask.plannedDate=localDateKey();currentTask.timerStartedAt=new Date().toISOString();await focusStart(tb.id);const blockedFocus=!personalData().activeFocus?.startedAt;currentTask=taskAll().find(x=>x.id===taskId);currentTask.timerStartedAt="";await focusStart(tb.id);const blockedTask=calibrationStartTaskTimer(taskId)===false;personalData().activeFocus.startedAt=new Date(Date.now()-125000).toISOString();await focusStop();return {blockedFocus,blockedTask,actual:taskAll().find(x=>x.id===taskId)?.actualMinutes||0}
   });
   expect(focusCheck.blockedFocus).toBe(true);expect(focusCheck.blockedTask).toBe(true);expect(focusCheck.actual).toBeGreaterThanOrEqual(2);
 
