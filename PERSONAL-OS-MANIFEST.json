@@ -1,0 +1,64 @@
+{
+  "baseCommit": "b148cd9d45d422d909b37bc450fc9c405c9ff890",
+  "compatibleAppVersion": "11.1.1",
+  "stateVersion": 18,
+  "package": "Personal OS / candidate Life RPG 12",
+  "files": {
+    "GITHUB-UPLOAD-PERSONAL-OS.txt": {
+      "bytes": 1742,
+      "sha256": "759d883ff362713e11ab235b59bd6fadfff92a7b6a3e4e18d316bf4ca737973f"
+    },
+    "body-os.js": {
+      "bytes": 6538,
+      "sha256": "abcf88135c924f7e061f630b20d68b099a62f5f3e2fda0723a2d7ad5ea3ad6e0"
+    },
+    "bootstrap.js": {
+      "bytes": 3692,
+      "sha256": "fe420f8a008cb24730c80b3c39642908d2b7f888a18c99a14876b3bb14f7113d"
+    },
+    "capture2-os.js": {
+      "bytes": 6105,
+      "sha256": "860d8836ec2d045a9fece1a3f078d03195ce8f89eeca74a358191ef1d1f08801"
+    },
+    "dashboard-os.js": {
+      "bytes": 4620,
+      "sha256": "dd35b70e9d810f9b2330413af1e329a63baae7423948faa486dd212a1066108c"
+    },
+    "focus-os.js": {
+      "bytes": 9194,
+      "sha256": "a6fd93f2ae3fb37fa89e69f199dd97217938a3c2e4cce5c5072cbd3d3ff3e998"
+    },
+    "home-os.js": {
+      "bytes": 7734,
+      "sha256": "809fd3c81d618699117739e904c3b7c3ac1ff4b8b1bdd0f4050c888dac838259"
+    },
+    "journal-os.js": {
+      "bytes": 9615,
+      "sha256": "c39062f11ca14639e3e97fa7d268483cc8ca1b8f4ced54b3287ade7a60a4b726"
+    },
+    "people-os.js": {
+      "bytes": 8043,
+      "sha256": "cedf165344194c4b6bcf2976e41501c7df4a5adf1e9374c8009425446d028ee3"
+    },
+    "personal-import-os.js": {
+      "bytes": 5777,
+      "sha256": "4f7ef6a5bf7f1c1e69fb52d8e4a996bec517bf93c234ad3c76b245e81a5dd27d"
+    },
+    "personal-integration-os.js": {
+      "bytes": 3300,
+      "sha256": "0dfd60cb48531133d5458ffbc81fe94ff0ed0a15407bbd4b6f8ed1ca763e3c98"
+    },
+    "personal-os.js": {
+      "bytes": 1996,
+      "sha256": "49657ce5a03711f4006c36dade2687bb33838502109f3c603b4b5e01c7822419"
+    },
+    "sw.js": {
+      "bytes": 2305,
+      "sha256": "b051a56ed7ca915ff17b6e86c421638ca669cd39cc73aba3e361e1058cf7af3c"
+    },
+    "vite.config.mjs": {
+      "bytes": 1983,
+      "sha256": "c99fe11b2c3a2d2a6433b7f23df43f5476c27f4d9d90dcfe8caa0d966a7cdc93"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+Life RPG — Personal OS pack
+Compatible base: current main at b148cd9 / APP_VERSION 11.1.1 / STATE_VERSION 18
+
+NEW FILES
+- personal-os.js
+- journal-os.js
+- people-os.js
+- focus-os.js
+- body-os.js
+- home-os.js
+- capture2-os.js
+- personal-import-os.js
+- dashboard-os.js
+- personal-integration-os.js
+
+REPLACE
+- bootstrap.js
+- vite.config.mjs
+- sw.js
+
+WHAT IS ADDED
+1. Journal / Reflection OS: daily reflection, weekly summary, decision journal, revisit loop.
+2. Universal Capture 2.0: capture once; route to task, calendar, journal, decision, person, knowledge or tracker.
+3. Focus / Timeboxing: linked tasks, plan vs fact, timers, 25/50 minute quick blocks, carry to tomorrow, estimation error.
+4. People / Relationships: personal contacts, cadence, last interaction, birthdays, notes.
+5. Body / Recovery: sleep, energy, mood, weight, water, recovery trends and descriptive habit observations.
+6. Home OS: recurring chores, inventory thresholds, shopping list.
+7. Personal Import Adapters: generic CSV/JSON import into Growth trackers with dedupe fingerprints + portable export.
+8. Personal Dashboard: show/hide/reorder Personal OS widgets and global search.
+
+DATA SAFETY
+- STATE_VERSION stays 18.
+- Existing finance, work, tasks, calendar, tennis, reading and Growth OS data are not migrated or rewritten.
+- New Personal OS data lives in S.settings.personalOS.
+- Body metrics reuse Growth OS tracker events rather than creating a second measurement database.
+- No external cloud backend is introduced.
+
+UPLOAD
+Upload all files to repository root in one commit if possible.
+New files must be added; bootstrap.js, vite.config.mjs and sw.js must replace existing versions.
+Do not delete any existing files.
+
+After upload: send “залил”.
