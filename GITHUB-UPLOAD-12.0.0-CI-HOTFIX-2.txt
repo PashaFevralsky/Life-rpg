@@ -1,0 +1,9 @@
+Life RPG 12.0.0 — CI hotfix 2
+
+Replace in repository root:
+- personal-os.test.js
+
+Reason:
+The isolated Personal OS regression test exercises Focus ↔ Tasks synchronization through personalFindTask(), which intentionally uses taskAll(). The test harness therefore must load tasks-os.js, matching the real browser module order. Runtime application code and user data are unchanged.
+
+STATE_VERSION remains 18. Do not clear PWA/browser storage.
