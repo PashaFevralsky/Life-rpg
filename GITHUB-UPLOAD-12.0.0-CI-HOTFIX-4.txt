@@ -1,0 +1,11 @@
+Life RPG 12.0.0 — CI hotfix 4
+
+Replace in repository root:
+- e2e.test.js
+- personal-os.e2e.test.js
+
+Fixes:
+- restore stale E2E release assertion from 11.1.1 to 12.0.0;
+- make Person route E2E work for both recommended «→ Человек» and alternative «Человек» buttons.
+
+Runtime data and STATE_VERSION 18 are unchanged. Do not clear PWA/browser storage.

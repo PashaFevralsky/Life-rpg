@@ -25,13 +25,13 @@ test("Personal OS 12 critical flows stay coherent on mobile", async ({page})=>{
   await page.locator("#inboxCaptureInput").fill("какой-то длинный текст про человека без имени");
   await page.locator('button[onclick="captureInbox()"]',).click();
   let row=page.locator("#inboxOsCommand .log-item").filter({hasText:"какой-то длинный текст"});
-  await row.getByRole("button",{name:"Человек",exact:true}).click();
+  await row.getByRole("button",{name:/^(?:→ )?Человек$/}).click();
   expect(await page.evaluate(()=>peopleAll().some(x=>x.name.includes("длинный текст")))).toBe(false);
   await page.evaluate(()=>discardInbox(inboxOpen().find(x=>x.text.includes("длинный текст"))?.id));
   await page.locator("#inboxCaptureInput").fill("E2E Person: договорились созвониться");
   await page.locator('button[onclick="captureInbox()"]',).click();
   row=page.locator("#inboxOsCommand .log-item").filter({hasText:"E2E Person"});
-  await row.getByRole("button",{name:"Человек",exact:true}).click();
+  await row.getByRole("button",{name:/^(?:→ )?Человек$/}).click();
   expect(await page.evaluate(()=>peopleAll().some(x=>x.name==="E2E Person"))).toBe(true);
 
   // Focus <-> Task date synchronization and timer mutual exclusion.

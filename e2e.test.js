@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("Life RPG 11 mobile critical flow", async ({ page }) => {
+test("Life RPG 12 mobile critical flow", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", error => pageErrors.push(String(error)));
 
@@ -11,7 +11,7 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("11.1.1");
+  await expect(page.locator("#versionStatus")).toContainText("12.0.0");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.
@@ -122,19 +122,17 @@ test("Life RPG 11 mobile critical flow", async ({ page }) => {
   if (!(await matchDetails.evaluate(el => el.open))) {
     await matchDetails.locator("summary").click();
   }
-
   await expect(page.locator("#ttMatches")).toBeVisible();
-  await page.locator("#ttMatches").fill("Соперник A | 1200 | W | 3:1 | test");
+  await page.locator("#ttMatches").fill("Ударник A | 1200 | W | 3:1 | test");
   await page.locator("#ttSaveBtn").click();
 
   await expect(page.locator("#tennisLog")).toContainText("матчи 1:0");
-  await expect(page.locator("#tennisLog")).toContainText("Соперник A");
-
+  await expect(page.locator("#tennisLog")).toContainText("Ударник A");
   // More -> Knowledge -> add a book through the real modal.
   await page.locator('[data-tab="more"]').click();
   await expect(page.locator("#more")).toHaveClass(/active/);
 
-  // Modular 11.1.1 systems are present in More / Overview.
+  // Modular systems are present in More / Overview.
   await expect(page.locator("#rulesOsCommand")).toBeVisible();
   await expect(page.locator("#insightsOsCommand")).toBeVisible();
   await expect(page.locator("#calibrationOsCommand")).toBeVisible();
