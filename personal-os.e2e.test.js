@@ -50,7 +50,7 @@ test("Personal OS 12 critical flows stay coherent on mobile", async ({page})=>{
 
   // People without a factual interaction do not get a fake freshness score.
   await page.locator('[data-tab="more"]').click();await page.locator('#more .ux7-tab[data-view="overview"]').click();
-  await page.locator("#peopleOsCommand").getByRole("button",{name:"+ Человек",exact:true}).click();await page.locator("#peopleName").fill("E2E No Contact");await page.locator("#peopleCadence").fill("7");await page.locator('button[onclick="peopleSave()"]',).click();
+  await page.getByRole("button",{name:"+ Человек",exact:true}).click();await page.locator("#peopleName").fill("E2E No Contact");await page.locator("#peopleCadence").fill("7");await page.locator('button[onclick="peopleSave()"]',).click();
   const personRow=page.locator("#peopleOsList .log-item").filter({hasText:"E2E No Contact"});await expect(personRow).toContainText("связь —");
 
   // Body means are day-weighted.
