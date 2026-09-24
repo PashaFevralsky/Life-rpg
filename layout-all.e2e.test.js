@@ -81,3 +81,36 @@ test("overview clarity keeps secondary cards optional",async({page})=>{
   await expect(page.locator("#finance .ux7-clarity-toggle")).toBeHidden();
   expect(errors).toEqual([])
 });
+
+
+test("overview shortcuts reduce taps and mobile rails stay compact",async({page})=>{
+  const errors=await boot(page,390);
+  for(const section of ["finance","work","tennis","more"]){
+    await page.evaluate(s=>{switchTab(s);ux7SetView(s,"overview",false)},section);
+    const bar=page.locator(`#${section} .ux7-section-shortcuts`);
+    await expect(bar).toBeVisible();
+    expect(await bar.locator("button").count(),`${section}: shortcuts`).toBeGreaterThanOrEqual(3)
+  }
+
+  await page.evaluate(()=>{switchTab("work");ux7SetView("work","overview",false)});
+  await page.locator('#work .ux7-shortcut[data-action="worklog"]').click();
+  await expect(page.locator('#work .ux7-tab[data-view="log"]')).toHaveClass(/active/);
+  await expect(page.locator('#work .ux7-section-shortcuts')).toBeHidden();
+
+  await page.evaluate(()=>{switchTab("tennis");ux7SetView("tennis","overview",false)});
+  await page.locator('#tennis .ux7-shortcut[data-action="tennisanalytics"]').click();
+  await expect(page.locator('#tennis .ux7-tab[data-view="analytics"]')).toHaveClass(/active/);
+
+  await page.evaluate(()=>{switchTab("more");ux7SetView("more","overview",false)});
+  await page.locator('#more .ux7-shortcut[data-action="knowledge"]').click();
+  await expect(page.locator('#more .ux7-tab[data-view="knowledge"]')).toHaveClass(/active/);
+
+  await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});
+  const todayRail=await page.locator("#today .quick").evaluate(el=>({display:getComputedStyle(el).display,client:el.clientWidth,scroll:el.scrollWidth,height:el.getBoundingClientRect().height}));
+  expect(todayRail.display).toBe("flex");expect(todayRail.scroll).toBeGreaterThan(todayRail.client);expect(todayRail.height).toBeLessThan(90);
+
+  await page.evaluate(()=>{switchTab("work");ux7SetView("work","overview",false)});
+  const workKpi=await page.locator("#work .work-hero .kpi-row").evaluate(el=>({display:getComputedStyle(el).display,client:el.clientWidth,scroll:el.scrollWidth,height:el.getBoundingClientRect().height}));
+  expect(workKpi.display).toBe("flex");expect(workKpi.height).toBeLessThan(100);
+  expect(errors).toEqual([])
+});

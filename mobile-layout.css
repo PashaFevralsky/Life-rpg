@@ -97,3 +97,28 @@ body.ui82{overflow-x:clip}
   .ui82 .ux7-head-actions{margin-left:auto}
   .ui82 .ux7-clarity-toggle{min-height:30px;padding:5px 9px;font-size:10.5px}
 }
+
+
+/* UX polish — fast routes and compact mobile overview geometry. */
+.ui82 .ux7-section-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:-2px 0 10px;padding:0 1px 2px}
+.ui82 .ux7-section-shortcuts[hidden]{display:none!important}
+.ui82 .ux7-shortcut{min-width:0;width:100%;white-space:normal;line-height:1.15}
+
+@media(max-width:600px){
+  /* Today: six actions stay one compact horizontal rail instead of three rows. */
+  .ui82 #today .quick-card .quick{display:flex!important;grid-template-columns:none!important;gap:3px;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none;scroll-snap-type:x proximity;padding-bottom:2px}
+  .ui82 #today .quick-card .quick::-webkit-scrollbar{display:none}
+  .ui82 #today .quick-card .quick button{flex:0 0 106px;min-height:64px;scroll-snap-align:start;padding:6px 4px}
+  .ui82 #today .quick-card .quick b{flex-basis:34px;width:34px;height:34px}
+
+  /* Work and Tennis: keep headline KPIs above the fold as a single swipeable strip. */
+  .ui82 .work-hero .kpi-row,.ui82 .tennis-hero .kpi-row{display:flex!important;grid-template-columns:none!important;gap:6px;background:transparent;border:0;border-radius:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:none;scroll-snap-type:x proximity}
+  .ui82 .work-hero .kpi-row::-webkit-scrollbar,.ui82 .tennis-hero .kpi-row::-webkit-scrollbar{display:none}
+  .ui82 .work-hero .kpi,.ui82 .tennis-hero .kpi{flex:0 0 138px;min-height:76px;border:1px solid var(--ui82-divider)!important;border-radius:13px!important;scroll-snap-align:start}
+  .ui82 .work-hero .kpi .num,.ui82 .tennis-hero .kpi .num{font-size:19px}
+}
+
+@media(max-width:370px){
+  .ui82 #today .quick-card .quick button{flex-basis:98px}
+  .ui82 .work-hero .kpi,.ui82 .tennis-hero .kpi{flex-basis:128px}
+}

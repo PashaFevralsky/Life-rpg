@@ -60,6 +60,40 @@ const UX7_META={
   more:{title:"Ещё",desc:()=>"Knowledge OS, прогресс и настройки",tabs:[["overview","Обзор"],["knowledge","Знания"],["rewards","Прогресс"],["settings","Настройки"]]}
 };
 
+
+const UX7_SECTION_SHORTCUTS={
+  finance:[["expense","Расход"],["bank","Сверить банк"],["payment","Платёж"]],
+  work:[["crm","CRM"],["worklog","Записать день"],["worknext","Следующие шаги"]],
+  tennis:[["tennisnew","Новая сессия"],["huawei","Huawei"],["tennisanalytics","Аналитика"]],
+  more:[["reading","Чтение"],["knowledge","Знания"],["settings","Настройки"]]
+};
+
+function ux7RunSectionShortcut(action){
+  if(action==="expense")return openModal("expenseModal");
+  if(action==="bank")return ux7Go("finance","bank");
+  if(action==="payment")return openModal("paymentModal");
+  if(action==="crm")return ux7Go("work","crm");
+  if(action==="worklog"){ux7Go("work","log");return setTimeout(()=>$(`workContacts`)?.focus(),90)}
+  if(action==="worknext"){ux7Go("work","crm");return setTimeout(()=>$(`crmDealList`)?.scrollIntoView({behavior:"smooth",block:"start"}),120)}
+  if(action==="tennisnew"){ux7Go("tennis","training");return setTimeout(()=>{const card=$("ttMinutes")?.closest(".card");ux7ToggleEditor(card,true);$("ttMinutes")?.focus()},90)}
+  if(action==="huawei"){ux7Go("tennis","training");return setTimeout(()=>$(`tennisHuaweiCard`)?.scrollIntoView({behavior:"smooth",block:"start"}),140)}
+  if(action==="tennisanalytics")return ux7Go("tennis","analytics");
+  if(action==="reading")return openModal("readingModal");
+  if(action==="knowledge")return ux7Go("more","knowledge");
+  if(action==="settings")return ux7Go("more","settings")
+}
+
+function ux7SetupSectionShortcuts(){
+  for(const [sectionId,items] of Object.entries(UX7_SECTION_SHORTCUTS)){
+    const section=$(sectionId),head=section?.querySelector(":scope > .ux7-section-head");if(!section||!head||section.querySelector(":scope > .ux7-section-shortcuts"))continue;
+    const bar=document.createElement("div");bar.className="ux7-section-shortcuts";bar.setAttribute("aria-label","Быстрые переходы");
+    for(const [action,label] of items){const b=document.createElement("button");b.type="button";b.className="btn ghost small ux7-shortcut";b.dataset.action=action;b.textContent=label;b.addEventListener("click",()=>ux7RunSectionShortcut(action));bar.appendChild(b)}
+    head.after(bar)
+  }
+}
+
+function ux7UpdateSectionShortcuts(sectionId,view){const bar=$(sectionId)?.querySelector(":scope > .ux7-section-shortcuts");if(bar)bar.hidden=view!=="overview"}
+
 function ux7ViewsForCard(sectionId,card,index){if(card?.dataset?.ux7View)return card.dataset.ux7View;const t=ux7CardText(card);if(sectionId==="today"){if(/быстрые действия|daily engine|план дня|главные цели месяца|что сделать сегодня/.test(t))return "focus";return "progress"}if(sectionId==="finance"){if(/финансовый центр|обновить данные из банка|счета и реальные остатки|правила авторазбора|пакеты импорта|импорт банковской выписки/.test(t))return "bank";if(/кампания против долгов|состояние финансов|что делать сейчас|реальный денежный баланс|как распределить деньги сейчас|money engine|можно потратить/.test(t))return "overview";if(/денежный поток|расходы месяца|регулярные обязательные платежи|добавить регулярный платеж|единый журнал операций|transaction engine/.test(t))return "operations";if(/долги-боссы|следующее действие|история платежей|debt engine|сценарии погашения|долг → ноль|проценты|avalanche vs snowball/.test(t))return "debts";if(/прогноз|calendar center|финансовый календарь|динамический бюджет|конверты расходов|cash-flow по дням|ключевые даты|отдельный резерв|лаборатория «что если|smart budget|рекомендованный бюджет|financial health|decision engine/.test(t))return "analysis";return "more"}if(sectionId==="work"){if(/work crm|карточка сделки|сделки и следующие шаги/.test(t))return "crm";if(/добавить рабочий день|последние записи/.test(t))return "log";return "overview"}if(sectionId==="tennis"){if(/добавить сессию|история тренировок/.test(t))return "training";if(/tennis analytics|соперники/.test(t))return "analytics";return "overview"}if(sectionId==="more"){if(/библиотека|навыки \/ skill tree|чтение и знания|база знаний/.test(t))return "knowledge";if(/магазин наград|xp: процесс|история сезонов|все достижения/.test(t))return "rewards";if(/уведомления|график ожидаемых доходов|локальные снимки|профиль и настройки|облако и android|данные, версия|опасная зона|журнал изменений/.test(t))return "settings";return "overview"}return "overview"}
 
 function ux7BuildSectionHeader(sectionId){
@@ -106,7 +140,7 @@ function ux7SetView(sectionId,view,scrollTop=false){
   const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];UX7_PREFS[sectionId]=view;ux7SavePrefs();
   section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view))});
-  ux7ApplyClarity(sectionId,view);
+  ux7ApplyClarity(sectionId,view);ux7UpdateSectionShortcuts(sectionId,view);
   if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
   requestAnimationFrame(()=>{ux7UpdateSubViewMetrics(sectionId,view);ui82SyncChrome(sectionId,view)});
 }
@@ -204,7 +238,7 @@ function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m
 function ux7InstallShell(){
   document.body.classList.add("ux7","ui82");ux7LoadPrefs();ux7LoadClarity();
   for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
-  ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupTodayQuests();ux7SetupDebtEditor();ux7SetupFinanceEditors();ux7SetupEditors();ux7PatchEditorActions();ux7EnhanceAccessibility();
+  ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupSectionShortcuts();ux7SetupTodayQuests();ux7SetupDebtEditor();ux7SetupFinanceEditors();ux7SetupEditors();ux7PatchEditorActions();ux7EnhanceAccessibility();
   for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);
   const financeNav=document.querySelector('.navbtn[data-tab="finance"]');if(financeNav){const b=financeNav.querySelector('b')?.outerHTML||'<b>₽</b>';financeNav.innerHTML=b+'Деньги'}
   renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();ui82SyncChrome("today",UX7_PREFS.today||UX7_DEFAULTS.today);
