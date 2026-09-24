@@ -137,9 +137,9 @@ function ux7ToggleClarity(sectionId){
 }
 
 function ux7SetView(sectionId,view,scrollTop=false){
-  const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];UX7_PREFS[sectionId]=view;ux7SavePrefs();
+  const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];const previous=UX7_PREFS[sectionId];UX7_PREFS[sectionId]=view;if(previous!==view)ux7SavePrefs();
   section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
-  section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view))});
+  section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view));card.classList.add("ux7-view-ready")});
   ux7ApplyClarity(sectionId,view);ux7UpdateSectionShortcuts(sectionId,view);
   if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
   requestAnimationFrame(()=>{ux7UpdateSubViewMetrics(sectionId,view);ui82SyncChrome(sectionId,view)});

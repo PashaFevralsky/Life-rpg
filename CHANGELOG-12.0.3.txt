@@ -1,0 +1,10 @@
+Life RPG 12.0.3 — Stabilization & Performance
+
+- Tesseract OCR is lazy-loaded only when a bank screenshot is processed.
+- Personal OS runtime files start downloading together while preserving deterministic execution order.
+- View routing no longer rewrites all hidden sections after every state render.
+- Redundant UX preference writes were removed.
+- Production service worker has one owner: VitePWA/Workbox; source sw.js is inert.
+- Imported record/entity IDs with unsafe DOM/action characters are rejected.
+- A fresh financial campaign starts on the actual first-use date instead of a hard-coded September 2026 date.
+- STATE_VERSION remains 18; no user-data migration is required.

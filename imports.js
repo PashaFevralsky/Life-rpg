@@ -278,7 +278,25 @@ async function preprocessFinancialScreenshot(file){
   }catch(e){return {image:file,dark:false,width:0,height:0,error:String(e?.message||e)}}
 }
 
+let financialOcrLoader=null;
+function ensureFinancialOcrLoaded(){
+  if(window.Tesseract?.recognize)return Promise.resolve(window.Tesseract);
+  if(financialOcrLoader)return financialOcrLoader;
+  financialOcrLoader=new Promise((resolve,reject)=>{
+    const ready=()=>window.Tesseract?.recognize?resolve(window.Tesseract):reject(new Error("OCR-модуль загрузился некорректно"));
+    const existing=document.querySelector('script[data-life-ocr="tesseract"]');
+    if(existing){existing.addEventListener("load",ready,{once:true});existing.addEventListener("error",()=>reject(new Error("Не удалось загрузить OCR-модуль")),{once:true});return}
+    const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";s.async=true;s.dataset.lifeOcr="tesseract";s.onload=ready;s.onerror=()=>reject(new Error("Не удалось загрузить OCR-модуль"));document.head.appendChild(s)
+  }).catch(e=>{financialOcrLoader=null;throw e});
+  return financialOcrLoader
+}
+async function loadFinancialOcrOrReport(status){
+  try{if(status)status.textContent="Загружаю OCR-модуль…";await ensureFinancialOcrLoaded();return true}
+  catch(e){if(status)status.innerHTML='<span class="csv-bad">OCR-модуль не загрузился. Нужен интернет.</span>';return false}
+}
+
 async function runFinancialOcr(file,onProgress=()=>{}){
+  await ensureFinancialOcrLoaded();
   const prepared=await preprocessFinancialScreenshot(file),primary=prepared.image||file;
   const rec=async(img,label)=>Tesseract.recognize(img,"rus+eng",{logger:m=>{if(m.status==="recognizing text")onProgress(Math.round((m.progress||0)*100),label)}});
   let r1=await rec(primary,prepared.image!==file?"контраст":"оригинал"),t1=r1?.data?.text||"",score1=financialTextScore(t1),best={text:t1,score:score1,mode:prepared.image!==file?"контраст":"оригинал",prepared};
@@ -361,7 +379,7 @@ function renderSmartInbox(){
 }
 
 async function recognizeSmartInbox(files){
-  const list=[...files].slice(0,20),status=$("smartInboxStatus");if(!list.length)return;if(!window.Tesseract){status.innerHTML='<span class="csv-bad">OCR-модуль не загрузился. Нужен интернет.</span>';return}
+  const list=[...files].slice(0,20),status=$("smartInboxStatus");if(!list.length)return;if(!await loadFinancialOcrOrReport(status))return
   smartInboxProposals=[];screenshotImportQueue=[];ocrHotfixDebugRuns=[];let operationCount=0,reviewCount=0;
   for(let i=0;i<list.length;i++){
     const file=list[i];status.textContent=`Разбор ${i+1}/${list.length}: ${file.name}`;
@@ -380,14 +398,14 @@ async function recognizeSmartInbox(files){
 }
 
 async function recognizeBankScreenshots(files,accountId=defaultAccountId()){
-  const list=[...files].slice(0,20);if(!list.length)return;if(!window.Tesseract){$("screenshotImportStatus").innerHTML='<span class="csv-bad">OCR-модуль не загрузился. Для распознавания нужен интернет.</span>';return}
+  const list=[...files].slice(0,20),status=$("screenshotImportStatus");if(!list.length)return;if(!await loadFinancialOcrOrReport(status))return
   screenshotImportQueue=[];ocrHotfixDebugRuns=[];let done=0;
   for(const file of list){const hash=await hashFile(file);$("screenshotImportStatus").textContent=`OCR: ${done+1}/${list.length} • ${file.name}`;try{const ocr=await runFinancialOcr(file,(p,mode)=>$("screenshotImportStatus").textContent=`${file.name}: ${p}% • ${mode}`),dateKey=file.lastModified?localDateKey(new Date(file.lastModified)):localDateKey(),items=extractScreenshotTransactions(ocr.text||"",{name:file.name,hash,dateKey,accountId});ocrHotfixDebugRuns.push({file:file.name,text:ocr.text||"",mode:ocr.mode,score:ocr.score});screenshotImportQueue.push(...items)}catch(e){ocrHotfixDebugRuns.push({file:file.name,text:String(e.message||e),mode:"ошибка",score:0})}done++}
   renderScreenshotQueue();const found=screenshotImportQueue.filter(x=>x.amount>0),review=found.filter(x=>x.needsReview).length;$("screenshotImportStatus").innerHTML=found.length?`Найдено операций: <b>${found.length}</b>${review?` • <span class="csv-warn">проверь суммы: ${review}</span>`:""}. Перед импортом проверь дату, сумму и тип.`:`<span class="csv-warn">Операции не найдены автоматически.</span>${ocrDebugHtml()}`;
 }
 
 async function recognizeBankBalanceScreenshot(file){
-  if(!file)return;if(!window.Tesseract){$("bankSyncStatus").innerHTML='<span class="csv-bad">OCR-модуль не загрузился. Нужен интернет.</span>';return}const id=selectedBankSyncAccountId(),a=S.accounts.find(x=>x.id===id);$("bankSyncStatus").textContent=`Распознаю баланс • ${file.name}`;try{const ocr=await runFinancialOcr(file,(p,mode)=>$("bankSyncStatus").textContent=`Баланс: ${p}% • ${mode}`),text=ocr.text||"",b=extractBankBalance(normalizeOcrFinancialText(text));ocrHotfixDebugRuns=[{file:file.name,text,mode:ocr.mode,score:ocr.score}];if(!b){$("bankSyncStatus").innerHTML='<span class="csv-warn">Не нашёл текущий баланс.</span>'+ocrDebugHtml();return}bankSyncSession={accountId:id,bankBalance:b.amount,balanceConfidence:b.confidence,balanceLabel:b.label,balanceSource:file.name,baseExpected:accountBalanceById(id),wasVerified:!!a?.verifiedAt,importedNet:0,detectedAt:new Date().toISOString(),lastText:text};screenshotImportQueue=[];renderScreenshotQueue();renderBankSync()}catch(e){$("bankSyncStatus").innerHTML=`<span class="csv-bad">Не удалось распознать баланс: ${escapeHtml(e.message||String(e))}</span>`}
+  if(!file)return;const status=$("bankSyncStatus");if(!await loadFinancialOcrOrReport(status))return;const id=selectedBankSyncAccountId(),a=S.accounts.find(x=>x.id===id);$("bankSyncStatus").textContent=`Распознаю баланс • ${file.name}`;try{const ocr=await runFinancialOcr(file,(p,mode)=>$("bankSyncStatus").textContent=`Баланс: ${p}% • ${mode}`),text=ocr.text||"",b=extractBankBalance(normalizeOcrFinancialText(text));ocrHotfixDebugRuns=[{file:file.name,text,mode:ocr.mode,score:ocr.score}];if(!b){$("bankSyncStatus").innerHTML='<span class="csv-warn">Не нашёл текущий баланс.</span>'+ocrDebugHtml();return}bankSyncSession={accountId:id,bankBalance:b.amount,balanceConfidence:b.confidence,balanceLabel:b.label,balanceSource:file.name,baseExpected:accountBalanceById(id),wasVerified:!!a?.verifiedAt,importedNet:0,detectedAt:new Date().toISOString(),lastText:text};screenshotImportQueue=[];renderScreenshotQueue();renderBankSync()}catch(e){$("bankSyncStatus").innerHTML=`<span class="csv-bad">Не удалось распознать баланс: ${escapeHtml(e.message||String(e))}</span>`}
 }
 
 function updateScreenshotCandidate(id,field,value){

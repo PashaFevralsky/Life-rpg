@@ -1,0 +1,18 @@
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");
+const root=__dirname,read=n=>fs.readFileSync(path.join(root,n),"utf8");
+const html=read("index.html"),imports=read("imports.js"),bootstrap=read("bootstrap.js"),state=read("state.js"),vite=read("vite.config.mjs"),core=read("core.js"),sw=read("sw.js"),ui=read("ui.js");
+assert.ok(core.includes('APP_VERSION="12.0.3"'));
+assert.ok(core.includes("STATE_VERSION=18"),"12.0.3 must not migrate user state");
+assert.ok(!html.includes("tesseract.min.js"),"OCR must not block cold boot");
+assert.ok(imports.includes("ensureFinancialOcrLoaded"));
+assert.ok(imports.includes("data-life-ocr"));
+assert.ok(bootstrap.includes("Promise.all(LIFE_RPG_RUNTIME_MODULES.map(lifeRuntimeLoadScript))"));
+assert.ok(bootstrap.includes("ux7-card:not(.ux7-view-ready)"));
+assert.ok(ui.includes('card.classList.add("ux7-view-ready")'));
+assert.ok(state.includes("campaignStart:localDateKey()"));
+assert.ok(state.includes("function isSafeStateId"));
+assert.ok(!sw.includes('addEventListener("fetch"')&&!sw.includes("addEventListener('fetch'"));
+assert.ok(vite.includes('strategies:"generateSW"'));
+assert.ok(vite.includes('cacheId:"life-rpg-12.0.3"'));
+console.log("OK — Life RPG 12.0.3 stabilization gates passed");

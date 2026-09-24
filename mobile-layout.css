@@ -1,4 +1,4 @@
-/* Life RPG 12.0.2 — Mobile Layout Hardening
+/* Life RPG 12.0.3 — Mobile Layout Hardening
    Geometry overrides only. No domain/state behavior lives here. */
 
 html{scroll-padding-bottom:calc(156px + env(safe-area-inset-bottom));overflow-x:clip}
@@ -80,7 +80,7 @@ body.ui82{overflow-x:clip}
   .ui82 .book>.split{grid-template-columns:1fr 1fr}
 }
 
-/* 12.0.2 generic mobile containment gate */
+/* 12.0.3 generic mobile containment gate */
 @media(max-width:600px){
   .ui82 .card,.ui82 .formgrid,.ui82 .report-grid,.ui82 .split{min-width:0;max-width:100%}
   .ui82 .split>select,.ui82 .split>input,.ui82 .split>textarea{min-width:0;max-width:100%}

@@ -5,7 +5,7 @@
 const DEFAULT_STATE={
   version:STATE_VERSION,
   profile:{name:"Павел",goal:"Закрыть долги и прокачать жизнь системно"},
-  settings:{primaryAccountId:"",monthlyIncome:0,monthlyDebtGoal:0,workMonthlyPlan:0,campaignStart:"2026-09-19",campaignMonths:10,dailySpendLimit:0,emergencyFundTarget:0,emergencyFundBalance:0,miniBufferTarget:15000,highInterestThreshold:40,cashBalanceVerifiedAt:"",envelopeRollover:true,autoReserveAfterImport:true,learnImportRules:true,tennisElo:1000,tennisBaseElo:1000,tennisMonthlyTarget:12,tennisOfficialRating:0,readingDailyMin:30,readingReviewDays:7,incomeEvents:[],liquidityTargetDays:14,minimumCashFloor:0,forecastIncomeFactor:100},
+  settings:{primaryAccountId:"",monthlyIncome:0,monthlyDebtGoal:0,workMonthlyPlan:0,campaignStart:localDateKey(),campaignMonths:10,dailySpendLimit:0,emergencyFundTarget:0,emergencyFundBalance:0,miniBufferTarget:15000,highInterestThreshold:40,cashBalanceVerifiedAt:"",envelopeRollover:true,autoReserveAfterImport:true,learnImportRules:true,tennisElo:1000,tennisBaseElo:1000,tennisMonthlyTarget:12,tennisOfficialRating:0,readingDailyMin:30,readingReviewDays:7,incomeEvents:[],liquidityTargetDays:14,minimumCashFloor:0,forecastIncomeFactor:100},
   xpEarned:0,xpSpent:0,
   stats:{Финансы:0,Карьера:0,Разум:0,Теннис:0,Тело:0,Отношения:0,Дисциплина:0},
   xpEvents:[],
@@ -100,16 +100,20 @@ function normalizeState(raw){
 // Persistence chooses the newest valid copy and acknowledges transaction commit.
 let persistenceQueue=Promise.resolve(),storageLoadBlocked=false;
 function storageMessage(message){const el=$("storageStatus");if(el)el.textContent=message}
+function isSafeStateId(value){
+  const s=String(value??"");
+  return s.length>0&&s.length<=180&&!/[\s'"<>\u0060\\]/.test(s)
+}
 function validateStateShape(raw){
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new Error("Состояние должно быть объектом");
   if(Number(raw.version)>STATE_VERSION)throw new Error("Данные созданы более новой версией приложения");
   for(const key of ["profile","settings","stats","checks","questDone","achievements","envelopeLimits","envelopeCarryovers","workTargets","entities"]){if(raw[key]!=null&&(typeof raw[key]!=="object"||Array.isArray(raw[key])))throw new Error(`Некорректное поле ${key}`)}
   const entityKeysForValidation=["projects","tasks","goals","routines","routineLogs","reviews","inbox","calendarEvents"];
-  const rejectDuplicateEntityIds=collections=>{for(const key of entityKeysForValidation){const arr=Array.isArray(collections?.[key])?collections[key]:[],seen=new Set();for(const x of arr){const id=String(x?.id||"").trim();if(!id)continue;if(seen.has(id))throw new Error(`Дублирующийся ID entities.${key}: ${id}`);seen.add(id)}}};
+  const rejectDuplicateEntityIds=collections=>{for(const key of entityKeysForValidation){const arr=Array.isArray(collections?.[key])?collections[key]:[],seen=new Set();for(const x of arr){const id=String(x?.id||"").trim();if(!id)continue;if(!isSafeStateId(id))throw new Error(`Небезопасный ID entities.${key}`);if(seen.has(id))throw new Error(`Дублирующийся ID entities.${key}: ${id}`);seen.add(id)}}};
   if(Number(raw.version)>=18){const keys=entityKeysForValidation;if(!raw.entities)throw new Error("Данные v18 без entities");for(const key of keys){if(!Array.isArray(raw.entities[key]))throw new Error(`Некорректная коллекция entities.${key}`);if(raw.entities[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)||!String(x.id||"").trim()))throw new Error(`Повреждённая запись entities.${key}`)}rejectDuplicateEntityIds(raw.entities);for(const t of raw.entities.tasks)if(t.blockedByIds!=null&&(!Array.isArray(t.blockedByIds)||t.blockedByIds.some(id=>!String(id||"").trim())))throw new Error("Повреждены зависимости задач");for(const g of raw.entities.goals)if(g.projectIds!=null&&(!Array.isArray(g.projectIds)||g.projectIds.some(id=>!String(id||"").trim())))throw new Error("Повреждены связи целей с проектами");for(const r of raw.entities.routines)if(r.days!=null&&(!Array.isArray(r.days)||r.days.some(n=>!Number.isInteger(Number(n))||Number(n)<1||Number(n)>7)))throw new Error("Повреждено расписание рутины");for(const rv of raw.entities.reviews)if(rv?.plan?.focusProjectIds!=null&&!Array.isArray(rv.plan.focusProjectIds))throw new Error("Повреждены связи Review с проектами")}else if(raw.settings&&typeof raw.settings==="object"){const legacy=Object.fromEntries(entityKeysForValidation.map(key=>[key,Array.isArray(raw.settings[key])?raw.settings[key]:[]]));rejectDuplicateEntityIds(legacy)}
-  for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(`Некорректный список ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(`Повреждённая запись в ${key}`)}
+  for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(`Некорректный список ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(`Повреждённая запись в ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key))for(const x of raw[key])if(x?.id!=null&&!isSafeStateId(x.id))throw new Error(`Небезопасный ID в ${key}`)}
   for(const x of raw.workLogs||[])if(typeof x.date!=="string")throw new Error("Рабочая запись без даты");
-  for(const x of raw.tennis||[])if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");
+  for(const x of raw.tennis||[]){if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");for(const m of x.matches||[])if(m?.id!=null&&!isSafeStateId(m.id))throw new Error("Небезопасный ID матча")}for(const d of raw.debts||[])for(const p of d?.parts||[])if(p?.id!=null&&!isSafeStateId(p.id))throw new Error("Небезопасный ID части долга");
   for(const x of raw.readingLogs||[])if(x.tags!=null&&!Array.isArray(x.tags))throw new Error("Повреждены теги чтения");
 }
 function openDB(){return new Promise((res,rej)=>{

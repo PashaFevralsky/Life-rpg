@@ -1,13 +1,6 @@
-Life RPG 12.0.2 — UX polish
+Life RPG 12.0.3 — Stabilization & Performance
 
-Replace in repository root:
-- ui.js
-- mobile-layout.css
-- layout-all.e2e.test.js
+Replace/update is applied automatically by cleanup-12.0.2.mjs through the existing GitHub Actions migration job.
+STATE_VERSION remains 18. Existing user data is not migrated.
 
-No state migration. No finance/domain logic changes.
-Changes:
-- compact horizontal quick actions on Today mobile view;
-- compact swipeable KPI rails on Work/Tennis mobile overviews;
-- contextual shortcut bars on Finance/Work/Tennis/More overviews;
-- E2E coverage for routes and compact mobile geometry.
+Main changes: lazy OCR, parallel runtime preload, incremental view sync, safer imported IDs, dynamic fresh campaign date, Workbox-only production service worker.
