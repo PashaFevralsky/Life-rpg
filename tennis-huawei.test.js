@@ -6,7 +6,7 @@ const sandbox={
   document:{readyState:"loading",addEventListener(){},getElementById(){return null},querySelector(){return null}},
   Number,Math,Date,String,Object,Array,Set,Map,Promise,
   clamp:(n,a,b)=>Math.max(a,Math.min(b,n)),
-  validDateKey:s=>/^\\d{4}-\\d{2}-\\d{2}$/.test(String(s||"")),
+  validDateKey:s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||"")),
   growthData:()=>({tennisWearables:[]}),
   S:{tennis:[]}
 };
