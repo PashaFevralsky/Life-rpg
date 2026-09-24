@@ -21,7 +21,7 @@ async function inspect(page){
     const visible=el=>{if(!el)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=="none"&&s.visibility!=="hidden"&&r.width>0&&r.height>0};
     const vw=document.documentElement.clientWidth;
     const bodyOverflow=Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-vw;
-    const bad=[...document.querySelectorAll(".section.active .card,.section.active .btn,.section.active input,.section.active select,.section.active textarea,.bottom")]
+    const bad=[...document.querySelectorAll(".section.active .card,.section.active .btn,.section.active input,.section.active select,.section.active textarea,.section.active .ux7-clarity-toggle,.bottom")]
       .filter(visible).map(el=>{const r=el.getBoundingClientRect();return {el,left:r.left,right:r.right,width:r.width}})
       .filter(x=>x.left<-1||x.right>vw+1)
       .map(x=>({tag:x.el.tagName,id:x.el.id||"",className:String(x.el.className||""),left:Math.round(x.left),right:Math.round(x.right),width:Math.round(x.width),text:String(x.el.textContent||"").trim().slice(0,80)}));
@@ -61,3 +61,23 @@ for(const width of widths){
     expect(errors).toEqual([])
   })
 }
+
+test("overview clarity keeps secondary cards optional",async({page})=>{
+  const errors=await boot(page,390);
+  for(const section of ["finance","work","tennis","more"]){
+    await page.evaluate(s=>{switchTab(s);ux7SetView(s,"overview",false)},section);
+    const toggle=page.locator(`#${section} .ux7-clarity-toggle`);
+    await expect(toggle).toBeVisible();
+    const collapsed=await page.locator(`#${section} .ux7-clarity-collapsed`).count();
+    expect(collapsed,`${section}: overview must have secondary detail`).toBeGreaterThan(0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded","true");
+    expect(await page.locator(`#${section} .ux7-clarity-collapsed`).count(),`${section}: detail reveal`).toBe(0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded","false");
+    expect(await page.locator(`#${section} .ux7-clarity-collapsed`).count(),`${section}: detail collapse`).toBeGreaterThan(0)
+  }
+  await page.evaluate(()=>{switchTab("finance");ux7SetView("finance","operations",false)});
+  await expect(page.locator("#finance .ux7-clarity-toggle")).toBeHidden();
+  expect(errors).toEqual([])
+});

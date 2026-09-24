@@ -31,14 +31,20 @@ function initUi(){if(window.__LIFE_RPG_HTML_VERSION__&&window.__LIFE_RPG_HTML_VE
 }
 
 const UX7_STORAGE_KEY="life-rpg-ux7";
+const UX7_CLARITY_KEY="life-rpg-ux7-clarity";
+const UX7_CLARITY_SECTIONS=["finance","work","tennis","more"];
 
 const UX7_DEFAULTS={today:"focus",finance:"overview",work:"overview",tennis:"overview",more:"overview",advanced:false};
+const UX7_CLARITY_DEFAULTS={finance:false,work:false,tennis:false,more:false};
 
 let UX7_PREFS={...UX7_DEFAULTS};
+let UX7_CLARITY={...UX7_CLARITY_DEFAULTS};
 
 function ux7LoadPrefs(){try{UX7_PREFS={...UX7_DEFAULTS,...JSON.parse(localStorage.getItem(UX7_STORAGE_KEY)||"{}")}}catch{UX7_PREFS={...UX7_DEFAULTS}}}
+function ux7LoadClarity(){try{UX7_CLARITY={...UX7_CLARITY_DEFAULTS,...JSON.parse(localStorage.getItem(UX7_CLARITY_KEY)||"{}")}}catch{UX7_CLARITY={...UX7_CLARITY_DEFAULTS}}}
 
 function ux7SavePrefs(){try{localStorage.setItem(UX7_STORAGE_KEY,JSON.stringify(UX7_PREFS))}catch{}}
+function ux7SaveClarity(){try{localStorage.setItem(UX7_CLARITY_KEY,JSON.stringify(UX7_CLARITY))}catch{}}
 
 function ux7NormalizeText(v){return String(v||"").toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim()}
 
@@ -58,10 +64,12 @@ function ux7ViewsForCard(sectionId,card,index){if(card?.dataset?.ux7View)return 
 
 function ux7BuildSectionHeader(sectionId){
   const section=$(sectionId),meta=UX7_META[sectionId];if(!section||!meta||section.querySelector(":scope > .ux7-section-head"))return;
-  const head=document.createElement("div");head.className="ux7-section-head";head.innerHTML=`<div class="ux7-head-copy"><h1>${meta.title}</h1><div class="ux7-head-desc" id="ux7-desc-${sectionId}"></div></div><div class="ux7-tabs" role="tablist" aria-label="${meta.title}">${meta.tabs.map(([id,label])=>`<button type="button" class="ux7-tab" data-section="${sectionId}" data-view="${id}" role="tab">${label}</button>`).join("")}</div>`;
+  const clarity=UX7_CLARITY_SECTIONS.includes(sectionId)?`<button type="button" class="ux7-clarity-toggle" data-section="${sectionId}" aria-expanded="false">Детали</button>`:"";
+  const head=document.createElement("div");head.className="ux7-section-head";head.innerHTML=`<div class="ux7-head-copy"><h1>${meta.title}</h1><div class="ux7-head-actions"><div class="ux7-head-desc" id="ux7-desc-${sectionId}"></div>${clarity}</div></div><div class="ux7-tabs" role="tablist" aria-label="${meta.title}">${meta.tabs.map(([id,label])=>`<button type="button" class="ux7-tab" data-section="${sectionId}" data-view="${id}" role="tab">${label}</button>`).join("")}</div>`;
   section.insertBefore(head,section.firstChild);
   head.querySelector(`#ux7-desc-${sectionId}`).textContent=meta.desc();
   head.querySelectorAll(".ux7-tab").forEach(b=>b.addEventListener("click",()=>ux7SetView(sectionId,b.dataset.view,true)));
+  head.querySelector(".ux7-clarity-toggle")?.addEventListener("click",()=>ux7ToggleClarity(sectionId));
 }
 
 function ux7TagCards(sectionId){
@@ -69,10 +77,36 @@ function ux7TagCards(sectionId){
   section.querySelectorAll(".card").forEach(card=>{if(card.closest(".modal"))return;card.dataset.ux7View=ux7ViewsForCard(sectionId,card,i++);card.classList.add("ux7-card")});
 }
 
+function ux7ClaritySecondary(sectionId,card){
+  const t=ux7CardText(card);
+  if(sectionId==="finance")return /кампания против долгов|состояние финансов/.test(t);
+  if(sectionId==="work")return /активность месяца|карьерные квесты/.test(t);
+  if(sectionId==="tennis")return /теннисный отчет месяца/.test(t);
+  if(sectionId==="more")return /книги, навыки, ачивки и настройки|текущий месяц против прошлого/.test(t);
+  return false
+}
+
+function ux7ApplyClarity(sectionId,view=UX7_PREFS[sectionId]){
+  const section=$(sectionId);if(!section||!UX7_CLARITY_SECTIONS.includes(sectionId))return;
+  const expanded=UX7_CLARITY[sectionId]===true,overview=view==="overview";let count=0;
+  section.querySelectorAll(".ux7-card").forEach(card=>{
+    const views=(card.dataset.ux7View||"").split(/\s+/),secondary=views.includes("overview")&&ux7ClaritySecondary(sectionId,card);
+    card.classList.toggle("ux7-clarity-secondary",secondary);
+    card.classList.toggle("ux7-clarity-collapsed",overview&&secondary&&!expanded);
+    if(secondary)count++
+  });
+  const btn=section.querySelector(".ux7-clarity-toggle");if(btn){btn.hidden=!overview;btn.setAttribute("aria-expanded",expanded?"true":"false");btn.textContent=expanded?"Скрыть детали":`Детали · ${count}`}
+}
+
+function ux7ToggleClarity(sectionId){
+  if(!UX7_CLARITY_SECTIONS.includes(sectionId))return;UX7_CLARITY[sectionId]=!(UX7_CLARITY[sectionId]===true);ux7SaveClarity();ux7ApplyClarity(sectionId,UX7_PREFS[sectionId]);ux7UpdateSubViewMetrics(sectionId,UX7_PREFS[sectionId])
+}
+
 function ux7SetView(sectionId,view,scrollTop=false){
   const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];UX7_PREFS[sectionId]=view;ux7SavePrefs();
   section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view))});
+  ux7ApplyClarity(sectionId,view);
   if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
   requestAnimationFrame(()=>{ux7UpdateSubViewMetrics(sectionId,view);ui82SyncChrome(sectionId,view)});
 }
@@ -89,7 +123,7 @@ function ui82SyncChrome(sectionId,view){
 }
 
 function ux7UpdateSubViewMetrics(sectionId,view){
-  const section=$(sectionId);if(!section)return;const visible=[...section.querySelectorAll(".ux7-card:not(.ux7-hidden)")];section.dataset.ux7VisibleCards=String(visible.length);
+  const section=$(sectionId);if(!section)return;const visible=[...section.querySelectorAll(".ux7-card:not(.ux7-hidden):not(.ux7-clarity-collapsed)")];section.dataset.ux7VisibleCards=String(visible.length);
 }
 
 function ux7SetupFinancePulse(){
@@ -168,7 +202,7 @@ function ux7UpdateActiveNavLabel(sectionId){const labels={today:"Сегодня"
 function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m=>{m.setAttribute("role","dialog");m.setAttribute("aria-modal","true")});document.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});document.querySelectorAll(".iconbtn").forEach((b,i)=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label",b.title||b.textContent.trim()||`Действие ${i+1}`)})}
 
 function ux7InstallShell(){
-  document.body.classList.add("ux7","ui82");ux7LoadPrefs();
+  document.body.classList.add("ux7","ui82");ux7LoadPrefs();ux7LoadClarity();
   for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
   ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupTodayQuests();ux7SetupDebtEditor();ux7SetupFinanceEditors();ux7SetupEditors();ux7PatchEditorActions();ux7EnhanceAccessibility();
   for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);
