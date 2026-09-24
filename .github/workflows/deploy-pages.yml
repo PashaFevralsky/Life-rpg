@@ -6,60 +6,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 concurrency:
   group: life-rpg-pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  migrate:
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.cleanup.outputs.changed }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Apply pending 12.0.2 cleanup
-        id: cleanup
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -f cleanup-12.0.2.mjs ]; then
-            node cleanup-12.0.2.mjs
-
-            # The migration helper intentionally updates the normal deploy workflow.
-            # GitHub Actions tokens cannot commit workflow-file changes without
-            # the special workflows permission, so keep this already-uploaded
-            # permanent workflow unchanged and commit every other cleanup file.
-            git checkout HEAD -- .github/workflows/deploy-pages.yml
-          fi
-
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No migration changes pending."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Life RPG 12.0.2 cleanup"
-          git push origin HEAD:main
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
   build:
-    needs: migrate
-    if: needs.migrate.outputs.changed != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
