@@ -11,7 +11,7 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("12.0.2");
+  await expect(page.locator("#versionStatus")).toContainText("12.0.3");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.
@@ -29,7 +29,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#executionOsCommand")).toBeVisible();
   await expect(page.locator("#lifeOsCommand")).toContainText("Не предлагать");
 
-  // Tasks OS -> create a real next action.
   await page.locator('button[onclick*="taskEditorCard"]').click();
   await expect(page.locator("#taskEditorCard")).toBeVisible();
   await page.locator("#taskTitle").fill("E2E задача");
@@ -55,7 +54,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
     expect(await page.evaluate(()=>S.entities.tasks.find(x=>x.title==="E2E задача")?.plannedDate||"")).toBe("");
   }
 
-  // Routines OS -> create today's routine and complete it once.
   await page.locator('button[onclick*="routineDayPicker"]').click();
   await expect(page.locator("#routineEditorCard")).toBeVisible();
   await page.locator("#routineTitle").fill("E2E рутина");
@@ -66,7 +64,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await routineRow.locator('button[onclick^="completeRoutine"]').click();
   await expect(routineRow).toContainText("E2E рутина");
 
-  // Inbox OS -> capture first, decide route later.
   await page.locator("#inboxCaptureInput").fill("E2E inbox позвонить клиенту завтра");
   await page.locator('button[onclick="captureInbox()"]',).click();
   const inboxRow=page.locator("#inboxOsCommand .log-item").filter({hasText:"E2E inbox"});
@@ -74,7 +71,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await inboxRow.getByRole("button",{name:"→ Задача"}).click();
   await expect(page.locator("#tasksOsList")).toContainText("E2E inbox");
 
-  // Work -> CRM -> reveal compact editor -> save deal.
   await page.locator('[data-tab="work"]').click();
   await expect(page.locator("#work")).toHaveClass(/active/);
 
@@ -101,7 +97,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#crmDealList")).toContainText("E2E объект");
   await expect(page.locator("#crmDealList")).toContainText("Позвонить ЛПР");
 
-  // Tennis -> Training -> reveal compact editor -> add rated match.
   await page.locator('[data-tab="tennis"]').click();
   await expect(page.locator("#tennis")).toHaveClass(/active/);
 
@@ -128,11 +123,9 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
 
   await expect(page.locator("#tennisLog")).toContainText("матчи 1:0");
   await expect(page.locator("#tennisLog")).toContainText("Ударник A");
-  // More -> Knowledge -> add a book through the real modal.
   await page.locator('[data-tab="more"]').click();
   await expect(page.locator("#more")).toHaveClass(/active/);
 
-  // Modular systems are present in More / Overview.
   await expect(page.locator("#rulesOsCommand")).toBeVisible();
   await expect(page.locator("#insightsOsCommand")).toBeVisible();
   await expect(page.locator("#calibrationOsCommand")).toBeVisible();
@@ -142,7 +135,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#recoveryOsCommand")).toBeVisible();
   await page.locator('#more .ux7-tab[data-view="overview"]').click();
 
-  // Projects OS -> create a real project in More / Overview.
   await expect(page.locator("#projectsOsCommand")).toBeVisible();
   await page.locator('button[onclick="projectToggleEditor(true)"]').click();
   await expect(page.locator("#projectEditorCard")).toBeVisible();
@@ -152,7 +144,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await page.locator('button[onclick="saveProject()"]').click();
   await expect(page.locator("#projectsOsList")).toContainText("E2E проект");
 
-  // Goals OS -> create a goal linked to the real project.
   await expect(page.locator("#goalsOsCommand")).toBeVisible();
   await page.locator('button[onclick*="goalProjectLinks"]').click();
   await expect(page.locator("#goalEditorCard")).toBeVisible();
@@ -163,21 +154,18 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await page.locator('button[onclick="saveGoalForm()"]').click();
   await expect(page.locator("#goalsOsList")).toContainText("E2E цель");
 
-  // Command Palette -> global search finds the linked project.
   await page.locator("#commandPaletteBtn").click();
   await expect(page.locator("#commandPalette")).toHaveClass(/open/);
   await page.locator("#commandInput").fill("E2E проект");
   await expect(page.locator("#commandResults")).toContainText("E2E проект");
   await page.locator('#commandPalette .close').click();
 
-  // Review / Planning OS -> save the weekly snapshot and verify history.
   await expect(page.locator("#reviewOsCommand")).toBeVisible();
   await page.locator("#reviewWeekWins").fill("E2E результат недели");
   await page.locator('button[onclick="saveReview(\'week\')"]').click();
   await expect(page.locator("#reviewHistory")).toContainText("Неделя");
   await expect(page.locator("#reviewHistory")).toContainText("E2E результат недели");
 
-  // Calendar / Timeline OS -> create a future planned training.
   await expect(page.locator("#calendarOsCommand")).toBeVisible();
   await page.locator('button:has-text("+ Событие")').click();
   await page.locator("#calendarTitle").fill("E2E тренировка");
@@ -288,7 +276,6 @@ test("completed book editing and CRM double-tap preserve data", async ({ page })
   expect(result).toEqual({sales:1,selected:"finished"});
 });
 
-
 const layoutWidths=[360,390,430,768];
 
 async function seedLayoutStress(page){
@@ -324,23 +311,19 @@ for(const width of layoutWidths){
     await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
     await seedLayoutStress(page);
 
-    // Today / Focus: Life OS, Tasks, Routines and Inbox share the same mobile row contract.
     await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});
     let a=await geometryAudit(page);
     expect(a.bodyOverflow).toBeLessThanOrEqual(1);expect(a.statBad).toBe(0);expect(a.buttonBad).toBe(0);expect(a.wrapBad).toBe(0);expect(a.pad).toBeGreaterThanOrEqual(a.bh+36);
     if(width<=600){expect(a.actionRows.length).toBeGreaterThan(0);for(const row of a.actionRows){expect(row.bodyWidth).toBeGreaterThan(120);expect(row.stacked).toBe(true);expect(row.inside).toBe(true)}}
 
-    // Tennis / Progress-like stats: right values must not be clipped.
     await page.evaluate(()=>{switchTab("tennis");ux7SetView("tennis","overview",false)});
     a=await geometryAudit(page);expect(a.bodyOverflow).toBeLessThanOrEqual(1);expect(a.statBad).toBe(0);expect(a.buttonBad).toBe(0);
 
-    // Knowledge: long title + five actions must remain inside the book card.
     await page.evaluate(()=>{switchTab("more");ux7SetView("more","knowledge",false)});
     await expect(page.locator("#bookList")).toContainText("Очень длинное название книги");
     a=await geometryAudit(page);expect(a.bodyOverflow).toBeLessThanOrEqual(1);expect(a.buttonBad).toBe(0);expect(a.wrapBad).toBe(0);
     if(width<=600){const book=await page.evaluate(()=>{const b=[...document.querySelectorAll('#bookList .book')].find(x=>x.textContent.includes('Очень длинное название книги')),g=b?.querySelector(':scope > .split');if(!b||!g)return null;const br=b.getBoundingClientRect();return {display:getComputedStyle(g).display,buttons:[...g.querySelectorAll('.btn')].map(x=>{const r=x.getBoundingClientRect();return {w:r.width,inside:r.left>=br.left-1&&r.right<=br.right+1}})}});expect(book).not.toBeNull();expect(book.display).toBe("grid");for(const b of book.buttons){expect(b.w).toBeGreaterThan(44);expect(b.inside).toBe(true)}}
 
-    // Money / Work: broad smoke for whole-app horizontal geometry.
     for(const [section,view] of [["finance","overview"],["finance","bank"],["work","overview"],["work","crm"],["more","overview"],["more","settings"]]){
       await page.evaluate(([s,v])=>{switchTab(s);ux7SetView(s,v,false)},[section,view]);
       a=await geometryAudit(page);expect(a.bodyOverflow,`${section}/${view} overflows at ${width}px`).toBeLessThanOrEqual(1);expect(a.buttonBad,`${section}/${view} buttons leave cards at ${width}px`).toBe(0);
