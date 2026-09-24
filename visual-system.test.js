@@ -10,4 +10,4 @@ for(const c of families)assert.ok(css.includes(`.ui82 .${c}`),`UI82 visual cover
 assert.ok(html.includes('data-lucide="plus"')&&html.includes('data-lucide="briefcase"'),"static quick actions must use Lucide line icons");
 assert.ok(ui.includes('function ui82Icon(name)'),"dynamic quick actions must use ui82 icon helper");
 assert.ok(!css.includes('.ui82 .quick button{min-height:64px;border:0;border-radius:16px;background:#141923'),"old 8.1 shortcut tile styling leaked into active layer");
-console.log(`OK — Life RPG 10.0.2 visual-system coverage passed: ${families.length} component families`);
+console.log(`OK — Life RPG 12.0.2 visual-system coverage passed: ${families.length} component families`);

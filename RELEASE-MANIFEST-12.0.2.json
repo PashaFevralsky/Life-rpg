@@ -1,0 +1,19 @@
+{
+  "version": "12.0.2",
+  "stateVersion": 18,
+  "type": "cleanup",
+  "changes": [
+    "version-unification",
+    "package-lock-sync",
+    "npm-ci",
+    "huawei-regression-gate",
+    "full-mobile-layout-e2e"
+  ],
+  "preserves": [
+    "state-v18",
+    "finance-logic",
+    "work-logic",
+    "tennis-domain-logic",
+    "local-first-storage"
+  ]
+}

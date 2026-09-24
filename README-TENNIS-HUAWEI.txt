@@ -5,7 +5,7 @@ Replace these 3 files in the repository root:
 - bootstrap.js
 - vite.config.mjs
 
-No state migration. APP_VERSION remains 12.0.1 and STATE_VERSION remains 18.
+No state migration. APP_VERSION is 12.0.2 and STATE_VERSION remains 18.
 The new module stores structured watch data in settings.growthOS.tennisWearables.
 Screenshots themselves are not persisted.
 

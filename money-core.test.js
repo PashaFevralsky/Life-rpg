@@ -12,4 +12,4 @@ assert.equal(run('moneySum([22909.29,73017.30,48000.41])'),143927);
 run(`S=deepClone(DEFAULT_STATE);S.accounts=[{id:'a',name:'A',verifiedBalance:7532.10,verifiedAt:new Date().toISOString(),active:true}];S.settings.primaryAccountId='a';S.assets=[{id:'x',active:true,available:false,verifiedValue:47815.07,verifiedAt:new Date().toISOString()}];S.debts=[{id:'d1',balance:792387.81,active:true},{id:'d2',balance:450702.80,active:true},{id:'d3',balance:44856.57,active:true},{id:'d4',balance:17543.64,active:true}];`);
 assert.equal(run('totalDebt()'),1305490.82);
 assert.equal(run('netWorth()'),-1250143.65);
-console.log("OK — Life RPG 10.0.2 money core tests passed");
+console.log("OK — Life RPG 12.0.2 money core tests passed");

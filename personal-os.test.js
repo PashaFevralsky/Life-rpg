@@ -32,5 +32,5 @@ const run=code=>new vm.Script(code).runInContext(ctx);
   run(`S.entities.tasks=[{id:'t1',title:'Task',status:'active',plannedDate:'',timerStartedAt:'',actualMinutes:0,updatedAt:''}];focusSyncLinkedTask({taskId:'t1',dateKey:'2026-09-30'});`);assert.equal(run('S.entities.tasks[0].plannedDate'),"2026-09-30");
   run(`S.settings.personalOS.activeFocus={taskId:'t1',startedAt:new Date().toISOString()};`);assert.equal(run('calibrationStartTaskTimer("t1")'),false);
 
-  console.log("OK — Personal OS 12.0.1 native-module refactor regression tests passed");
+  console.log("OK — Personal OS 12.0.2 native-module refactor regression tests passed");
 })().catch(e=>{console.error(e);process.exit(1)});

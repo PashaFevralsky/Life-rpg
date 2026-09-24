@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("fs"),path=require("path"),assert=require("assert");
 const root=__dirname,css=fs.readFileSync(path.join(root,"styles.css"),"utf8"),ui=fs.readFileSync(path.join(root,"ui.js"),"utf8"),boot=fs.readFileSync(path.join(root,"bootstrap.js"),"utf8"),html=fs.readFileSync(path.join(root,"index.html"),"utf8");
-assert.ok(css.includes("Life RPG 10.0.2 — Full Visual Redesign"),"8.2 visual system missing");
+assert.ok(css.includes("Life RPG 12.0.2 — Full Visual Redesign"),"8.2 visual system missing");
 assert.ok(ui.includes('classList.add("ux7","ui82")'),"ui82 body class missing");
 assert.ok(ui.includes("function ui82SyncChrome"),"ui82 chrome sync missing");
 assert.ok(boot.includes("ui82SyncChrome"),"main navigation does not sync ui82 chrome");
@@ -24,4 +24,4 @@ assert.ok(css.includes(".ui82 .ux7-action-grid"),"quick sheet redesign missing")
 assert.ok(css.includes(".ui82 .ux7-fab.ui82-fab-hidden"),"contextual FAB style missing");
 assert.ok(ui.includes('(sectionId==="today")'),"FAB must be hidden on Today where shortcuts already exist");
 assert.ok(css.includes("background:#08090c;background-image:none"),"opaque sticky header redesign missing");
-console.log("OK — Life RPG 10.0.2 full visual-layout tests passed");
+console.log("OK — Life RPG 12.0.2 full visual-layout tests passed");

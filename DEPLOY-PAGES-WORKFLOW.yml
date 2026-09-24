@@ -20,25 +20,34 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+
       - name: Run tests
         run: npm test
+
       - name: Build Vite + Workbox PWA
         run: npm run build
+
       - name: Verify production service worker
         run: node dist-audit.test.js
+
       - name: Install Chromium for E2E
         run: npx playwright install --with-deps chromium
+
       - name: Run mobile browser E2E
         run: npm run test:e2e
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

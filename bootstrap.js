@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 12.0.1 — modular runtime bootstrap + Growth OS + Personal OS */
+/* Life RPG 12.0.2 — modular runtime bootstrap + Growth OS + Personal OS */
 const LIFE_RPG_RUNTIME_MODULES=[
   "data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js",
   "tracking-os.js","personal-os.js","journal-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","personal-import-os.js","dashboard-os.js",
@@ -9,12 +9,7 @@ const LIFE_RPG_RUNTIME_MODULES=[
 function lifeRuntimeLoadScript(file){return new Promise((resolve,reject)=>{const existing=document.querySelector?.(`script[data-life-runtime="${file}"]`);if(existing){if(existing.dataset.ready==="1")resolve();else existing.addEventListener("load",resolve,{once:true});return}const s=document.createElement("script");s.src=`./${file}?v=${APP_VERSION}`;s.async=false;s.dataset.lifeRuntime=file;s.onload=()=>{s.dataset.ready="1";resolve()};s.onerror=()=>reject(new Error(`Не удалось загрузить ${file}`));document.head.appendChild(s)})}
 function lifeRefreshReleaseLabels(){
   document.title=`Life RPG ${APP_VERSION}`;
-  window.__LIFE_RPG_HTML_VERSION__=APP_VERSION;
-  try{
-    const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);const nodes=[];let n;
-    while((n=w.nextNode()))if(n.nodeValue?.includes("11.1.1"))nodes.push(n);
-    for(const x of nodes)x.nodeValue=x.nodeValue.replaceAll("11.1.1",APP_VERSION)
-  }catch{}
+  window.__LIFE_RPG_HTML_VERSION__=APP_VERSION
 }
 function lifeInstallRuntime(){
   if(window.__LIFE_RPG_RUNTIME__)return;window.__LIFE_RPG_RUNTIME__=true;
