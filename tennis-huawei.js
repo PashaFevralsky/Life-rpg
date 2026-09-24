@@ -58,9 +58,13 @@ function tennisHuaweiFirstNumberNear(lines,re,{min=0,max=9999,decimal=false}={})
 function tennisHuaweiZone(lines,re){
   for(let i=0;i<lines.length;i++){
     if(!re.test(lines[i]))continue;
-    const sample=[lines[i],lines[i+1]||""].join(" ");
-    if(/<\s*1/.test(sample))return 0.5;
-    const m=sample.match(/<?\s*(\d+)\s*(?:мин|mин|min)/i);
+    const current=lines[i];
+    if(/<\s*1\s*(?:мин|mин|min)/i.test(current))return 0.5;
+    let m=current.match(/<?\s*(\d+)\s*(?:мин|mин|min)/i);
+    if(m)return Math.max(0,+m[1]||0);
+    const next=lines[i+1]||"";
+    if(/<\s*1\s*(?:мин|mин|min)/i.test(next))return 0.5;
+    m=next.match(/<?\s*(\d+)\s*(?:мин|mин|min)/i);
     if(m)return Math.max(0,+m[1]||0)
   }
   return null
