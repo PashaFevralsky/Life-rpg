@@ -48,7 +48,7 @@ function today123CandidateAllowed(c){
 }
 
 function today123Plan(){
-  const ex=today123ExecutionSnapshot(),reservedEvents=today123ReservedEvents(),all=typeof lifeOsCandidates==="function"?lifeOsCandidates():[],limit=Math.max(2,Math.round(typeof lifeOsSettingNumber==="function"?lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6):4));
+  const ex=today123ExecutionSnapshot(),reservedEvents=today123ReservedEvents(),all=typeof lifeOsCandidates==="function"?lifeOsCandidates():[],limit=typeof intelligence1321SelectPlan==="function"?3:Math.max(2,Math.round(typeof lifeOsSettingNumber==="function"?lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6):4));
   const covered=all.filter(c=>today123CandidateCovered(c,reservedEvents,ex.assignments));
   const candidates=all.filter(c=>today123CandidateAllowed(c)&&!today123CandidateCovered(c,reservedEvents,ex.assignments));
   const hard=candidates.filter(x=>x.hard).sort((a,b)=>b.score-a.score),soft=candidates.filter(x=>!x.hard&&x.score>=42).sort((a,b)=>b.score-a.score);

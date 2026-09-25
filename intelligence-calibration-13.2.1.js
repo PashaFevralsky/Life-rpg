@@ -1,0 +1,113 @@
+"use strict";
+
+/* Life RPG 13.2.1 — Intelligence Calibration & Control.
+   Local-first quality-control layer for Decision Intelligence 13.2.
+   Separates recommendation utility from execution, calibrates confidence only on
+   evaluated outcomes, detects drift/freshness issues, enforces a Top-3 budget,
+   remembers repeated manual overrides conservatively, and can reset learning
+   without deleting the underlying Decision Journal or domain data. */
+
+const INTEL1321_VERSION=1;
+const INTEL1321_PRIMARY_LIMIT=3;
+const INTEL1321_MAX_OVERRIDES=120;
+
+function intelligence1321Store(){
+  const root=intelligence132Store();let c=root.calibration;
+  if(!c||typeof c!=="object"||Array.isArray(c))c={};
+  if(!Array.isArray(c.overrides))c.overrides=[];
+  if(!c.policy||typeof c.policy!=="object"||Array.isArray(c.policy))c.policy={};
+  c.policy.learningCap=clamp(Number(c.policy.learningCap)||8,3,8);
+  c.policy.minOutcomeSamples=clamp(Math.round(Number(c.policy.minOutcomeSamples)||3),3,10);
+  c.policy.overrideMinSamples=clamp(Math.round(Number(c.policy.overrideMinSamples)||3),3,6);
+  c.policy.overrideCap=clamp(Number(c.policy.overrideCap)||4,1,4);
+  c.version=INTEL1321_VERSION;root.calibration=c;return c
+}
+function intelligence1321LearningPolicy(){return {...intelligence1321Store().policy}}
+function intelligence1321ResetAt(){return String(intelligence1321Store().learningResetAt||"")}
+function intelligence1321FilterLearningRows(rows){const at=intelligence1321ResetAt();return !at?(rows||[]):(rows||[]).filter(x=>String(x.outcomeAt||x.at||"")>=at)}
+function intelligence1321RecentOverrides(signature){
+  const reset=intelligence1321ResetAt(),cut=Date.now()-60*86400000;return intelligence1321Store().overrides.filter(x=>x.signature===signature&&(!reset||String(x.at||"")>=reset)&&Date.parse(x.at||0)>=cut)
+}
+function intelligence1321OverrideAdjustment(x){
+  if(x?.hard)return 0;const p=intelligence1321LearningPolicy(),rows=intelligence1321RecentOverrides(intelligence132Signature(x));if(rows.length<p.overrideMinSamples)return 0;
+  return -Math.min(p.overrideCap,2+Math.floor((rows.length-p.overrideMinSamples)/2))
+}
+async function intelligence1321ManualOverride(token){
+  const id=decodeURIComponent(String(token||"")),x=(typeof lifeOsCandidates==="function"?lifeOsCandidates():[]).find(z=>String(z.id)===id);if(!x||x.hard){toast?.("HARD-обязательство нельзя понизить персональным предпочтением");return false}
+  const c=intelligence1321Store();c.overrides.unshift({id:uid(),at:new Date().toISOString(),candidateId:String(x.id),signature:intelligence132Signature(x),area:x.area||"",kind:x.kind||"",title:x.title||"",direction:"down"});c.overrides=c.overrides.slice(0,INTEL1321_MAX_OVERRIDES);
+  audit?.("Decision Intelligence manual override","system",`down • ${x.id}`);await save?.("Предпочтение сохранено как слабый сигнал");render?.();return true
+}
+
+function intelligence1321Journal(){return (intelligence132Store().journal||[]).filter(x=>x&&x.type==="exposure")}
+function intelligence1321OutcomeKind(x){return x?.outcome==="helped"||x?.outcome==="no-effect"?"utility":x?.outcome==="done"||x?.outcome==="missed"?"execution":""}
+function intelligence1321CalibrationSummary(){
+  const rows=intelligence1321Journal(),utility=rows.filter(x=>intelligence1321OutcomeKind(x)==="utility"),execution=rows.filter(x=>intelligence1321OutcomeKind(x)==="execution");
+  const helped=utility.filter(x=>x.outcome==="helped").length,done=execution.filter(x=>x.outcome==="done").length;
+  const avgConf=utility.length?utility.reduce((s,x)=>s+(+x.confidenceScore||0),0)/utility.length:null,helpRate=utility.length?helped/utility.length:null;
+  const brier=utility.length?utility.reduce((s,x)=>{const p=clamp((+x.confidenceScore||0)/100,0,1),y=x.outcome==="helped"?1:0;return s+(p-y)*(p-y)},0)/utility.length:null;
+  const gap=utility.length?Math.abs(avgConf/100-helpRate):null;
+  return {exposures:rows.length,evaluatedUtility:utility.length,helped,helpRate,avgConfidence:avgConf,brier,calibrationGap:gap,executionN:execution.length,done,executionRate:execution.length?done/execution.length:null,sufficient:utility.length>=5}
+}
+function intelligence1321ConfidenceBuckets(){
+  const rows=intelligence1321Journal().filter(x=>intelligence1321OutcomeKind(x)==="utility"),defs=[{id:"low",label:"25–59",a:0,b:59},{id:"medium",label:"60–79",a:60,b:79},{id:"high",label:"80–100",a:80,b:100}];
+  return defs.map(d=>{const xs=rows.filter(x=>(+x.confidenceScore||0)>=d.a&&(+x.confidenceScore||0)<=d.b),helped=xs.filter(x=>x.outcome==="helped").length;return {...d,n:xs.length,avgConfidence:xs.length?xs.reduce((s,x)=>s+(+x.confidenceScore||0),0)/xs.length:null,helpRate:xs.length?helped/xs.length:null}})
+}
+function intelligence1321ProviderHealth(){
+  const rows=intelligence1321Journal(),m=new Map();for(const x of rows){const key=String(x.source||x.area||"Неизвестно"),z=m.get(key)||{provider:key,exposures:0,utilityN:0,helped:0,executionN:0,done:0,confidence:0,freshness:0,freshnessN:0};z.exposures++;z.confidence+=+x.confidenceScore||0;if(Number.isFinite(+x.freshness)){z.freshness+=+x.freshness;z.freshnessN++}if(intelligence1321OutcomeKind(x)==="utility"){z.utilityN++;if(x.outcome==="helped")z.helped++}if(intelligence1321OutcomeKind(x)==="execution"){z.executionN++;if(x.outcome==="done")z.done++}m.set(key,z)}
+  return [...m.values()].map(z=>({...z,avgConfidence:z.exposures?z.confidence/z.exposures:null,avgFreshness:z.freshnessN?z.freshness/z.freshnessN:null,helpRate:z.utilityN?z.helped/z.utilityN:null,executionRate:z.executionN?z.done/z.executionN:null})).sort((a,b)=>b.exposures-a.exposures)
+}
+function intelligence1321CurrentCandidates(){try{return typeof lifeOsRawCandidates==="function"?lifeOsRawCandidates():[]}catch{return[]}}
+function intelligence1321FreshnessMonitor(){
+  const rows=intelligence1321CurrentCandidates().map(x=>{const f=intelligence132Freshness(x),u=intelligence132Unknowns(x);return {id:x.id,area:x.area,title:x.title,score:f.score,label:f.label,unknowns:u}}),stale=rows.filter(x=>x.score<55||x.unknowns.some(u=>/старше 30|неизвестна дата/.test(u)));
+  const byArea=new Map();for(const x of rows){const z=byArea.get(x.area)||{area:x.area,n:0,sum:0,stale:0};z.n++;z.sum+=x.score;if(x.score<55)z.stale++;byArea.set(x.area,z)}
+  return {rows,stale:stale.sort((a,b)=>a.score-b.score),areas:[...byArea.values()].map(x=>({...x,avg:x.n?x.sum/x.n:0})).sort((a,b)=>a.avg-b.avg)}
+}
+function intelligence1321LocalWindow(rows,days,offset=0){const end=localDateKey(addDays(new Date(),-offset)),start=localDateKey(addDays(new Date(),-(offset+days-1)));return (rows||[]).filter(x=>String(x.dateKey||"")>=start&&String(x.dateKey||"")<=end)}
+function intelligence1321AreaDistribution(rows){const m=new Map();for(const x of rows)m.set(x.area||"",(m.get(x.area||"")||0)+1);const n=rows.length||1;return Object.fromEntries([...m].map(([k,v])=>[k,v/n]))}
+function intelligence1321Drift(){
+  const rows=intelligence1321Journal(),cur=intelligence1321LocalWindow(rows,7,0),base=intelligence1321LocalWindow(rows,21,7);if(cur.length<5||base.length<8)return {status:"insufficient",currentN:cur.length,baselineN:base.length,scoreDelta:null,confidenceDelta:null,distributionShift:null,reasons:["недостаточно исторических показов для оценки drift"]};
+  const avg=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0)/a.length,scoreDelta=avg(cur,"score")-avg(base,"score"),confidenceDelta=avg(cur,"confidenceScore")-avg(base,"confidenceScore"),a=intelligence1321AreaDistribution(cur),b=intelligence1321AreaDistribution(base),keys=new Set([...Object.keys(a),...Object.keys(b)]),shift=[...keys].reduce((s,k)=>s+Math.abs((a[k]||0)-(b[k]||0)),0)/2,reasons=[];
+  if(Math.abs(scoreDelta)>=15)reasons.push(`средний priority score изменился на ${scoreDelta>=0?"+":""}${scoreDelta.toFixed(1)}`);if(Math.abs(confidenceDelta)>=12)reasons.push(`средняя confidence изменилась на ${confidenceDelta>=0?"+":""}${confidenceDelta.toFixed(1)} п.п.`);if(shift>=.35)reasons.push(`структура доменов изменилась на ${(shift*100).toFixed(0)}%`);
+  return {status:reasons.length?"drift":"stable",currentN:cur.length,baselineN:base.length,scoreDelta,confidenceDelta,distributionShift:shift,reasons}
+}
+function intelligence1321FalseSignalProxies(){
+  const rows=intelligence1321Journal(),falsePositive=rows.filter(x=>x.outcome==="no-effect"&&((+x.confidenceScore||0)>=80||(+x.score||0)>=90)).slice(0,10),under=rows.filter(x=>x.outcome==="helped"&&(+x.rank||0)>=4).slice(0,10);return {falsePositive,underPrioritized:under}
+}
+function intelligence1321Saturation(all){const active=(all||[]).filter(x=>(+x.score||0)>=60),hard=(all||[]).filter(x=>x.hard);return {active:active.length,hard:hard.length,saturated:active.length>6||hard.length>3}}
+function intelligence1321SelectPlan(all,{legacyLimit=4}={}){
+  const rows=[...(all||[])],hard=rows.filter(x=>x.hard),primary=[],picked=new Set(),areaCount=new Map(),add=x=>{if(!x||picked.has(x.id))return;primary.push(x);picked.add(x.id);areaCount.set(x.area,(areaCount.get(x.area)||0)+1)};
+  for(const x of hard)add(x);const budget=Math.max(INTEL1321_PRIMARY_LIMIT,hard.length);
+  if(primary.length<budget){for(const x of rows){if(primary.length>=budget)break;if(x.hard||(+x.score||0)<42)continue;if((areaCount.get(x.area)||0)===0)add(x)}}
+  if(primary.length<budget){for(const x of rows){if(primary.length>=budget)break;if(x.hard||(+x.score||0)<42||picked.has(x.id))continue;if((areaCount.get(x.area)||0)>=2)continue;add(x)}}
+  if(primary.length<budget){for(const x of rows){if(primary.length>=budget)break;if(!x.hard&&(+x.score||0)>=42)add(x)}}
+  const deferred=rows.filter(x=>(+x.score||0)>=42&&!picked.has(x.id)),reserve=deferred.slice(0,5),sat=intelligence1321Saturation(rows);
+  return {primaryLimit:INTEL1321_PRIMARY_LIMIT,budget,primary,reserve,deferred,hard,overload:sat.saturated||hard.length>INTEL1321_PRIMARY_LIMIT,legacyLimit}
+}
+function intelligence1321WhyNot(x,selection){
+  if(!x)return "кандидат отсутствует";if(x.hard)return "HARD-обязательство должно оставаться в основном плане";if((+x.score||0)<42)return `priority score ${Math.round(+x.score||0)} ниже рабочего порога 42`;
+  if(selection?.primary?.some(z=>z.id===x.id))return "кандидат уже находится в Top-3";const top=selection?.primary||[],same=top.filter(z=>z.area===x.area).length;if(same>=2)return `в Top-3 уже два действия домена «${x.area}»`;if((+x.conflictAdjustment||0)<0)return `проиграл из-за междоменного конфликта (${x.conflictAdjustment})`;if((+x.confidenceScore||0)<60)return `недостаточная confidence ${Math.round(+x.confidenceScore||0)}%`;return "Top-3 заполнен более срочными/значимыми кандидатами; оставлен в резерве"
+}
+function intelligence1321WhyNotRows(plan){const all=plan?.all||[],selection={primary:plan?.plan||[]};return (plan?.deferred||all.filter(x=>!selection.primary.some(z=>z.id===x.id))).slice(0,6).map(x=>({...x,whyNot:intelligence1321WhyNot(x,selection)}))}
+function intelligence1321Diversity(plan){const rows=plan?.plan||[],m=new Map();for(const x of rows)m.set(x.area,(m.get(x.area)||0)+1);const max=rows.length?Math.max(...m.values()):0;return {n:rows.length,areas:m.size,maxShare:rows.length?max/rows.length:0,balanced:rows.length<=1||m.size>=Math.min(rows.length,2)}}
+function intelligence1321WeeklyReview(){
+  const rows=intelligence1321Journal(),cur=intelligence1321LocalWindow(rows,7),prev=intelligence1321LocalWindow(rows,7,7),utility=cur.filter(x=>intelligence1321OutcomeKind(x)==="utility"),execution=cur.filter(x=>intelligence1321OutcomeKind(x)==="execution"),prevUtility=prev.filter(x=>intelligence1321OutcomeKind(x)==="utility");
+  const rate=a=>a.length?a.filter(x=>x.outcome==="helped").length/a.length:null,exec=a=>a.length?a.filter(x=>x.outcome==="done").length/a.length:null,drift=intelligence1321Drift(),fresh=intelligence1321FreshnessMonitor();
+  return {shown:cur.length,evaluated:utility.length,helpRate:rate(utility),previousHelpRate:rate(prevUtility),executionRate:exec(execution),drift,freshStale:fresh.stale.length,manualOverrides:intelligence1321Store().overrides.filter(x=>Date.parse(x.at||0)>=Date.now()-7*86400000).length}
+}
+function intelligence1321QualityStatus(){const c=intelligence1321CalibrationSummary(),drift=intelligence1321Drift(),fresh=intelligence1321FreshnessMonitor();if(!c.sufficient)return {level:"learning",label:"Набираем факты",detail:`Полезность оценена только для ${c.evaluatedUtility} решений; нужно ≥5.`};if(c.calibrationGap>.25||drift.status==="drift"||fresh.stale.length>=4)return {level:"warn",label:"Нужна проверка",detail:"Есть заметная ошибка confidence, drift или устаревшие источники."};return {level:"good",label:"Контроль стабилен",detail:"Критичных сигналов калибровки сейчас не видно."}}
+async function intelligence1321ResetLearning(){
+  if(typeof confirm==="function"&&!confirm("Сбросить персональное обучение и override-память? Decision Journal и основные данные останутся."))return false;const root=intelligence132Store(),c=intelligence1321Store();c.learningResetAt=new Date().toISOString();c.overrides=[];root.candidateState={};c.lastResetAt=c.learningResetAt;audit?.("Decision Intelligence learning reset","system",c.learningResetAt);await save?.("Обучение сброшено; журнал сохранён");render?.();return true
+}
+function intelligence1321ExportReport(){const report={format:"life-rpg-intelligence-calibration-13.2.1",generatedAt:new Date().toISOString(),appVersion:typeof APP_VERSION!=="undefined"?APP_VERSION:"",summary:intelligence1321CalibrationSummary(),buckets:intelligence1321ConfidenceBuckets(),providers:intelligence1321ProviderHealth(),drift:intelligence1321Drift(),freshness:intelligence1321FreshnessMonitor().areas,weekly:intelligence1321WeeklyReview(),falseSignalProxies:{falsePositive:intelligence1321FalseSignalProxies().falsePositive.length,underPrioritized:intelligence1321FalseSignalProxies().underPrioritized.length},policy:intelligence1321LearningPolicy(),learningResetAt:intelligence1321ResetAt()};const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});if(typeof share131DownloadBlob==="function")share131DownloadBlob(blob,`life-rpg-intelligence-calibration-${localDateKey()}.json`);else{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`life-rpg-intelligence-calibration-${localDateKey()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}return report}
+
+function intelligence1321Pct(v){return v==null?"—":`${Math.round(v*100)}%`}
+function intelligence1321BucketsHtml(){const rows=intelligence1321ConfidenceBuckets();return rows.map(x=>`<div class="log-item"><div class="qtitle">Confidence ${escapeHtml(x.label)}</div><div class="qmeta">samples ${x.n} • avg confidence ${x.avgConfidence==null?"—":Math.round(x.avgConfidence)+"%"} • фактически помогло ${intelligence1321Pct(x.helpRate)}</div></div>`).join("")}
+function intelligence1321ProviderHtml(){const rows=intelligence1321ProviderHealth().slice(0,8);return rows.length?rows.map(x=>`<div class="log-item"><div class="qtitle">${escapeHtml(x.provider)}</div><div class="qmeta">показов ${x.exposures} • utility ${x.utilityN?intelligence1321Pct(x.helpRate)+` (${x.utilityN})`:"нет оценки"} • execution ${x.executionN?intelligence1321Pct(x.executionRate)+` (${x.executionN})`:"нет оценки"} • avg confidence ${x.avgConfidence==null?"—":Math.round(x.avgConfidence)+"%"}</div></div>`).join(""):'<div class="empty">Истории показов пока недостаточно.</div>'}
+function intelligence1321FreshnessHtml(){const f=intelligence1321FreshnessMonitor();return f.stale.length?f.stale.slice(0,8).map(x=>`<div class="log-item"><div class="qtitle">${escapeHtml(x.title)}</div><div class="qmeta">${escapeHtml(x.area)} • freshness ${Math.round(x.score)} • ${escapeHtml(x.label)}</div>${x.unknowns.length?`<div class="qmeta">Неизвестно: ${x.unknowns.map(escapeHtml).join(" • ")}</div>`:""}</div>`).join(""):'<div class="status">Активных источников с критически низкой свежестью не найдено.</div>'}
+function intelligence1321WhyNotHtml(plan){const rows=intelligence1321WhyNotRows(plan);return rows.length?rows.map(x=>`<div class="log-item"><div class="split"><div class="qtitle">${escapeHtml(x.title)}</div><b>${Math.round(+x.score||0)}</b></div><div class="qmeta">${escapeHtml(x.area)} • ${escapeHtml(x.whyNot)}</div></div>`).join(""):'<div class="status">Резерв пуст: все активные кандидаты вошли в основной план.</div>'}
+function intelligence1321DriftHtml(){const d=intelligence1321Drift();if(d.status==="insufficient")return `<div class="status">Drift: недостаточно истории (${d.currentN}/${d.baselineN} показов текущего/базового окна).</div>`;return `<div class="notice"><b>Drift: ${d.status==="stable"?"не обнаружен":"обнаружен"}</b><div class="qmeta">score Δ ${d.scoreDelta>=0?"+":""}${d.scoreDelta.toFixed(1)} • confidence Δ ${d.confidenceDelta>=0?"+":""}${d.confidenceDelta.toFixed(1)} п.п. • shift доменов ${(d.distributionShift*100).toFixed(0)}%</div>${d.reasons.length?`<div class="qmeta">${d.reasons.map(escapeHtml).join(" • ")}</div>`:""}</div>`}
+function intelligence1321FalseSignalsHtml(){const x=intelligence1321FalseSignalProxies(),rows=[...x.falsePositive.map(r=>({r,label:"possible false positive: высокая уверенность, но отмечено «не помогло»"})),...x.underPrioritized.map(r=>({r,label:"under-prioritized proxy: помогло, хотя было ниже Top-3"}))].slice(0,8);return rows.length?rows.map(x=>`<div class="log-item"><div class="qtitle">${escapeHtml(x.r.title||x.r.candidateId)}</div><div class="qmeta">${escapeHtml(x.label)} • score ${Math.round(+x.r.score||0)} • confidence ${Math.round(+x.r.confidenceScore||0)}%</div></div>`).join(""):'<div class="status">Явных proxy-сигналов ошибок ранжирования пока нет.</div>'}
+function intelligence1321WeeklyHtml(){const w=intelligence1321WeeklyReview();return `<div class="report-grid"><div class="report-item"><div class="smallcaps">Показано 7д</div><b>${w.shown}</b></div><div class="report-item"><div class="smallcaps">Utility оценено</div><b>${w.evaluated}</b></div><div class="report-item"><div class="smallcaps">Помогло</div><b>${intelligence1321Pct(w.helpRate)}</b><div class="sub">пред. неделя ${intelligence1321Pct(w.previousHelpRate)}</div></div><div class="report-item"><div class="smallcaps">Исполнение</div><b>${intelligence1321Pct(w.executionRate)}</b></div><div class="report-item"><div class="smallcaps">Устаревших</div><b>${w.freshStale}</b></div><div class="report-item"><div class="smallcaps">Overrides</div><b>${w.manualOverrides}</b></div></div>`}
+function intelligence1321CalibrationHtml(){const s=intelligence1321CalibrationSummary(),q=intelligence1321QualityStatus(),plan=typeof lifeOsDailyPlan==="function"?lifeOsDailyPlan():{plan:[],all:[],deferred:[]},div=intelligence1321Diversity(plan),sat=intelligence1321Saturation(plan.all||[]);return `<div class="notice"><b>${escapeHtml(q.label)}</b><div class="qmeta">${escapeHtml(q.detail)}</div></div><div class="report-grid" style="margin-top:10px"><div class="report-item"><div class="smallcaps">Utility samples</div><b>${s.evaluatedUtility}</b></div><div class="report-item"><div class="smallcaps">Help rate</div><b>${intelligence1321Pct(s.helpRate)}</b></div><div class="report-item"><div class="smallcaps">Confidence gap</div><b>${s.calibrationGap==null?"—":Math.round(s.calibrationGap*100)+" п.п."}</b></div><div class="report-item"><div class="smallcaps">Brier</div><b>${s.brier==null?"—":s.brier.toFixed(2)}</b></div><div class="report-item"><div class="smallcaps">Top-3 domains</div><b>${div.areas}/${div.n||0}</b></div><div class="report-item"><div class="smallcaps">Saturation</div><b>${sat.saturated?"да":"нет"}</b></div></div>`}
+function ensureIntelligence1321Ui(){if(document.getElementById("intelligence1321Control"))return;const anchor=document.getElementById("intelligence132Command")?.closest?.(".card");if(!anchor)return;anchor.insertAdjacentHTML("afterend",`<div data-ux7-view="focus" class="card ux7-card span-12"><div class="eyebrow">Intelligence Calibration & Control 13.2.1</div><div class="section-title">Контроль качества решений</div><div class="muted" style="margin-top:6px">Полезность и исполнение считаются отдельно. Confidence калибруется только там, где есть явный исход «помогло / не помогло». HARD-обязательства не понижаются персональными предпочтениями.</div><div id="intelligence1321Control" style="margin-top:12px"></div><details style="margin-top:12px"><summary>Почему не Top-3?</summary><div id="intelligence1321WhyNot" style="margin-top:8px"></div></details><details style="margin-top:12px"><summary>Confidence buckets</summary><div id="intelligence1321Buckets" style="margin-top:8px"></div></details><details style="margin-top:12px"><summary>Provider Health</summary><div id="intelligence1321Providers" style="margin-top:8px"></div></details><details style="margin-top:12px"><summary>Freshness Monitor</summary><div id="intelligence1321Freshness" style="margin-top:8px"></div></details><details style="margin-top:12px"><summary>Decision Drift</summary><div id="intelligence1321Drift" style="margin-top:8px"></div></details><details style="margin-top:12px"><summary>Ошибки ранжирования — proxy</summary><div class="sub" style="margin:8px 0">Это диагностические признаки, а не доказанные false positive/false negative.</div><div id="intelligence1321FalseSignals"></div></details><details style="margin-top:12px"><summary>Weekly Intelligence Review</summary><div id="intelligence1321Weekly" style="margin-top:8px"></div></details><div class="status" style="margin-top:12px">Guardrails: обучение включается после ≥3 исходов • поправка ограничена ±8 • override-память включается после ≥3 повторов и не сильнее −4 • HARD не понижается.</div><div class="split" style="margin-top:12px"><button class="btn ghost small" onclick="intelligence1321ExportReport()">Отчёт JSON</button><button class="btn ghost small" onclick="intelligence1321ResetLearning()">Сбросить обучение</button></div></div>`)}
+function renderIntelligence1321(){const box=document.getElementById("intelligence1321Control");if(!box)return;const plan=typeof lifeOsDailyPlan==="function"?lifeOsDailyPlan():{plan:[],all:[],deferred:[]};box.innerHTML=intelligence1321CalibrationHtml();const set=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html};set("intelligence1321WhyNot",intelligence1321WhyNotHtml(plan));set("intelligence1321Buckets",intelligence1321BucketsHtml());set("intelligence1321Providers",intelligence1321ProviderHtml());set("intelligence1321Freshness",intelligence1321FreshnessHtml());set("intelligence1321Drift",intelligence1321DriftHtml());set("intelligence1321FalseSignals",intelligence1321FalseSignalsHtml());set("intelligence1321Weekly",intelligence1321WeeklyHtml())}

@@ -199,18 +199,9 @@ function lifeOsCandidates(){
 }
 
 function lifeOsDailyPlan(){
-  const limit=Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)),all=lifeOsCandidates(),plan=[],picked=new Set(),hardAll=all.filter(x=>x.hard);
-  const add=x=>{if(!x||picked.has(x.id))return;plan.push(x);picked.add(x.id)};
-  for(const x of hardAll)add(x);
-  const softLimit=Math.max(limit,hardAll.length),areas=new Set(plan.map(x=>x.area));
-  for(const x of all)if(plan.length<softLimit&&x.score>=42&&!areas.has(x.area)){add(x);areas.add(x.area)}
-  for(const x of all)if(plan.length<softLimit&&x.score>=42)add(x);
-  const deferred=all.filter(x=>x.score>=42&&!picked.has(x.id));
-  return {
-    limit,all,plan,deferred,hardAll,
-    minutes:plan.reduce((s,x)=>s+x.minutes,0),
-    overload:hardAll.length>limit||all.filter(x=>x.score>=60).length>limit+2
-  }
+  const limit=Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)),all=lifeOsCandidates(),hardAll=all.filter(x=>x.hard);
+  if(typeof intelligence1321SelectPlan==="function"){const sel=intelligence1321SelectPlan(all,{legacyLimit:limit}),plan=sel.primary,deferred=sel.deferred;return {limit:sel.primaryLimit,legacyLimit:limit,all,plan,deferred,reserve:sel.reserve,hardAll,minutes:plan.reduce((s,x)=>s+x.minutes,0),overload:sel.overload}}
+  const plan=[],picked=new Set(),add=x=>{if(!x||picked.has(x.id))return;plan.push(x);picked.add(x.id)};for(const x of hardAll)add(x);const softLimit=Math.max(limit,hardAll.length),areas=new Set(plan.map(x=>x.area));for(const x of all)if(plan.length<softLimit&&x.score>=42&&!areas.has(x.area)){add(x);areas.add(x.area)}for(const x of all)if(plan.length<softLimit&&x.score>=42)add(x);const deferred=all.filter(x=>x.score>=42&&!picked.has(x.id));return {limit,all,plan,deferred,hardAll,minutes:plan.reduce((s,x)=>s+x.minutes,0),overload:hardAll.length>limit||all.filter(x=>x.score>=60).length>limit+2}
 }
 
 function lifeOsDomainState(){
@@ -328,11 +319,11 @@ function renderLifeOsGuardrails(){
 }
 
 function renderLifeOsSettings(){
-  const el=document.getElementById("lifeOsPriorityLimit");if(el&&!el.dataset.ready){el.value=String(Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)));el.dataset.ready="1"}
+  const el=document.getElementById("lifeOsPriorityLimit");if(!el)return;const calibrated=typeof intelligence1321SelectPlan==="function";if(!el.dataset.ready){el.value=String(calibrated?3:Math.round(lifeOsSettingNumber("lifeDailyPriorityLimit",4,2,6)));el.dataset.ready="1"}el.disabled=calibrated;el.title=calibrated?"13.2.1: Top-3 budget фиксирован; HARD-обязательства показываются сверх лимита при перегрузке":""
 }
 
 async function saveLifeOsSettings(){
-  const el=document.getElementById("lifeOsPriorityLimit"),n=clamp(Math.round(Number(el?.value)||4),2,6);
+  const el=document.getElementById("lifeOsPriorityLimit"),n=typeof intelligence1321SelectPlan==="function"?3:clamp(Math.round(Number(el?.value)||4),2,6);
   S.settings.lifeDailyPriorityLimit=n;
   audit("Настройки Life OS","system","Приоритетов в день: "+n);
   await save("Настройки Life OS сохранены")
