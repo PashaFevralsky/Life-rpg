@@ -14,7 +14,6 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#versionStatus")).toContainText("12.5.0");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
-  // Life OS is visible only in Today -> Focus and participates in UX7 switching.
   await expect(page.locator("#lifeOsCommand")).toBeVisible();
   await page.locator('#today .ux7-tab[data-view="progress"]').click();
   await expect(page.locator("#lifeOsCommand")).not.toBeVisible();
@@ -129,11 +128,12 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
 
   await expect(page.locator("#rulesOsCommand")).toBeVisible();
   await expect(page.locator("#insightsOsCommand")).toBeVisible();
-  await expect(page.locator("#calibrationOsCommand")).toBeVisible();
+  await expect(page.locator("#calibrationOsCommand")).not.toBeVisible();
   const settingsTab=page.locator('#more .ux7-tab[data-view="settings"]');
   await settingsTab.click();
   await expect(page.locator("#dataOsCommand")).toBeVisible();
   await expect(page.locator("#recoveryOsCommand")).toBeVisible();
+  await expect(page.locator("#calibrationOsCommand")).toBeVisible();
   await page.locator('#more .ux7-tab[data-view="overview"]').click();
 
   await expect(page.locator("#projectsOsCommand")).toBeVisible();
