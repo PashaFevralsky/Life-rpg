@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 12.0.3",
+  "name": "Life RPG 12.5.0",
   "short_name": "Life RPG",
-  "description": "Life RPG 12.0.3 — Personal OS stabilization, Growth OS and local-first life management",
-  "start_url": "./?v=12.0.3",
+  "description": "Life RPG 12.5.0 — integrated Personal OS, domain decision engines and local-first life management",
+  "start_url": "./?v=12.5.0",
   "scope": "./",
   "display": "standalone",
   "background_color": "#08090c",

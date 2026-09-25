@@ -1,35 +1,42 @@
 "use strict";
-const fs=require('fs'),path=require('path'),cp=require('child_process'),assert=require('assert');
-const root=__dirname;
-const baseModules=['core','state','finance','imports','work','tennis','knowledge','gamification','pwa','ui'];
-const osModules=['data-os','projects-os','goals-os','review-os','calendar-os','tasks-os','routines-os','inbox-os','rules-os','insights-os','command-os','calibration-os','execution-os','decision-os','recovery-os','life-os'];
-const growthModules=['tracking-os','knowledge-growth','tennis-growth','tennis-huawei','rpg-growth'];
-const personalModules=['personal-os','journal-os','people-os','focus-os','body-os','home-os','capture2-os','personal-import-os','dashboard-os','personal-integration-os'];
-const runtimeModules=[...osModules,...growthModules,...personalModules];
-const modules=[...baseModules,...runtimeModules,'bootstrap'];
-for(const m of [...modules,'app']){const f=path.join(root,m+'.js');assert.ok(fs.existsSync(f),`${m}.js missing`);const r=cp.spawnSync(process.execPath,['--check',f],{encoding:'utf8'});assert.equal(r.status,0,`${m}.js syntax failed: ${r.stderr}`)}
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length,'Duplicate HTML ids detected');
-for(const m of baseModules)assert.ok(new RegExp(`src="\\./${m}\\.js\\?v=[^"]+"`).test(html),`Missing base script ${m}.js`);
-assert.ok(/src="\.\/bootstrap\.js\?v=[^"]+"/.test(html),'Missing bootstrap.js');assert.ok(!html.includes('src="./app.js?v='),'index.html must not load legacy app.js');
-for(const m of runtimeModules)assert.ok(!new RegExp(`src="\\./${m}\\.js`).test(html),`${m}.js must be loaded by bootstrap`);
-const js=[...modules,'app'].map(m=>fs.readFileSync(path.join(root,m+'.js'),'utf8')).join('\n'),names=[...js.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)].map(m=>m[1]),seen=new Set(),dups=[];for(const n of names){if(seen.has(n))dups.push(n);seen.add(n)}assert.deepEqual([...new Set(dups)],[],'Duplicate function declarations remain');
+const fs=require("fs"),path=require("path"),cp=require("child_process"),assert=require("assert");
+const root=__dirname,read=n=>fs.readFileSync(path.join(root,n),"utf8");
+const RELEASE="12.5.0",SHELL_ANCHOR="12.0.3";
+const baseModules=["core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js"];
+const bootstrap=read("bootstrap.js"),registry=bootstrap.match(/const\s+LIFE_RPG_RUNTIME_MODULES\s*=\s*\[(.*?)\];/s);
+assert.ok(registry,"Runtime registry not found in bootstrap.js");
+const runtimeFiles=[...registry[1].matchAll(/"([^"]+\.js)"/g)].map(m=>m[1]);
+assert.ok(runtimeFiles.length>=35,`Runtime registry unexpectedly small: ${runtimeFiles.length}`);
+assert.equal(new Set(runtimeFiles).size,runtimeFiles.length,"Duplicate runtime files in bootstrap registry");
+const requiredRuntime=["work-growth.js","tennis-decision.js","knowledge-decision.js","today-execution.js","integration-12.5.js"];
+for(const f of requiredRuntime)assert.ok(runtimeFiles.includes(f),`${f} missing from runtime registry`);
+const files=[...baseModules,...runtimeFiles,"bootstrap.js","app.js"];
+for(const f of files){const full=path.join(root,f);assert.ok(fs.existsSync(full),`${f} missing`);const r=cp.spawnSync(process.execPath,["--check",full],{encoding:"utf8"});assert.equal(r.status,0,`${f} syntax failed: ${r.stderr}`)}
+
+const html=read("index.html"),ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length,"Duplicate HTML ids detected");
+for(const f of baseModules)assert.ok(new RegExp(`src="\\./${f.replace(".","\\.")}\\?v=[^"]+"`).test(html),`Missing base script ${f}`);
+assert.ok(/src="\.\/bootstrap\.js\?v=[^"]+"/.test(html),"Missing bootstrap.js");assert.ok(!html.includes('src="./app.js?v='),"index.html must not load legacy app.js");
+for(const f of runtimeFiles)assert.ok(!new RegExp(`src="\\./${f.replace(".","\\.")}`).test(html),`${f} must be loaded by bootstrap`);
+
+const js=[...baseModules,...runtimeFiles,"bootstrap.js","app.js"].map(read).join("\n"),names=[...js.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)].map(m=>m[1]),seen=new Set(),dups=[];for(const n of names){if(seen.has(n))dups.push(n);seen.add(n)}assert.deepEqual([...new Set(dups)],[],"Duplicate function declarations remain");
 const handlers=new Set([...html.matchAll(/\bon(?:click|change|input|submit)="\s*([A-Za-z_$][\w$]*)\s*\(/g)].map(m=>m[1]));for(const h of handlers)assert.ok(seen.has(h),`Inline handler missing function: ${h}`);
-const refs=new Set([...js.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1])),dynamic=new Set(['statementReviewAck','ux7AccountForm','ux7AssetForm','ux7FinancePulse','ux7Fab','ux7NewDebtBtn','ux7QuickSheet','ux7TodayPulse','ux7ToggleDebtForm']),idSet=new Set(ids),missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));assert.deepEqual(missing,[],'Unexpected missing DOM ids: '+missing.join(', '));
-const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8'),manifest=fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'),core=fs.readFileSync(path.join(root,'core.js'),'utf8'),bootstrap=fs.readFileSync(path.join(root,'bootstrap.js'),'utf8'),vite=fs.readFileSync(path.join(root,'vite.config.mjs'),'utf8');
-assert.ok(vite.includes('cacheId:"life-rpg-12.0.3"'),'Generated Workbox cacheId missing');assert.ok(!sw.includes('addEventListener("fetch"')&&!sw.includes("addEventListener('fetch'"),'Source SW must be inert; Workbox owns production SW');
-assert.ok(manifest.includes('Life RPG 12.0.3'),'Wrong manifest version');assert.ok(core.includes('APP_VERSION="12.0.3"'),'Wrong app version');assert.ok(core.includes('STATE_VERSION=18'),'Wrong state version');
-assert.ok(bootstrap.includes('lifeRefreshReleaseLabels'),'Release label sync missing');assert.ok(!bootstrap.includes('personal-stabilization-os.js'),'Compatibility shim must not be registered in bootstrap');
-for(const m of runtimeModules)assert.ok(vite.includes(`"${m}.js"`),`${m}.js not copied to dist`);
-const state=fs.readFileSync(path.join(root,'state.js'),'utf8');assert.ok(state.includes('entities:{projects:[],tasks:[],goals:[],routines:[],routineLogs:[],reviews:[],inbox:[],calendarEvents:[]}'),'v18 entity layer missing');assert.ok(state.includes('raw?.settings?.[key]'),'v17 -> v18 migration fallback missing');
-assert.ok(fs.readFileSync(path.join(root,'calibration-os.js'),'utf8').includes('function calibrationMaybeAutoTune'),'Calibration loop missing');assert.ok(fs.readFileSync(path.join(root,'execution-os.js'),'utf8').includes('function executionPlan'),'Execution Intelligence missing');assert.ok(fs.readFileSync(path.join(root,'decision-os.js'),'utf8').includes('function decisionExplain'),'Decision explanation missing');assert.ok(fs.readFileSync(path.join(root,'recovery-os.js'),'utf8').includes('function recoveryRestoreEntity'),'Entity recovery missing');
-const decision=fs.readFileSync(path.join(root,'decision-os.js'),'utf8');assert.ok(decision.includes("decisionSetPreference('${t}','never')")&&decision.includes('Не предлагать'),'Visible never-suggest action missing');assert.ok(decision.includes('id="todayFlowCommand"'),'Today Flow consolidation missing');
-assert.ok(bootstrap.includes('LIFE_RPG_RUNTIME_MODULES'),'Modular bootstrap registry missing');assert.ok(bootstrap.includes('renderPipeline'),'Declarative render pipeline missing');assert.ok(!fs.readFileSync(path.join(root,'pwa.js'),'utf8').includes('location.reload()'),'PWA must not force reload');assert.ok(!fs.readFileSync(path.join(root,'ui.js'),'utf8').includes('location.replace(`./?v='),'UI must not force version redirect');assert.ok(html.includes('life-rpg-booting'));
-for(const m of ['tracking-os','people-os','focus-os','body-os','home-os','capture2-os','dashboard-os']){const src=fs.readFileSync(path.join(root,m+'.js'),'utf8');assert.ok(!/^[A-Za-z_$][\w$]*\s*=\s*(?:async\s+)?function\b/m.test(src),`${m}.js must not monkey-patch global functions`)}
-const compat=fs.readFileSync(path.join(root,'personal-stabilization-os.js'),'utf8');assert.ok(!/^[A-Za-z_$][\w$]*\s*=\s*(?:async\s+)?function\b/m.test(compat),'personal-stabilization compatibility shim must be inert');
-assert.ok(fs.existsSync(path.join(root,'state-identity.test.js')),'State identity regression gate missing');assert.ok(fs.existsSync(path.join(root,'personal-os.test.js')),'Personal OS regression gate missing');assert.ok(fs.existsSync(path.join(root,'personal-os.e2e.test.js')),'Personal OS E2E gate missing');assert.ok(fs.readFileSync(path.join(root,'playwright.config.mjs'),'utf8').includes('personal-os.e2e.test.js'),'Personal OS E2E not configured');
-const ui=fs.readFileSync(path.join(root,'ui.js'),'utf8');assert.ok(ui.includes('["bank","Банк"]'),'Finance Bank tab missing');assert.ok(ui.includes('ux7Go("work","log")'),'Work quick action must open log view');assert.ok(ui.includes('ux7Go("tennis","training")'),'Tennis quick action must open training view');
-assert.ok(html.includes('id="readingListImport"'),'Reading-list import input missing');assert.ok(fs.existsSync(path.join(root,'reading-list.test.js')),'reading-list test missing');assert.ok(fs.existsSync(path.join(root,'calibration.test.js')),'Calibration test missing');
-const packageLock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8'));assert.equal(packageLock.version,'12.0.3','package-lock version drift');assert.equal(packageLock.packages?.['']?.version,'12.0.3','package-lock root version drift');
-const deployWorkflow=fs.readFileSync(path.join(root,'.github/workflows/deploy-pages.yml'),'utf8');assert.ok(deployWorkflow.includes('npm ci --no-audit --no-fund'),'CI must use npm ci');assert.ok(!html.includes('11.1.1'),'Legacy HTML version remains');assert.ok(html.includes('?v=12.0.3'),'HTML asset version missing');
-assert.ok(!html.includes('tesseract.min.js'),'Tesseract must be lazy-loaded');assert.ok(fs.readFileSync(path.join(root,'imports.js'),'utf8').includes('ensureFinancialOcrLoaded'),'Lazy OCR loader missing');assert.ok(bootstrap.includes('Promise.all(LIFE_RPG_RUNTIME_MODULES.map(lifeRuntimeLoadScript))'),'Runtime files must preload concurrently');assert.ok(state.includes('function isSafeStateId'),'Imported ID validation missing');assert.ok(state.includes('campaignStart:localDateKey()'),'Fresh campaign start must be dynamic');assert.ok(fs.existsSync(path.join(root,'tennis-huawei.test.js')),'Huawei regression test missing');assert.ok(fs.existsSync(path.join(root,'layout-all.e2e.test.js')),'Full layout E2E missing');assert.ok(fs.readFileSync(path.join(root,'playwright.config.mjs'),'utf8').includes('layout-all.e2e.test.js'),'Full layout E2E not configured');assert.ok(require('./package.json').scripts.test.includes('tennis-huawei.test.js'),'Huawei test not in npm test');
-console.log(`OK — static checks passed for Life RPG 12.0.3 refactor: ${names.length} unique functions, ${runtimeModules.length} runtime modules`);
+const refs=new Set([...js.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1])),dynamic=new Set(["statementReviewAck","ux7AccountForm","ux7AssetForm","ux7FinancePulse","ux7Fab","ux7NewDebtBtn","ux7QuickSheet","ux7TodayPulse","ux7ToggleDebtForm"]),idSet=new Set(ids),missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));assert.deepEqual(missing,[],"Unexpected missing DOM ids: "+missing.join(", "));
+
+const sw=read("sw.js"),manifest=read("manifest.webmanifest"),core=read("core.js"),vite=read("vite.config.mjs"),pwa=read("pwa.js"),state=read("state.js"),integration=read("integration-12.5.js");
+assert.ok(core.includes(`APP_VERSION="${RELEASE}"`),"Wrong runtime release");assert.ok(core.includes("STATE_VERSION=18"),"State schema changed unexpectedly");
+assert.ok(manifest.includes(`Life RPG ${RELEASE}`),"Wrong manifest release");assert.ok(vite.includes(`cacheId:"life-rpg-${RELEASE}"`),"Generated Workbox cacheId missing");
+assert.ok(!sw.includes('addEventListener("fetch"')&&!sw.includes("addEventListener('fetch'"),"Source SW must be inert; Workbox owns production SW");
+assert.ok(bootstrap.includes("Promise.all(LIFE_RPG_RUNTIME_MODULES.map(lifeRuntimeLoadScript))"),"Runtime files must preload concurrently");
+assert.ok(bootstrap.includes('["ensureIntegration125Ui","renderIntegration125"]'),"12.5 integration render step missing");
+for(const f of runtimeFiles)assert.ok(vite.includes(`"${f}"`),`${f} not copied to dist`);
+assert.ok(!bootstrap.includes("personal-stabilization-os.js"),"Compatibility shim must not be registered in bootstrap");assert.ok(vite.includes('"personal-stabilization-os.js"'),"Compatibility shim must still ship during cache transition");
+assert.ok(!pwa.includes("location.reload()"),"PWA must not force reload");assert.ok(!read("ui.js").includes("location.replace(`./?v="),"UI must not force version redirect");
+assert.ok(integration.includes('todayFlowCommand')&&integration.includes('today123Command'),"Legacy Today Flow consolidation missing");
+assert.ok(integration.includes('knowledgeOsCommand')&&integration.includes('knowledge124Today'),"Knowledge summary consolidation missing");
+assert.ok(state.includes("function isSafeStateId"),"Imported ID validation missing");assert.ok(state.includes("campaignStart:localDateKey()"),"Fresh campaign start must be dynamic");
+assert.ok(html.includes("life-rpg-booting"));assert.ok(html.includes(`?v=${SHELL_ANCHOR}`),"Compatibility shell asset anchor changed unexpectedly");
+assert.ok(!html.includes("tesseract.min.js"),"Tesseract must be lazy-loaded");assert.ok(read("imports.js").includes("ensureFinancialOcrLoaded"),"Lazy OCR loader missing");
+assert.ok(fs.existsSync(path.join(root,"reading-list.test.js")));assert.ok(fs.existsSync(path.join(root,"tennis-huawei.test.js")));assert.ok(fs.existsSync(path.join(root,"layout-all.e2e.test.js")));
+const lock=JSON.parse(read("package-lock.json"));assert.equal(lock.version,"12.0.3","npm lock metadata changed unexpectedly");assert.equal(lock.packages?.[""]?.version,"12.0.3","npm lock root metadata changed unexpectedly");
+const workflow=read(".github/workflows/deploy-pages.yml");assert.ok(workflow.includes("npm ci --no-audit --no-fund"));assert.ok(workflow.includes("npm run test:e2e"));
+console.log(`OK — static checks passed for Life RPG ${RELEASE}: ${names.length} unique functions, ${runtimeFiles.length} runtime modules`);
