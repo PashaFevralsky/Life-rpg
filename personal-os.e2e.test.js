@@ -85,14 +85,28 @@ test("Body means are day-weighted and Home purchase keeps factual inventory",asy
   expect(result.avg).toBe(7.5);expect(result.stock).toBe(1);expect(errors).toEqual([])
 });
 
-test("Personal import is preview-first and rejects empty numeric values",async({page})=>{
+test("Import Hub is preview-first and rejects empty Personal numeric values",async({page})=>{
   const errors=await boot(page);await openMore(page,"settings");
-  await expect(page.locator("#personalImportFile")).toBeAttached();
-  await page.locator("#personalImportFile").setInputFiles({name:"personal.csv",mimeType:"text/csv",buffer:Buffer.from("date;tracker;value;durationMin;note\n23.09.2026;E2E Metric;7;;ok\n23.09.2026;E2E Empty;;;bad\n")});
-  await expect(page.locator("#personalImportPreview")).toContainText("Готово");await expect(page.locator("#personalImportPreview")).toContainText("Ошибки");
+  await expect(page.locator("#import127Command")).toBeVisible();
+  await expect(page.locator("#import127File")).toBeAttached();
+  await expect(page.locator("#personalImportCommand").locator("xpath=ancestor::div[contains(@class,'card')]")).not.toBeVisible();
+
+  await page.locator("#import127File").setInputFiles({
+    name:"personal.csv",
+    mimeType:"text/csv",
+    buffer:Buffer.from("date;tracker;value;durationMin;note\n23.09.2026;E2E Metric;7;;ok\n23.09.2026;E2E Empty;;;bad\n")
+  });
+
+  await expect(page.locator("#import127Preview")).toContainText("Готово");
+  await expect(page.locator("#import127Preview")).toContainText("Ошибки");
+  await expect(page.locator("#import127Command")).toContainText("Personal CSV");
   expect(await page.evaluate(()=>growthTrackers().some(x=>x.name==="E2E Metric"))).toBe(false);
-  await page.locator("#personalImportApply").click();
-  expect(await page.evaluate(()=>growthTrackers().some(x=>x.name==="E2E Metric"))).toBe(true);expect(await page.evaluate(()=>growthTrackers().some(x=>x.name==="E2E Empty"))).toBe(false);
+
+  await page.locator("#import127Apply").click();
+
+  await expect.poll(()=>page.evaluate(()=>growthTrackers().some(x=>x.name==="E2E Metric"))).toBe(true);
+  expect(await page.evaluate(()=>growthTrackers().some(x=>x.name==="E2E Empty"))).toBe(false);
+  await expect(page.locator("#import127History")).toContainText("Personal CSV");
   expect(errors).toEqual([])
 });
 
