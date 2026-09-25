@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-async function boot(page){const errors=[];page.on("pageerror",e=>errors.push(String(e)));await page.goto("/",{waitUntil:"domcontentloaded"});await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);await expect(page.locator("#versionStatus")).toContainText("13.2.1");await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});return errors}
+async function boot(page){const errors=[];page.on("pageerror",e=>errors.push(String(e)));await page.goto("/",{waitUntil:"domcontentloaded"});await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);await expect(page.locator("#versionStatus")).toContainText("13.2.2");await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});return errors}
 
 test("Calibration 13.2.1 enforces Top-3 with reserve and explains why-not",async({page})=>{const errors=await boot(page);await expect(page.locator("#intelligence1321Control")).toBeVisible();await page.evaluate(()=>{lifeOsRegisterCandidateProvider("e2e-calibration",()=>[
  {id:"e2e-fin",area:"Финансы",kind:"payment",title:"E2E finance",score:110,hard:false,minutes:10,source:"E2E"},

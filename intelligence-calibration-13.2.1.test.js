@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("fs"),path=require("path"),vm=require("vm"),assert=require("assert"),root=__dirname,read=n=>fs.readFileSync(path.join(root,n),"utf8");
 const intel=read("intelligence-13.2.js"),calib=read("intelligence-calibration-13.2.1.js"),core=read("core.js"),boot=read("bootstrap.js"),vite=read("vite.config.mjs"),life=read("life-os.js"),pkg=JSON.parse(read("package.json")),play=read("playwright.config.mjs"),manifest=read("manifest.webmanifest");
-assert.ok(core.includes('APP_VERSION="13.2.1"'));assert.ok(core.includes("STATE_VERSION=18"));assert.ok(manifest.includes("Life RPG 13.2.1"));assert.ok(vite.includes('cacheId:"life-rpg-13.2.1"'));
+assert.ok(core.includes('APP_VERSION="13.2.2"'));assert.ok(core.includes("STATE_VERSION=18"));assert.ok(manifest.includes("Life RPG 13.2.2"));assert.ok(vite.includes('cacheId:"life-rpg-13.2.2"'));
 assert.ok(boot.includes('"intelligence-calibration-13.2.1.js"'));assert.ok(boot.includes('["ensureIntelligence1321Ui","renderIntelligence1321"]'));assert.ok(vite.includes('"intelligence-calibration-13.2.1.js"'));assert.ok(life.includes("intelligence1321SelectPlan"));
 for(const name of ["intelligence1321CalibrationSummary","intelligence1321ConfidenceBuckets","intelligence1321ProviderHealth","intelligence1321FreshnessMonitor","intelligence1321Drift","intelligence1321SelectPlan","intelligence1321WhyNot","intelligence1321WeeklyReview","intelligence1321ResetLearning","intelligence1321ManualOverride"])assert.ok(calib.includes(`function ${name}`),`${name} missing`);
 assert.ok(!/fetch\(["'`]https?:/i.test(calib),"Calibration layer must stay local-first");assert.ok(pkg.scripts.test.includes("intelligence-calibration-13.2.1.test.js"));assert.ok(play.includes("intelligence-calibration-13.2.1.e2e.test.js"));

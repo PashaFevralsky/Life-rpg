@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-async function boot(page){const errors=[];page.on("pageerror",e=>errors.push(String(e)));await page.goto("/",{waitUntil:"domcontentloaded"});await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);await expect(page.locator("#versionStatus")).toContainText("13.2.1");await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});return errors}
+async function boot(page){const errors=[];page.on("pageerror",e=>errors.push(String(e)));await page.goto("/",{waitUntil:"domcontentloaded"});await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);await expect(page.locator("#versionStatus")).toContainText("13.2.2");await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});return errors}
 
 test("Decision Intelligence 13.2 explains and records an outcome",async({page})=>{
   const errors=await boot(page);

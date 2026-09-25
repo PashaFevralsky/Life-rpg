@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 13.2.1",
+  "name": "Life RPG 13.2.2",
   "short_name": "Life RPG",
-  "description": "Life RPG 13.2.1 — local-first Personal OS with Decision Intelligence, evidence/confidence, scenarios, Android Share Target and outcome learning",
-  "start_url": "./?v=13.2.1",
+  "description": "Life RPG 13.2.2 — local-first Personal OS with Decision Intelligence, calibrated recommendations, Predictive Trends, Early Warning, scenarios and Android Share Target",
+  "start_url": "./?v=13.2.2",
   "scope": "./",
   "display": "standalone",
   "background_color": "#08090c",

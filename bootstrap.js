@@ -1,10 +1,10 @@
 "use strict";
 
-/* Life RPG 13.2.1 — modular runtime + Decision Intelligence Kernel */
+/* Life RPG 13.2.2 — modular runtime + Predictive Trends & Early Warning */
 const LIFE_RPG_RUNTIME_MODULES=[
   "data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js",
   "tracking-os.js","personal-os.js","journal-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","personal-import-os.js","dashboard-os.js",
-  "knowledge-growth.js","knowledge-decision.js","work-growth.js","tennis-growth.js","tennis-huawei.js","tennis-decision.js","rpg-growth.js","life-os.js","today-execution.js","personal-integration-os.js","integration-12.5.js","feedback-os.js","import-hub.js","ux-12.8.js","training-os.js","share-hub.js","intelligence-13.2.js","intelligence-calibration-13.2.1.js"
+  "knowledge-growth.js","knowledge-decision.js","work-growth.js","tennis-growth.js","tennis-huawei.js","tennis-decision.js","rpg-growth.js","life-os.js","today-execution.js","personal-integration-os.js","integration-12.5.js","feedback-os.js","import-hub.js","ux-12.8.js","training-os.js","share-hub.js","intelligence-13.2.js","intelligence-calibration-13.2.1.js","predictive-trends-13.2.2.js"
 ];
 const LIFE_RPG_RUNTIME_ERRORS=[];
 function lifeRuntimeErrors(){return LIFE_RPG_RUNTIME_ERRORS.slice()}
@@ -22,7 +22,7 @@ function lifeInstallRuntime(){
     ["ensureWork121Ui","renderWork121Panels"],["ensureProjectsOsUi","renderProjectsOs"],["ensureGoalsOsUi","renderGoalsOs"],["ensureReviewOsUi","renderReviewOs"],["ensureCalendarOsUi","renderCalendarOs"],["ensureTasksOsUi","renderTasksOs"],["ensureRoutinesOsUi","renderRoutinesOs"],
     ["ensureTrackingOsUi","renderTrackingOs"],["ensureJournalOsUi","renderJournalOs"],["ensurePeopleOsUi","renderPeopleOs"],["ensureFocusOsUi","renderFocusOs"],["ensureBodyOsUi","renderBodyOs"],["ensureTraining129Ui","renderTraining129"],["ensureHomeOsUi","renderHomeOs"],["ensureCapture2Ui","renderCapture2"],
     ["ensureExecutionOsUi","renderExecutionOs"],["ensureCalibrationOsUi","renderCalibrationOs"],["ensureFeedback126Ui","renderFeedback126"],["ensureDecisionOsUi","renderDecisionOs"],["ensureRulesOsUi","renderRulesOs"],["ensureInsightsOsUi","renderInsightsOs"],["ensureCommandOsUi","renderCommandOs"],["ensureDataOsUi","renderDataOs"],["ensureRecoveryOsUi","renderRecoveryOs"],
-    ["ensureKnowledgeGrowthUi","renderKnowledgeGrowth"],["ensureKnowledge124Ui","renderKnowledge124"],["ensureTennisGrowthUi","renderTennisGrowth"],["tennisHuaweiEnsureUi","tennisHuaweiRefresh"],["ensureTennisDecision22Ui","renderTennisDecision22"],["ensureTodayExecution123Ui","renderTodayExecution123"],["ensureRpgGrowthUi","renderRpgGrowth"],["ensurePersonalImportUi","renderPersonalImportUi"],["ensureImport127Ui","renderImport127"],["ensureDashboardOsUi","renderDashboardOs"],["ensureIntegration125Ui","renderIntegration125"],["ensureUx128Ui","renderUx128"],["ensureShare131Ui","renderShare131"],["ensureIntelligence132Ui","renderIntelligence132"],["ensureIntelligence1321Ui","renderIntelligence1321"]
+    ["ensureKnowledgeGrowthUi","renderKnowledgeGrowth"],["ensureKnowledge124Ui","renderKnowledge124"],["ensureTennisGrowthUi","renderTennisGrowth"],["tennisHuaweiEnsureUi","tennisHuaweiRefresh"],["ensureTennisDecision22Ui","renderTennisDecision22"],["ensureTodayExecution123Ui","renderTodayExecution123"],["ensureRpgGrowthUi","renderRpgGrowth"],["ensurePersonalImportUi","renderPersonalImportUi"],["ensureImport127Ui","renderImport127"],["ensureDashboardOsUi","renderDashboardOs"],["ensureIntegration125Ui","renderIntegration125"],["ensureUx128Ui","renderUx128"],["ensureShare131Ui","renderShare131"],["ensureIntelligence132Ui","renderIntelligence132"],["ensureIntelligence1321Ui","renderIntelligence1321"],["ensurePredictive1322Ui","renderPredictive1322"]
   ];
   render=function(){
     try{baseRender()}catch(e){lifeRuntimeRecordError("base-render","render",e)}
