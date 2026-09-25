@@ -194,7 +194,8 @@ function lifeOsCandidates(){
     rows=rows.map(x=>x.area==="Теннис"&&x.kind!=="load"?{...x,score:Math.min(x.score,32),meta:x.meta+" • сегодня приоритет — лёгкая нагрузка/восстановление"}:x)
   }
   if(typeof decisionAdjustCandidates==="function")rows=decisionAdjustCandidates(rows);
-  return rows.sort((a,b)=>b.score-a.score)
+  if(typeof intelligence132RankCandidates==="function")rows=intelligence132RankCandidates(rows);
+  return rows.sort((a,b)=>(b.hard-a.hard)||b.score-a.score)
 }
 
 function lifeOsDailyPlan(){
