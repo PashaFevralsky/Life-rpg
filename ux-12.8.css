@@ -1,0 +1,39 @@
+/* Life RPG 12.8 — Mobile UX & Interface Consolidation */
+
+.ui82 .ux128-search-btn svg{width:18px;height:18px}
+.ui82 .ux128-search-sheet,.ui82 .ux128-recent-sheet{width:min(720px,100%)}
+.ui82 .ux128-search-results,.ui82 .ux128-recent-list{display:grid;gap:7px;max-height:min(58vh,560px);overflow:auto;overscroll-behavior:contain}
+.ui82 .ux128-search-row{width:100%;display:flex;justify-content:space-between;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:#101218;color:inherit;border-radius:14px;padding:11px 12px}
+.ui82 .ux128-search-row>span:first-child{display:grid;gap:3px;min-width:0}
+.ui82 .ux128-search-row b,.ui82 .ux128-search-row small{display:block;overflow-wrap:anywhere}
+.ui82 .ux128-search-row small{color:var(--muted);font-size:11px}
+.ui82 .ux128-recent-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.ui82 .ux128-recent-row>div{min-width:0}
+.ui82 .ux128-recent-row .qtitle,.ui82 .ux128-recent-row .qmeta{overflow-wrap:anywhere}
+.ui82 .ux7-tabs{scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.ui82 .ux7-tab{scroll-snap-align:center}
+.ui82 .card,.ui82 .log-item,.ui82 .quest{overflow-wrap:anywhere}
+.ui82 :is(button,.btn,input,select,textarea,a):focus-visible{outline:2px solid #aeb8ff;outline-offset:2px}
+.ui82 .ux128-sticky-actions{z-index:45}
+
+@media(max-width:850px){
+  .ui82 .ux128-sticky-actions{position:sticky;bottom:calc(75px + env(safe-area-inset-bottom));margin:12px -5px -5px;padding:8px 5px 5px;background:linear-gradient(to bottom,rgba(17,19,25,0),#111319 26%,#111319);border-radius:0 0 13px 13px}
+  .ui82 .ux128-sticky-actions>.btn{flex:1 1 120px}
+  .ui82 .btn:not(.small),.ui82 .iconbtn,.ui82 input,.ui82 select{min-height:44px}
+  .ui82 .btn.small{min-height:36px}
+  .ui82 .close{width:44px;height:44px}
+  .ui82 textarea{min-height:76px}
+  .ui82 input,.ui82 select,.ui82 textarea{font-size:16px}
+  .ui82 .ux7-action-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ui82 .ux7-action-grid button{min-height:82px}
+  .ui82 .ux128-search-sheet .field{position:sticky;top:0;z-index:2;background:#111319;padding-bottom:7px}
+  .ui82 .ux128-search-results,.ui82 .ux128-recent-list{max-height:56vh}
+}
+@media(max-width:390px){
+  .ui82 .ux7-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ui82 .ux128-recent-row{grid-template-columns:1fr}
+  .ui82 .ux128-recent-row .btn{justify-self:start}
+}
+@media(prefers-reduced-motion:reduce){
+  .ui82 *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
