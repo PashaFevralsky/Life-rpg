@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 13.0.0 — PWA lifecycle and notifications */
+/* Life RPG 13.1.0 — PWA lifecycle, notifications and Share Target */
 
 async function enableNotifications(){if(!("Notification" in window)){toast("Уведомления не поддерживаются");return}const p=await Notification.requestPermission();$("notificationStatus").textContent=`Разрешение: ${p}`;if(p==="granted"){toast("Уведомления включены");runReminderCheck(true)}}
 

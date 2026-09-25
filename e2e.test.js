@@ -11,7 +11,7 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("13.0.0");
+  await expect(page.locator("#versionStatus")).toContainText("13.1.0");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   await expect(page.locator("#lifeOsCommand")).toBeVisible();
