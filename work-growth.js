@@ -174,9 +174,4 @@ function renderWork121Panels(){
   renderWork121Pace();renderWork121Activity();renderWork121Concentration();renderWork121Health();renderWork121Stages();renderWork121LargeDeals()
 }
 
-const renderWork121Base=renderWork;
-renderWork=function(){
-  renderWork121Base();
-  ensureWork121Ui();
-  renderWork121Panels()
-};
+// Life RPG 13.0: lifecycle is owned by the central bootstrap render pipeline.

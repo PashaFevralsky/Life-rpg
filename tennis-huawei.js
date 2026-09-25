@@ -309,9 +309,4 @@ function tennisHuaweiRefresh(){
   sum.innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Сессий с часами</div><b>${s.n}</b></div><div class="report-item"><div class="smallcaps">Средний пульс по сессиям</div><b>${s.avgHr??"—"}</b></div><div class="report-item"><div class="smallcaps">Макс. зафиксированный</div><b>${s.maxHr??"—"}</b></div><div class="report-item"><div class="smallcaps">Средние ккал/ч</div><b>${s.kcalHour??"—"}</b></div></div>`;
   hist.innerHTML=tennisHuaweiHistoryHtml()
 }
-function tennisHuaweiBoot(){
-  tennisHuaweiEnsureUi();tennisHuaweiRefresh();
-  const log=document.getElementById("tennisLog");if(log&&typeof MutationObserver!=="undefined")new MutationObserver(()=>tennisHuaweiRefresh()).observe(log,{childList:true,subtree:true});
-  document.addEventListener("click",e=>{const b=e.target?.closest?.("[data-tab='tennis']");if(b)setTimeout(tennisHuaweiRefresh,0)})
-}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",tennisHuaweiBoot,{once:true});else tennisHuaweiBoot();
+// Life RPG 13.0: lifecycle is owned by the central bootstrap render pipeline.

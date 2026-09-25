@@ -10,7 +10,11 @@ function openModal(id){const m=$(id);if(!m)return;lastModalFocus=document.active
 
 function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open");m.setAttribute("aria-hidden","true");lastModalFocus?.focus?.()}
 
-function switchTab(id){document.querySelectorAll(".navbtn").forEach(x=>x.classList.toggle("active",x.dataset.tab===id));document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===id));window.scrollTo({top:0,behavior:"smooth"})}
+const UX7_NAVIGATION_LISTENERS=new Map();
+function ux7RegisterNavigationListener(id,fn){if(!id||typeof fn!=="function")return()=>{};UX7_NAVIGATION_LISTENERS.set(String(id),fn);return()=>UX7_NAVIGATION_LISTENERS.delete(String(id))}
+function ux7NotifyNavigation(event){for(const [id,fn] of UX7_NAVIGATION_LISTENERS){try{fn(event)}catch(e){console.error(`Navigation listener ${id} failed`,e)}}}
+function ux7NavigationStatus(){return {listeners:[...UX7_NAVIGATION_LISTENERS.keys()]}}
+function switchTab(id){const from=document.querySelector(".section.active")?.id||"";ux7NotifyNavigation({type:"section:before",from,section:id});document.querySelectorAll(".navbtn").forEach(x=>x.classList.toggle("active",x.dataset.tab===id));document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===id));window.scrollTo({top:0,behavior:"smooth"});ux7NotifyNavigation({type:"section:after",from,section:id})}
 
 function quickAction(type){if(type==="income"){switchTab("finance");openIncomeModal()}if(type==="payment"){switchTab("finance");openModal("paymentModal")}if(type==="expense"){openModal("expenseModal")}if(type==="work"){ux7Go("work","log");setTimeout(()=>$("workContacts")?.focus(),40)}if(type==="tennis"){ux7Go("tennis","training");setTimeout(()=>$("ttMinutes")?.focus(),40)}if(type==="reading"){switchTab("more");openModal("readingModal")}}
 
@@ -111,12 +115,15 @@ function ux7TagCards(sectionId){
   section.querySelectorAll(".card").forEach(card=>{if(card.closest(".modal"))return;card.dataset.ux7View=ux7ViewsForCard(sectionId,card,i++);card.classList.add("ux7-card")});
 }
 
+const UX7_CLARITY_PROVIDERS=new Map();
+function ux7RegisterClarityProvider(id,fn){if(!id||typeof fn!=="function")return()=>{};UX7_CLARITY_PROVIDERS.set(String(id),fn);return()=>UX7_CLARITY_PROVIDERS.delete(String(id))}
 function ux7ClaritySecondary(sectionId,card){
   const t=ux7CardText(card);
-  if(sectionId==="finance")return /кампания против долгов|состояние финансов/.test(t);
-  if(sectionId==="work")return /активность месяца|карьерные квесты/.test(t);
-  if(sectionId==="tennis")return /теннисный отчет месяца/.test(t);
-  if(sectionId==="more")return /книги, навыки, ачивки и настройки|текущий месяц против прошлого/.test(t);
+  if(sectionId==="finance"&&/кампания против долгов|состояние финансов/.test(t))return true;
+  if(sectionId==="work"&&/активность месяца|карьерные квесты/.test(t))return true;
+  if(sectionId==="tennis"&&/теннисный отчет месяца/.test(t))return true;
+  if(sectionId==="more"&&/книги, навыки, ачивки и настройки|текущий месяц против прошлого/.test(t))return true;
+  for(const [id,fn] of UX7_CLARITY_PROVIDERS){try{if(fn(sectionId,card,t))return true}catch(e){console.error(`Clarity provider ${id} failed`,e)}}
   return false
 }
 
@@ -137,11 +144,12 @@ function ux7ToggleClarity(sectionId){
 }
 
 function ux7SetView(sectionId,view,scrollTop=false){
-  const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];const previous=UX7_PREFS[sectionId];UX7_PREFS[sectionId]=view;if(previous!==view)ux7SavePrefs();
+  const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];const previous=UX7_PREFS[sectionId];ux7NotifyNavigation({type:"view:before",section:sectionId,view,previous});UX7_PREFS[sectionId]=view;if(previous!==view)ux7SavePrefs();
   section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view));card.classList.add("ux7-view-ready")});
   ux7ApplyClarity(sectionId,view);ux7UpdateSectionShortcuts(sectionId,view);
   if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
+  ux7NotifyNavigation({type:"view:after",section:sectionId,view,previous});
   requestAnimationFrame(()=>{ux7UpdateSubViewMetrics(sectionId,view);ui82SyncChrome(sectionId,view)});
 }
 

@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 12.5.0",
+  "name": "Life RPG 13.0.0",
   "short_name": "Life RPG",
-  "description": "Life RPG 12.5.0 — integrated Personal OS, domain decision engines and local-first life management",
-  "start_url": "./?v=12.5.0",
+  "description": "Life RPG 13.0.0 — stabilized local-first Personal OS with integrated decision, import, training and review systems",
+  "start_url": "./?v=13.0.0",
   "scope": "./",
   "display": "standalone",
   "background_color": "#08090c",
@@ -10,7 +10,17 @@
   "lang": "ru",
   "orientation": "portrait-primary",
   "icons": [
-    {"src":"./icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
-    {"src":"./icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

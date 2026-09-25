@@ -1,8 +1,9 @@
 "use strict";
 const fs=require("fs"),path=require("path"),assert=require("assert"),dist=path.join(__dirname,"dist"),read=n=>fs.readFileSync(path.join(dist,n),"utf8");
-for(const f of ["index.html","core.js","bootstrap.js","integration-12.5.js","feedback-os.js","import-hub.js","ux-12.8.js","ux-12.8.css","training-os.js","focus-os.js","people-os.js","capture2-os.js","manifest.webmanifest"]){assert.ok(fs.existsSync(path.join(dist,f)),`dist missing ${f}`)}
-const sw=read("sw.js");assert.ok(sw.includes("life-rpg-12.5.0"),"generated Workbox SW does not contain the 12.5.0 cache namespace");
-assert.ok(read("core.js").includes('APP_VERSION="12.5.0"'),"dist core release mismatch");
-const boot=read("bootstrap.js");assert.ok(boot.includes('"integration-12.5.js"'));assert.ok(boot.includes('"feedback-os.js"'));assert.ok(boot.includes('"import-hub.js"'));assert.ok(boot.includes('"ux-12.8.js"'),"dist bootstrap missing 12.8 UX");assert.ok(boot.includes('"training-os.js"'),"dist bootstrap missing 12.9 Training OS");
-assert.ok(read("ux-12.8.js").includes("Mobile UX & Interface Consolidation"));assert.ok(read("ux-12.8.css").includes("Life RPG 12.8"));assert.ok(read("training-os.js").includes("Training & Physical Capacity OS 12.9"));
-console.log("OK — production dist contains Life RPG 12.5.0 runtime through Training OS 12.9 and Workbox namespace");
+for(const f of ["index.html","core.js","bootstrap.js","integration-12.5.js","feedback-os.js","import-hub.js","ux-12.8.js","ux-12.8.css","training-os.js","work-growth.js","tennis-huawei.js","life-os.js","focus-os.js","people-os.js","capture2-os.js","manifest.webmanifest"]){assert.ok(fs.existsSync(path.join(dist,f)),`dist missing ${f}`)}
+assert.ok(!fs.existsSync(path.join(dist,"personal-stabilization-os.js")),"legacy stabilization shim must not ship to production");
+const sw=read("sw.js");assert.ok(sw.includes("life-rpg-13.0.0"),"generated Workbox SW does not contain the 13.0.0 cache namespace");
+assert.ok(read("core.js").includes('APP_VERSION="13.0.0"'),"dist core release mismatch");assert.ok(read("manifest.webmanifest").includes("Life RPG 13.0.0"),"dist manifest release mismatch");
+const boot=read("bootstrap.js");assert.ok(boot.includes('["ensureWork121Ui","renderWork121Panels"]'));assert.ok(boot.includes('["tennisHuaweiEnsureUi","tennisHuaweiRefresh"]'));assert.ok(boot.includes("lifeRuntimeInvoke"));
+assert.ok(!read("work-growth.js").includes("renderWork=function"));assert.ok(!read("tennis-huawei.js").includes("MutationObserver"));assert.ok(read("life-os.js").includes("lifeOsRegisterCandidateProvider"));assert.ok(!read("training-os.js").includes("lifeOsRawCandidates=function"));assert.ok(!read("ux-12.8.js").includes("switchTab=function"));
+console.log("OK — production dist contains stabilized Life RPG 13.0.0, clean Workbox namespace and no transitional shim");

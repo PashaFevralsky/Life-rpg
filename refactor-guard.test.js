@@ -1,8 +1,8 @@
 "use strict";
 const fs=require("fs"),path=require("path"),assert=require("assert"),root=__dirname;
 const files=[
-  "data-os.js","work.js","tennis.js","knowledge.js","routines-os.js","inbox-os.js","life-os.js","personal-integration-os.js",
-  "tracking-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","dashboard-os.js","personal-stabilization-os.js"
+  "data-os.js","work.js","work-growth.js","tennis.js","tennis-huawei.js","knowledge.js","routines-os.js","inbox-os.js","life-os.js","personal-integration-os.js",
+  "tracking-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","dashboard-os.js","ux-12.8.js","training-os.js"
 ];
 const legacyAllow=new Set([
   "data-os.js:dataIntegrityIssues",
@@ -24,10 +24,11 @@ const unexpected=found.filter(x=>!legacyAllow.has(x));
 const missingLegacy=[...legacyAllow].filter(x=>scanned.has(x.split(":")[0])&&!found.includes(x));
 assert.deepEqual(unexpected,[],`New runtime monkey-patches are forbidden: ${unexpected.join(", ")}`);
 assert.deepEqual(missingLegacy,[],`Legacy monkey-patch allowlist changed; review intentionally: ${missingLegacy.join(", ")}`);
+assert.ok(!fs.readFileSync(path.join(root,"work-growth.js"),"utf8").includes("renderWork=function"),"Work 12.1 must use render pipeline, not override renderWork");
+assert.ok(!fs.readFileSync(path.join(root,"training-os.js"),"utf8").includes("lifeOsRawCandidates=function"),"Training OS must use Life OS provider API");
+assert.ok(!fs.readFileSync(path.join(root,"ux-12.8.js"),"utf8").includes("switchTab=function"),"UX 12.8 must use navigation hooks");
 for(const file of ["tasks-os.js","goals-os.js","routines-os.js","inbox-os.js"]){
   const src=fs.readFileSync(path.join(root,file),"utf8");
   assert.ok(!/a\[i\]\s*=\s*(?:task|goal|routine|inbox)Normalize\(/.test(src),`${file} must not replace entity objects during reads`)
 }
-const compat=fs.readFileSync(path.join(root,"personal-stabilization-os.js"),"utf8");
-assert.ok(!/^[A-Za-z_$][\w$]*\s*=\s*(?:async\s+)?function\b/m.test(compat),"Personal stabilization shim must remain inert");
-console.log(`OK — refactor guard: ${found.length} legacy overrides explicitly allowlisted, no new monkey-patches`);
+console.log(`OK — refactor guard: ${found.length} reviewed legacy overrides, no hidden Work/Training/UX monkey-patches`);

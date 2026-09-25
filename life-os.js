@@ -50,6 +50,13 @@ function lifeOsAddCandidate(arr,c){
   })
 }
 
+const LIFE_OS_CANDIDATE_PROVIDERS=new Map(),LIFE_OS_ROUTE_HANDLERS=new Map();
+function lifeOsRegisterCandidateProvider(id,fn){if(!id||typeof fn!=="function")return()=>{};LIFE_OS_CANDIDATE_PROVIDERS.set(String(id),fn);return()=>LIFE_OS_CANDIDATE_PROVIDERS.delete(String(id))}
+function lifeOsRegisterRouteHandler(route,fn){if(!route||typeof fn!=="function")return()=>{};LIFE_OS_ROUTE_HANDLERS.set(String(route),fn);return()=>LIFE_OS_ROUTE_HANDLERS.delete(String(route))}
+function lifeOsCollectProviderCandidates(out){for(const [id,fn] of LIFE_OS_CANDIDATE_PROVIDERS){try{const rows=fn();for(const x of Array.isArray(rows)?rows:rows?[rows]:[])lifeOsAddCandidate(out,x)}catch(e){console.error(`Life OS candidate provider ${id} failed`,e)}}return out}
+function lifeOsTryRouteHandler(area,route){const fn=LIFE_OS_ROUTE_HANDLERS.get(String(route||""));if(!fn)return false;try{return fn({area,route})!==false}catch(e){console.error(`Life OS route handler ${route} failed`,e);return false}}
+function lifeOsExtensionStatus(){return {candidateProviders:[...LIFE_OS_CANDIDATE_PROVIDERS.keys()],routeHandlers:[...LIFE_OS_ROUTE_HANDLERS.keys()]}}
+
 function lifeOsRawCandidates(){
   const out=[],today=localDateKey();
 
@@ -151,6 +158,7 @@ function lifeOsRawCandidates(){
       })
     }
   }
+  lifeOsCollectProviderCandidates(out);
   return out
 }
 
@@ -251,6 +259,7 @@ function lifeOsMinimumDay(){
 }
 
 function lifeOsOpen(area,route=""){
+  if(lifeOsTryRouteHandler(area,route))return;
   if(route==="projects"||route==="goals"||route==="reviews"||route==="rules"||route==="insights"){ux7Go("more","overview");return}
   if(route==="calendar"){ux7Go("more","overview");setTimeout(()=>document.getElementById("calendarOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"start"}),180);return}
   if(route==="execution"){ux7Go("today","focus");setTimeout(()=>document.getElementById("executionOsCommand")?.scrollIntoView?.({behavior:"smooth",block:"center"}),180);return}

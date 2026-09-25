@@ -5,7 +5,7 @@
    duplicate cleanup, compact overview and mobile-safe sticky actions. No state migration. */
 
 const UX128_NAV_KEY="life-rpg-ux128-nav";
-let UX128_NAV=null,UX128_RESTORING=false,UX128_INSTALLED=false,UX128_RESTORED=false;
+let UX128_NAV=null,UX128_RESTORING=false,UX128_NAV_HOOKED=false,UX128_CLARITY_HOOKED=false,UX128_RESTORED=false;
 
 function ux128EnsureCss(){
   if(document.getElementById("ux128Css"))return;
@@ -31,9 +31,14 @@ function ux128RememberPosition(){
   n.section=section;n.views[section]=view;n.scroll[ux128ScrollKey(section,view)]=Math.max(0,Math.round(window.scrollY||0));ux128SaveNav()
 }
 function ux128InstallNavigationMemory(){
-  if(UX128_INSTALLED)return;UX128_INSTALLED=true;const baseSwitch=switchTab,baseView=ux7SetView;
-  switchTab=function(id){if(!UX128_RESTORING)ux128RememberPosition();const r=baseSwitch(id);if(!UX128_RESTORING){const n=ux128LoadNav();n.section=id;n.views[id]=UX7_PREFS?.[id]||UX7_DEFAULTS?.[id]||"overview";ux128SaveNav()}return r};
-  ux7SetView=function(section,view,scrollTop=false){const r=baseView(section,view,scrollTop);if(!UX128_RESTORING){const n=ux128LoadNav();n.section=section;n.views[section]=view;ux128SaveNav()}return r};
+  if(UX128_NAV_HOOKED)return;UX128_NAV_HOOKED=true;
+  if(typeof ux7RegisterNavigationListener==="function")ux7RegisterNavigationListener("ux128-navigation",event=>{
+    if(UX128_RESTORING)return;
+    if(event?.type==="section:before"||event?.type==="view:before")ux128RememberPosition();
+    const n=ux128LoadNav();
+    if(event?.type==="section:after"){n.section=event.section;n.views[event.section]=UX7_PREFS?.[event.section]||UX7_DEFAULTS?.[event.section]||"overview";ux128SaveNav()}
+    if(event?.type==="view:after"){n.section=event.section;n.views[event.section]=event.view;ux128SaveNav()}
+  });
   window.addEventListener("pagehide",ux128RememberPosition);
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")ux128RememberPosition()})
 }
@@ -110,13 +115,14 @@ function ux128Consolidate(){
   const calibration=document.getElementById("calibrationOsCommand")?.closest(".card");if(calibration){calibration.dataset.ux7View="settings";const view=UX7_PREFS?.more||"overview";calibration.classList.toggle("ux7-hidden",view!=="settings");calibration.classList.add("ux7-view-ready")}
 }
 function ux128InstallClarity(){
-  if(ux7ClaritySecondary.__ux128)return;const base=ux7ClaritySecondary;const wrapped=function(sectionId,card){if(base(sectionId,card))return true;const t=ux7CardText(card);
+  if(UX128_CLARITY_HOOKED)return;UX128_CLARITY_HOOKED=true;if(typeof ux7RegisterClarityProvider!=="function")return;
+  ux7RegisterClarityProvider("ux128-clarity",(sectionId,card,t=ux7CardText(card))=>{
     if(sectionId==="finance")return /состояние финансов|кампания против долгов/.test(t);
     if(sectionId==="work")return /воронка действий|карьерные квесты|активность месяца/.test(t);
     if(sectionId==="tennis")return /навыки игрока|теннисный отчет месяца/.test(t);
     if(sectionId==="more")return /итог текущего месяца|personal analytics|книги, навыки, ачивки и настройки/.test(t);
     return false
-  };wrapped.__ux128=true;ux7ClaritySecondary=wrapped
+  })
 }
 function ux128MarkStickyActions(){
   const selectors=["#workSaveBtn","#ttSaveBtn","#import127Apply","#aiApplyBtn",'#taskEditorCard button[onclick*="saveTaskForm"]','#crmEditorCard button[onclick*="saveCrmDeal"]'];

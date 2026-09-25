@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 12.0.3 — PWA and notifications • UX cleanup */
+/* Life RPG 13.0.0 — PWA lifecycle and notifications */
 
 async function enableNotifications(){if(!("Notification" in window)){toast("Уведомления не поддерживаются");return}const p=await Notification.requestPermission();$("notificationStatus").textContent=`Разрешение: ${p}`;if(p==="granted"){toast("Уведомления включены");runReminderCheck(true)}}
 
@@ -8,7 +8,8 @@ async function notifyOnce(tag,title,body,force=false){if(!("Notification" in win
 
 function runReminderCheck(force=false){const now=new Date();for(const e of financialEvents().filter(x=>x.type==="payment")){const days=daysBetween(now,e.date);if(e.amount<=0)continue;if(e.overdue)notifyOnce(`overdue-${e.kind}-${e.debtId||e.regularPaymentId||e.label}`,"Проверь обязательный платёж",`${e.label}: не закрыто ${rub(e.amount)}`,force);else if(days>=0&&days<=2)notifyOnce(`due-${e.kind}-${e.debtId||e.regularPaymentId||e.label}-${localDateKey(e.date)}`,"Скоро обязательный платёж",`${e.label}: ${rub(e.amount)}, срок ${fmtDate(e.date)}`,force)}const remain=Math.max(0,S.settings.monthlyDebtGoal-monthPayments()),daysLeft=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate();if(S.settings.monthlyDebtGoal>0&&remain>0&&daysLeft<=5)notifyOnce(`monthgoal-${localMonthKey()}`,"Финансовый квест месяца",`До цели осталось ${rub(remain)} и ${daysLeft} дн.`,force);for(const d of (S.crmDeals||[]).filter(x=>!["Выиграно","Проиграно"].includes(x.stage)&&x.nextDate)){const days=daysBetween(now,parseLocal(d.nextDate));if(days<0)notifyOnce(`crm-overdue-${d.id}`,"CRM: просрочен следующий шаг",`${d.name}: ${d.nextStep||"следующий шаг не указан"}`,force);else if(days<=1)notifyOnce(`crm-due-${d.id}-${d.nextDate}`,"CRM: следующий шаг",`${d.name}: ${d.nextStep||"проверь сделку"} • ${days===0?"сегодня":"завтра"}`,force)}}
 
-let pwaRegistration=null;
+let pwaRegistration=null,pwaSetupDone=false;
+function pwaSetupStatus(){return {done:pwaSetupDone,registered:!!pwaRegistration}}
 
 function pwaUpdateMessage(remote=""){
   const suffix=remote?` ${remote}`:"";
@@ -30,6 +31,7 @@ async function checkForAppUpdate(){
 }
 
 function setupPwa(){
+  if(pwaSetupDone)return;pwaSetupDone=true;
   if("serviceWorker" in navigator){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
       // Never reload automatically. A forced reload here can loop while GitHub Pages

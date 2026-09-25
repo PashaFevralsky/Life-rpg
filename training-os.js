@@ -137,10 +137,12 @@ function training129PatchQuick(){
   const grid=document.querySelector("#ux7QuickSheet .ux7-action-grid");if(!grid||grid.querySelector('[data-training129-action="1"]'))return;const b=document.createElement("button");b.type="button";b.dataset.training129Action="1";b.innerHTML=`${typeof ui82Icon==="function"?ui82Icon("activity"):""}<span>ОФП / кардио</span>`;b.onclick=()=>{closeModal("ux7QuickSheet");ux7Go("more","overview");setTimeout(()=>document.getElementById("training129Editor")?.scrollIntoView({behavior:"smooth",block:"start"}),120)};grid.appendChild(b);window.LifePlatform?.refreshIcons?.(grid)
 }
 let TRAINING129_INTEGRATED=false;
+function training129LifeCandidateProvider(){const d=training129Decision();if(!d||d.score<42||d.minutes<=0)return[];return [{id:`training129:${d.kind}`,area:"Тело",kind:`training-${d.kind}`,title:d.title,meta:`${d.reason} • ${d.detail}`,score:d.score,hard:false,route:"training129",source:"Training OS 12.9",confidence:training129Quality().sessions>=6?"medium":"low",evidence:[`${training129Range(7).tennis} tennis`,`${training129Range(7).outdoor} outdoor`],minutes:d.minutes}]}
+function training129OpenRoute(){ux7Go("more","overview");setTimeout(()=>document.getElementById("training129Command")?.scrollIntoView({behavior:"smooth",block:"start"}),120);return true}
 function training129InstallIntegration(){
   if(TRAINING129_INTEGRATED)return;TRAINING129_INTEGRATED=true;
-  if(typeof lifeOsRawCandidates==="function"){const base=lifeOsRawCandidates;lifeOsRawCandidates=function(){const out=base(),d=training129Decision();if(d&&d.score>=42&&d.minutes>0)lifeOsAddCandidate(out,{id:`training129:${d.kind}`,area:"Тело",kind:`training-${d.kind}`,title:d.title,meta:`${d.reason} • ${d.detail}`,score:d.score,hard:false,route:"training129",source:"Training OS 12.9",confidence:training129Quality().sessions>=6?"medium":"low",evidence:[`${training129Range(7).tennis} tennis`,`${training129Range(7).outdoor} outdoor`],minutes:d.minutes});return out}}
-  if(typeof lifeOsOpen==="function"){const base=lifeOsOpen;lifeOsOpen=function(area,route=""){if(route==="training129"){ux7Go("more","overview");setTimeout(()=>document.getElementById("training129Command")?.scrollIntoView({behavior:"smooth",block:"start"}),120);return}return base(area,route)}}
+  if(typeof lifeOsRegisterCandidateProvider==="function")lifeOsRegisterCandidateProvider("training129",training129LifeCandidateProvider);
+  if(typeof lifeOsRegisterRouteHandler==="function")lifeOsRegisterRouteHandler("training129",training129OpenRoute)
 }
 function training129FmtPace(v){if(!Number.isFinite(v)||v<=0)return"—";const m=Math.floor(v),s=Math.round((v-m)*60);return `${m}:${String(s).padStart(2,"0")} мин/км`}
 function training129TypeLabel(t){return ({easy:"Лёгкая аэробная",interval:"Интервалы",strength:"ОФП",recovery:"Восстановление"})[t]||t}
@@ -161,3 +163,6 @@ function renderTraining129(){
   const rows=training129OutdoorSessions(60).slice(0,12);hist.innerHTML=rows.length?rows.map(x=>`<div class="log-item"><div class="split"><div><div class="qtitle">${escapeHtml(x.dateKey)} • ${escapeHtml(training129TypeLabel(x.type))}</div><div class="qmeta">${x.minutes} мин • RPE ${x.rpe} • нагрузка ${Math.round(x.load)}${x.distanceKm?` • ${x.distanceKm} км`:""}${x.avgHr?` • ср. пульс ${x.avgHr}`:""}${x.source!=="manual"?` • ${escapeHtml(x.source)}`:""}</div></div><button class="btn ghost small" onclick="training129Delete('${x.id}')">×</button></div></div>`).join(""):'<div class="empty">ОФП-сессий пока нет. Теннис уже учитывается в общей нагрузке.</div>';
   training129PatchImportHub();training129PatchQuick()
 }
+
+// Register Life OS extensions at module load; state is read lazily by the provider.
+training129InstallIntegration();
