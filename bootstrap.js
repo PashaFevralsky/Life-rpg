@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 13.1.0 — modular runtime + mobile share automation */
+/* Life RPG 13.1.1 — modular runtime + mobile share automation */
 const LIFE_RPG_RUNTIME_MODULES=[
   "data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js",
   "tracking-os.js","personal-os.js","journal-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","personal-import-os.js","dashboard-os.js",

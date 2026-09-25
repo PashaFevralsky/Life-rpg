@@ -1,8 +1,8 @@
 {
-  "name": "Life RPG 13.1.0",
+  "name": "Life RPG 13.1.1",
   "short_name": "Life RPG",
-  "description": "Life RPG 13.1.0 — local-first Personal OS with Android Share Target, Import Hub, training, decision and review systems",
-  "start_url": "./?v=13.1.0",
+  "description": "Life RPG 13.1.1 — local-first Personal OS with Android Share Target, Import Hub, training, decision and review systems",
+  "start_url": "./?v=13.1.1",
   "scope": "./",
   "display": "standalone",
   "background_color": "#08090c",
