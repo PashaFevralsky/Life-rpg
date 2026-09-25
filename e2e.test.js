@@ -11,7 +11,7 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("12.0.3");
+  await expect(page.locator("#versionStatus")).toContainText("12.5.0");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   // Life OS is visible only in Today -> Focus and participates in UX7 switching.
@@ -24,7 +24,8 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#routinesOsCommand")).toBeVisible();
   await expect(page.locator("#inboxOsCommand")).toBeVisible();
   await expect(page.locator("#commandPaletteBtn")).toBeVisible();
-  await expect(page.locator("#todayFlowCommand")).toBeVisible();
+  await expect(page.locator("#today123Command")).toBeVisible();
+  await expect(page.locator("#todayFlowCommand")).not.toBeVisible();
   await expect(page.locator("#decisionOsCommand")).toBeVisible();
   await expect(page.locator("#executionOsCommand")).toBeVisible();
   await expect(page.locator("#lifeOsCommand")).toContainText("Не предлагать");
@@ -182,7 +183,8 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   const knowledgeTab = page.locator('#more .ux7-tab[data-view="knowledge"]');
   await expect(knowledgeTab).toBeVisible();
   await knowledgeTab.click();
-  await expect(page.locator("#knowledgeOsCommand")).toBeVisible();
+  await expect(page.locator("#knowledge124Today")).toBeVisible();
+  await expect(page.locator("#knowledgeOsCommand")).not.toBeVisible();
   await expect(page.locator("#projectsOsCommand")).not.toBeVisible();
   await expect(page.locator("#goalsOsCommand")).not.toBeVisible();
   await expect(page.locator("#reviewOsCommand")).not.toBeVisible();
