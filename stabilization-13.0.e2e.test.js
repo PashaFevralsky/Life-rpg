@@ -9,7 +9,7 @@ async function boot(page){
 
 test("13.0 stabilized shell is idempotent and extensions register once",async({page})=>{
   const errors=await boot(page);
-  await expect(page.locator("#versionStatus")).toContainText("13.1.0");
+  await expect(page.locator("#versionStatus")).toContainText("13.1.1");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
   const before=await page.evaluate(()=>({
     huawei:document.querySelectorAll("#tennisHuaweiCard").length,
