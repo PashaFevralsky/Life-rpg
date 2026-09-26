@@ -188,7 +188,7 @@ async function ai134Ask(mode="general",explicitQuestion=""){
     const answer=String(data.answer||"").trim();if(!answer)throw new Error("Backend вернул пустой ответ");
     ai134HistoryAdd({status:"ok",mode,question,answer,contextHash,model:String(data.model||""),requestId:String(data.requestId||body.requestId),providerRequestId:String(data.providerRequestId||""),files:(body.attachments||[]).map(x=>x.name),sources:body.context.sources||[]});
     if(typeof audit==="function")audit("Free AI Bridge","system",`${mode} • ${contextHash.slice(0,24)}`);
-    if(typeof persist==="function")await persist();
+    if(typeof persist==="function")persist().catch(()=>{});
     if(box)box.value="";AI134_PENDING_FILES=[];AI134_PENDING_SHARE=null;renderAi134();try{toast("AI Bridge: ответ получен")}catch{}
     return data
   }catch(e){
