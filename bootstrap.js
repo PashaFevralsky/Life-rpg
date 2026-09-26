@@ -1,10 +1,10 @@
 "use strict";
 
-/* Life RPG 13.5 — modular runtime + offline GPT Exchange */
+/* Life RPG 13.5.1 — modular runtime + offline GPT Exchange guidance layer */
 const LIFE_RPG_RUNTIME_MODULES=[
   "data-os.js","projects-os.js","goals-os.js","review-os.js","calendar-os.js","tasks-os.js","routines-os.js","inbox-os.js","rules-os.js","insights-os.js","command-os.js","calibration-os.js","execution-os.js","decision-os.js","recovery-os.js",
   "tracking-os.js","personal-os.js","journal-os.js","people-os.js","focus-os.js","body-os.js","home-os.js","capture2-os.js","personal-import-os.js","dashboard-os.js",
-  "knowledge-growth.js","knowledge-decision.js","work-growth.js","tennis-growth.js","tennis-huawei.js","tennis-decision.js","rpg-growth.js","life-os.js","today-execution.js","personal-integration-os.js","integration-12.5.js","feedback-os.js","import-hub.js","ux-12.8.js","training-os.js","share-hub.js","intelligence-13.2.js","intelligence-calibration-13.2.1.js","predictive-trends-13.2.2.js","recovery-center-13.3.js","gpt-exchange-13.5.js"
+  "knowledge-growth.js","knowledge-decision.js","work-growth.js","tennis-growth.js","tennis-huawei.js","tennis-decision.js","rpg-growth.js","life-os.js","today-execution.js","personal-integration-os.js","integration-12.5.js","feedback-os.js","import-hub.js","ux-12.8.js","training-os.js","share-hub.js","intelligence-13.2.js","intelligence-calibration-13.2.1.js","predictive-trends-13.2.2.js","recovery-center-13.3.js","gpt-exchange-13.5.js","gpt-exchange-guidance-13.5.1.js"
 ];
 const LIFE_RPG_RUNTIME_ERRORS=[];
 function lifeRuntimeErrors(){return LIFE_RPG_RUNTIME_ERRORS.slice()}

@@ -1,0 +1,22 @@
+Life RPG 13.5.1 — GPT Exchange Guidance Layer
+
+Добавлено:
+- optional guidance в life-rpg-gpt-response-v1 без ломки старых ответов;
+- GPT Top-3 на сегодня;
+- фокус недели с проверяемым outcome;
+- GPT guardrails;
+- заметки по областям со статусами critical/watch/stable/unknown;
+- срок актуальности guidance;
+- отдельный GPT-слой внутри Life OS;
+- ручная очистка GPT-слоя без удаления Tasks/Calendar;
+- активный GPT-слой попадает в следующий экспорт как previousGpt;
+- guidance-only импорт разрешён;
+- fingerprint учитывает guidance.
+
+Безопасность:
+- нативный алгоритм Life OS не перенастраивается;
+- GPT guidance не удаляет и не редактирует финансы/CRM;
+- перед применением/очисткой остаются recovery snapshots;
+- никакого API, Worker или фонового сетевого вызова.
+
+APP_VERSION=13.2.2 и STATE_VERSION=18 не меняются.

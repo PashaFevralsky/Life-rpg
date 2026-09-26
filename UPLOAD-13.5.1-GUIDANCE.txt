@@ -1,0 +1,22 @@
+Загрузить ВСЕ файлы из архива в корень репозитория.
+
+Новый:
+- gpt-exchange-guidance-13.5.1.js
+- CHANGELOG-13.5.1.txt
+- UPLOAD-13.5.1-GUIDANCE.txt
+
+Заменить:
+- bootstrap.js
+- vite.config.mjs
+- gpt-exchange-13.5.test.js
+- gpt-exchange-13.5.e2e.test.js
+
+package.json, core.js, state.js и старый gpt-exchange-13.5.js не менять.
+
+После зелёного deploy:
+1. Полностью закрыть Life RPG.
+2. Открыть снова.
+3. Ещё → Обзор → должен быть GPT Exchange 13.5.1.
+4. Следующий экспорт уже будет просить GPT вернуть guidance.
+5. После импорта в preview можно отдельно снять галочку «Сохранить GPT-слой в Life OS».
+6. Если оставить галочку, слой появится в Today → Life OS.
