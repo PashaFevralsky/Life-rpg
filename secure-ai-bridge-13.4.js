@@ -180,7 +180,7 @@ async function ai134Ask(mode="general",explicitQuestion=""){
     const base=ai134Endpoint(),token=ai134Token();
     const {body,contextHash}=await ai134BuildRequest(question,mode),ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),45000);let r,data,text;
     try{
-      const headers={"Content-Type":"application/json"};if(token)headers["X-Life-RPG-Token"]=token;
+      const headers=token?{"Content-Type":"application/json","X-Life-RPG-Token":token}:{};
       r=await fetch(`${base}/v1/ask`,{method:"POST",headers,body:JSON.stringify(body),signal:ctl.signal});
       text=await r.text();try{data=JSON.parse(text)}catch{data={error:text.slice(0,500)}}
     }finally{clearTimeout(timer)}
