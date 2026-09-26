@@ -1,0 +1,29 @@
+Life RPG 13.6 — GPT Exchange Feedback Loop
+
+Что добавлено:
+- Жёсткая привязка импортируемого ответа к реально экспортированному packageId.
+- История экспортов GPT с компактным snapshot состояния.
+- Import receipt: после применения сохраняются ID созданных GPT-задач и календарных событий.
+- В следующий экспорт попадают реальные статусы прошлых GPT-действий:
+  active / planned / done / overdue / cancelled / missing.
+- context.feedback136.changesSincePreviousGpt:
+  компактная дельта по Finance / Work / Tennis / Training / Knowledge / Tasks / Calendar.
+- guidanceFeedback:
+  проверка Top-3 прошлого GPT-слоя по текущим Tasks/Calendar, когда возможно сопоставление.
+- feedbackDecisions:
+  GPT может советовать keep / revise / retire по прежним элементам через точный targetId.
+  Это только advisory metadata: существующие Tasks/Calendar/Finance/CRM автоматически не редактируются и не удаляются.
+- Нечёткая защита от почти одинаковых активных задач и однотипных событий на ту же дату.
+- UI Feedback Loop: число связанных экспортов, receipts и фактические статусы GPT-действий.
+- Старые экспорты из history мигрируют в список известных packageId, чтобы не ломать уже начатый обмен.
+
+Безопасность:
+- Нет fetch/API/Cloudflare Worker.
+- Все изменения Tasks/Calendar по-прежнему только после preview + confirm.
+- Перед применением создаётся Recovery snapshot.
+- Ответ с неизвестным packageId блокируется.
+- APP_VERSION остаётся 13.2.2, STATE_VERSION остаётся 18.
+
+Ограничение:
+- ID-отслеживание гарантированно начинается с imports, выполненных уже под 13.6.
+  Старым GPT-задачам без receipt не приписывается выдуманная связь с packageId.

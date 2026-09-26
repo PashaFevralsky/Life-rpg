@@ -1,0 +1,28 @@
+Загрузить ВСЕ 7 файлов из архива в корень репозитория.
+
+Новый файл:
+- gpt-exchange-feedback-13.6.js
+- CHANGELOG-13.6.0.txt
+- UPLOAD-13.6-FEEDBACK-LOOP.txt
+
+Заменить:
+- bootstrap.js
+- vite.config.mjs
+- gpt-exchange-13.5.test.js
+- gpt-exchange-13.5.e2e.test.js
+
+Не менять:
+- gpt-exchange-13.5.js
+- gpt-exchange-guidance-13.5.1.js
+- package.json
+- core.js
+- state.js
+
+После зелёного deploy:
+1. Полностью закрыть PWA.
+2. Открыть снова.
+3. Ещё → Обзор → GPT Exchange 13.6.
+4. В блоке Feedback Loop будут счётчики exports/receipts.
+5. Выгрузить новый GPT-пакет.
+6. Ответ GPT должен импортироваться только с packageId именно этого экспорта.
+7. После применения нового ответа его Tasks/Calendar будут отслеживаться по ID в следующих пакетах.
