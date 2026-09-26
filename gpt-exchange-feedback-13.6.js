@@ -419,12 +419,13 @@ const gpt136BasePreviewHtml=gpt135PreviewHtml;
 gpt135PreviewHtml=function(){
   const p=GPT135_PREVIEW,html=gpt136BasePreviewHtml();
   if(!p||p.error||!p.payload)return html;
-  const bind=p.boundExport
-    ? `<div class="notice" style="margin-top:10px"><b>packageId подтверждён</b><div class="qmeta">${escapeHtml(bind.packageId)} • экспорт ${bind.at?new Date(bind.at).toLocaleString("ru-RU"):""}${p.packageIsOlder?" • это не самый свежий экспорт":""}</div>${bind.question?`<div class="qmeta">${escapeHtml(bind.question)}</div>`:""}</div>`
+  const binding=p.boundExport;
+  const bindHtml=binding
+    ? `<div class="notice" style="margin-top:10px"><b>packageId подтверждён</b><div class="qmeta">${escapeHtml(binding.packageId)} • экспорт ${binding.at?new Date(binding.at).toLocaleString("ru-RU"):""}${p.packageIsOlder?" • это не самый свежий экспорт":""}</div>${binding.question?`<div class="qmeta">${escapeHtml(binding.question)}</div>`:""}</div>`
     : "";
   const decisions=gpt136DecisionHtml(p.payload.feedbackDecisions||[]);
   const dup=[...p.payload.tasks,...p.payload.calendar].filter(x=>x.duplicateReason).map(x=>`<div class="qmeta">• ${escapeHtml(x.duplicateReason)}</div>`).join("");
-  const block=bind+(dup?`<details style="margin-top:10px"><summary>Защита от похожих дублей</summary>${dup}</details>`:"")+
+  const block=bindHtml+(dup?`<details style="margin-top:10px"><summary>Защита от похожих дублей</summary>${dup}</details>`:"")+
     (decisions?`<details style="margin-top:10px"><summary>Feedback keep / revise / retire</summary><div style="margin-top:8px">${decisions}</div></details>`:"");
   return html.replace('<button id="gpt135ApplyBtn"',block+'<button id="gpt135ApplyBtn"')
 };
