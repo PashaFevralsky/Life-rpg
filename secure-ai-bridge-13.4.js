@@ -158,7 +158,7 @@ function ai134Endpoint(){
   const raw=ai134Store().endpoint;if(!raw)throw new Error("Сначала укажите Backend URL в Настройках");
   return ai134NormalizeBaseUrl(raw)
 }
-function ai134CorsError(e){const s=String(e?.message||e);if(/neuron|quota|daily limit|3040|capacity|free allocation/i.test(s))return "Cloudflare Workers AI: бесплатная квота или доступная мощность на сегодня исчерпана. Используй «Поделиться → ChatGPT».";return /fetch|network|cors/i.test(s)?"Backend недоступен. Проверь URL, CORS и Worker.":s}
+function ai134CorsError(e){const s=String(e?.message||e),name=String(e?.name||"");if(/abort/i.test(name)||/signal is aborted|aborted without reason|aborterror/i.test(s))return "Workers AI не успел ответить за 120 секунд. Повтори запрос или используй «Поделиться → ChatGPT».";if(/neuron|quota|daily limit|3040|capacity|free allocation/i.test(s))return "Cloudflare Workers AI: бесплатная квота или доступная мощность на сегодня исчерпана. Используй «Поделиться → ChatGPT».";return /fetch|network|cors/i.test(s)?"Backend недоступен. Проверь URL, CORS и Worker.":s}
 async function ai134Health(){
   const base=ai134Endpoint(),ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),15000);
   try{
@@ -172,13 +172,13 @@ function ai134Busy(on,showStatus=true){
   const ask=document.getElementById("ai134AskBtn"),health=document.getElementById("ai134HealthBtn"),answer=document.getElementById("ai134Answer");
   if(ask){ask.disabled=AI134_BUSY;ask.textContent=AI134_BUSY?"AI думает…":"Спросить бесплатно"}
   if(health)health.disabled=AI134_BUSY;
-  if(AI134_BUSY&&showStatus&&answer)answer.innerHTML='<div class="notice"><b>AI думает…</b><div class="qmeta">Если основная модель занята, Worker автоматически попробует резервную.</div></div>'
+  if(AI134_BUSY&&showStatus&&answer)answer.innerHTML='<div class="notice"><b>AI думает…</b><div class="qmeta">Ответ может занять до 2 минут. Если основная модель занята, Worker автоматически попробует резервную.</div></div>'
 }
 async function ai134Ask(mode="general",explicitQuestion=""){
   if(AI134_BUSY)return;const box=document.getElementById("ai134Question"),question=String(explicitQuestion||box?.value||"").trim();ai134Busy(true);
   try{
     const base=ai134Endpoint(),token=ai134Token();
-    const {body,contextHash}=await ai134BuildRequest(question,mode),ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),45000);let r,data,text;
+    const {body,contextHash}=await ai134BuildRequest(question,mode),ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),120000);let r,data,text;
     try{
       const headers=token?{"Content-Type":"application/json","X-Life-RPG-Token":token}:{};
       r=await fetch(`${base}/v1/ask`,{method:"POST",headers,body:JSON.stringify(body),signal:ctl.signal});
