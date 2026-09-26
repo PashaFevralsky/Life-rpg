@@ -132,7 +132,8 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   const settingsTab=page.locator('#more .ux7-tab[data-view="settings"]');
   await settingsTab.click();
   await expect(page.locator("#dataOsCommand")).toBeVisible();
-  await expect(page.locator("#recoveryOsCommand")).toBeVisible();
+  await expect(page.locator("#recovery133Center")).toBeVisible();
+  await expect(page.locator("#recoveryOsCommand")).not.toBeVisible();
   await expect(page.locator("#calibrationOsCommand")).toBeVisible();
   await page.locator('#more .ux7-tab[data-view="overview"]').click();
 
