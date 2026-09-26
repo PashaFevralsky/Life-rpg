@@ -1,0 +1,10 @@
+Life RPG 13.4.2 — Free AI Bridge reliability hotfix
+
+- Workers AI calls now use rejectIfBusy=true.
+- If GLM-4.7-Flash is busy, Worker immediately tries Gemma 4 fallback.
+- If both models are busy, the client gets an immediate readable error instead of hanging.
+- Client request timeout reduced to 45 seconds.
+- Main answer panel now shows request errors, not only successful answers.
+- Ask button shows “AI думает…” while a request is active.
+- Mobile fact-pack scope checkboxes/layout fixed.
+- No schema migration; APP_VERSION remains 13.2.2 and STATE_VERSION remains 18.

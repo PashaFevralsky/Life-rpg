@@ -1,0 +1,11 @@
+Life RPG 13.4.2 test report
+
+PASS: JavaScript syntax check (client + Worker).
+PASS: Free AI Bridge unit/integration test.
+PASS: primary model busy -> fallback model used.
+PASS: both models busy -> immediate 503 diagnostic.
+PASS: rejectIfBusy option passed to Workers AI binding.
+PASS: provider API keys remain absent.
+PASS: transient attachments remain outside Life RPG state.
+
+Full GitHub Actions / mobile Playwright E2E will run after upload.

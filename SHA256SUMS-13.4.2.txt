@@ -1,0 +1,6 @@
+761f6b574a0f8ffce38e86edaad256a001f2664b443e7a9ef954a6e11d93b1e3  CHANGELOG-13.4.2.txt
+6c9755a664173ca5c49b4d809a6cb8b7ec077709267fded03412ffec1d5dee4b  TEST-REPORT-13.4.2.txt
+d0f80409597bc71a11b17264490852bae025e4f292a0a47fe18a3abdbfd57ce4  ai-bridge-worker.mjs
+a763b20acdbceb48b5865f4fb2c0e539a0fa2db39084ec53f2640079efaf2ac4  secure-ai-bridge-13.4.e2e.test.js
+157b3d93cceaf1583c3c824c294f5fe22c2bd05476e029ecada5d18bf4aab8bb  secure-ai-bridge-13.4.js
+32a7ed115b2ce4deb504277738c1ed41b112e49bf4d4994d9a825c80d167f1c2  secure-ai-bridge-13.4.test.js

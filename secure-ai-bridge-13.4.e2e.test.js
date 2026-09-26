@@ -9,7 +9,7 @@ async function boot(page){
 }
 function corsHeaders(){return {"Access-Control-Allow-Origin":"http://127.0.0.1:4173","Access-Control-Allow-Headers":"Content-Type,X-Life-RPG-Token","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Content-Type":"application/json"}}
 
-test("Free AI Bridge 13.4.1 sends fact pack to Cloudflare Workers AI bridge",async({page})=>{
+test("Free AI Bridge 13.4.2 sends fact pack to Cloudflare Workers AI bridge",async({page})=>{
   let posted=null,token="";
   await page.route("https://bridge.example.test/**",async route=>{
     const req=route.request(),method=req.method(),url=req.url();
@@ -37,7 +37,7 @@ test("Free AI Bridge 13.4.1 sends fact pack to Cloudflare Workers AI bridge",asy
   expect(await page.evaluate(()=>JSON.stringify(S).includes("local-bridge-token"))).toBe(false);expect(errors).toEqual([])
 });
 
-test("Free AI Bridge 13.4.1 shares fact pack and files through Android Share without backend",async({page})=>{
+test("Free AI Bridge 13.4.2 shares fact pack and files through Android Share without backend",async({page})=>{
   const errors=await boot(page);
   await page.addInitScript(()=>{});
   await page.evaluate(()=>{
@@ -55,7 +55,7 @@ test("Free AI Bridge 13.4.1 shares fact pack and files through Android Share wit
   expect(await page.evaluate(()=>JSON.stringify(S).includes("airflow 1500"))).toBe(false);expect(errors).toEqual([])
 });
 
-test("Free AI Bridge 13.4.1 keeps attached document transient when using Worker",async({page})=>{
+test("Free AI Bridge 13.4.2 keeps attached document transient when using Worker",async({page})=>{
   let posted=null;
   await page.route("https://bridge.example.test/**",async route=>{
     const req=route.request(),method=req.method();

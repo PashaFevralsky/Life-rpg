@@ -1,4 +1,4 @@
-/* Life RPG 13.4.1 — Free AI Bridge Worker
+/* Life RPG 13.4.2 — Free AI Bridge Worker hotfix
    Cloudflare Workers AI only. No paid provider API key is required.
    Add a Workers AI binding named AI in the Cloudflare dashboard. */
 
@@ -27,7 +27,8 @@ function equalSecret(a,b){
 }
 function cleanString(v,max){return String(v||"").trim().slice(0,max)}
 function tokenRequired(env){return !!String(env.BRIDGE_ACCESS_TOKEN||"").trim()}
-function quotaError(e){return /neuron|quota|daily limit|free allocation|3040|out of capacity|capacity/i.test(String(e?.message||e))}
+function quotaError(e){return /neuron|quota|daily limit|free allocation/i.test(String(e?.message||e))}
+function capacityError(e){return /3040|out of capacity|capacity|busy|rejectifbusy/i.test(String(e?.message||e))}
 function dataUrlBlob(dataUrl,mime){
   const m=String(dataUrl||"").match(/^data:([^;,]+)?;base64,([A-Za-z0-9+/=\s]+)$/);if(!m)throw new Error("Некорректный attachment data URL");
   const raw=atob(m[2].replace(/\s+/g,"")),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
@@ -78,17 +79,20 @@ function extractText(data){
 async function runModel(messages,env){
   if(!env.AI?.run)throw Object.assign(new Error("Workers AI binding AI не настроен"),{status:503});
   const primary=String(env.WORKERS_AI_MODEL||DEFAULT_MODEL),fallback=String(env.WORKERS_AI_FALLBACK_MODEL||DEFAULT_FALLBACK_MODEL);
-  const models=[primary,...(fallback&&fallback!==primary?[fallback]:[])],maxTokens=Math.max(256,Math.min(3000,Number(env.MAX_OUTPUT_TOKENS)||1400));
-  let last=null;
+  const models=[primary,...(fallback&&fallback!==primary?[fallback]:[])],maxTokens=Math.max(256,Math.min(2200,Number(env.MAX_OUTPUT_TOKENS)||1200));
+  let last=null,busy=false;
   for(const model of models){
     try{
-      const result=await env.AI.run(model,{messages,max_tokens:maxTokens,temperature:0.2,store:false});
+      const result=await env.AI.run(model,{messages,max_completion_tokens:maxTokens,temperature:0.2,store:false},{rejectIfBusy:true});
       const answer=extractText(result);if(!answer)throw new Error("Workers AI вернул пустой текст");
       return {answer,model,usage:result?.usage||null}
     }catch(e){
-      last=e;if(quotaError(e))throw Object.assign(new Error("Бесплатная квота Workers AI или доступная мощность исчерпана. Используй «Поделиться → ChatGPT»."),{status:429});
+      last=e;
+      if(quotaError(e))throw Object.assign(new Error("Бесплатная дневная квота Workers AI исчерпана. Используй «Поделиться → ChatGPT»."),{status:429});
+      if(capacityError(e)){busy=true;continue}
     }
   }
+  if(busy)throw Object.assign(new Error("Cloudflare Workers AI сейчас перегружен. Обе бесплатные модели заняты. Повтори запрос через минуту или используй «Поделиться → ChatGPT»."),{status:503});
   throw Object.assign(last||new Error("Workers AI unavailable"),{status:503})
 }
 async function handleAsk(body,env){

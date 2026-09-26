@@ -32,14 +32,14 @@ context.globalThis=context;vm.createContext(context);vm.runInContext(source,cont
   const fact=vm.runInContext('ai134BuildContext()',context);
   assert.equal(fact.protocol,"life-rpg-secure-ai-bridge-v1");assert.equal(fact.stateVersion,18);assert.equal(JSON.stringify(fact).includes("must-redact"),false);
   const req=await vm.runInContext('ai134BuildRequest("Что делать сегодня?","today")',context);
-  assert.match(req.contextHash,/^sha256:/);assert.equal(req.body.attachments.length,0);assert.equal(req.body.client.module,"Free AI Bridge 13.4.1");
+  assert.match(req.contextHash,/^sha256:/);assert.equal(req.body.attachments.length,0);assert.equal(req.body.client.module,"Free AI Bridge 13.4.2");
   const share=await vm.runInContext('(async()=>{const c=ai134BuildContext(),h=await ai134Hash(c);return ai134SharePrompt("Что делать?","today",c,h)})()',context);
   assert.match(share,/LIFE RPG → CHATGPT/);assert.match(share,/FACT_PACK/);assert.match(share,/Что делать/);
   assert.equal(source.includes("api.openai.com"),false);assert.equal(workerSource.includes("api.openai.com"),false);
   assert.equal(/OPENAI_API_KEY|OPENAI_MODEL|OPENAI_REASONING/.test(workerSource),false,"paid provider configuration must be absent");
   assert.ok(workerSource.includes("env.AI.run"));assert.ok(workerSource.includes("env.AI.toMarkdown"));
-  assert.ok(workerSource.includes("@cf/zai-org/glm-4.7-flash"));assert.ok(workerSource.includes("@cf/google/gemma-4-26b-a4b-it"));
-  assert.ok(source.includes("ai134ShareToChatGPT"));assert.ok(source.includes("Поделиться → ChatGPT"));
+  assert.ok(workerSource.includes("@cf/zai-org/glm-4.7-flash"));assert.ok(workerSource.includes("@cf/google/gemma-4-26b-a4b-it"));assert.ok(workerSource.includes("rejectIfBusy:true"));assert.ok(workerSource.includes("max_completion_tokens"));
+  assert.ok(source.includes("ai134ShareToChatGPT"));assert.ok(source.includes("Поделиться → ChatGPT"));assert.ok(source.includes("AI думает…"));assert.ok(source.includes("grid-template-columns:1fr"));
   assert.ok(fs.readFileSync("bootstrap.js","utf8").includes('"secure-ai-bridge-13.4.js"'));
   assert.ok(JSON.parse(fs.readFileSync("package.json","utf8")).scripts.test.includes("secure-ai-bridge-13.4.test.js"));
 
@@ -57,5 +57,14 @@ context.globalThis=context;vm.createContext(context);vm.runInContext(source,cont
   res=await mod.default.fetch(new Request("https://worker.test/v1/ask",{method:"POST",headers:{Origin:"https://pashafevralsky.github.io","Content-Type":"application/json"},body:JSON.stringify(body)}),env);
   assert.equal(res.status,401);
 
-  console.log("Free AI Bridge 13.4.1 tests: OK")
+  let calls=[];
+  const busyEnv={ALLOWED_ORIGINS:"https://pashafevralsky.github.io",AI:{async run(model,args,opts){calls.push({model,args,opts});if(calls.length===1)throw new Error("3040 Out of Capacity");return {choices:[{message:{content:"Fallback OK"}}]}}}};
+  res=await mod.default.fetch(new Request("https://worker.test/v1/ask",{method:"POST",headers:{Origin:"https://pashafevralsky.github.io","Content-Type":"application/json"},body:JSON.stringify({...body,attachments:[]})}),busyEnv);
+  data=await res.json();assert.equal(res.status,200);assert.equal(data.answer,"Fallback OK");assert.equal(data.model,"@cf/google/gemma-4-26b-a4b-it");assert.equal(calls.length,2);assert.equal(calls[0].opts.rejectIfBusy,true);assert.equal(calls[0].args.max_completion_tokens,1200);
+
+  const allBusy={ALLOWED_ORIGINS:"https://pashafevralsky.github.io",AI:{async run(){throw new Error("3040 Out of Capacity")}}};
+  res=await mod.default.fetch(new Request("https://worker.test/v1/ask",{method:"POST",headers:{Origin:"https://pashafevralsky.github.io","Content-Type":"application/json"},body:JSON.stringify({...body,attachments:[]})}),allBusy);
+  data=await res.json();assert.equal(res.status,503);assert.match(data.error,/перегружен/);
+
+  console.log("Free AI Bridge 13.4.2 tests: OK")
 })().catch(e=>{console.error(e);process.exit(1)});
