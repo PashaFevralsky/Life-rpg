@@ -135,7 +135,7 @@ function gpt1351ToggleGuidance(checked){
   renderGpt135()
 }
 
-async function gpt135Apply(){
+gpt135Apply=async function(){
   const p=GPT135_PREVIEW;if(!p?.payload||p.error)return;
   if(p.alreadyApplied){toast("Этот GPT-ответ уже применялся");return}
   const tasks=p.payload.tasks.filter(x=>x.include&&!x.duplicate),
@@ -180,7 +180,7 @@ async function gpt135Apply(){
   if(typeof persist==="function")await persist();
   if(typeof render==="function")render();else renderGpt135();
   toast(`GPT: задач ${createdTasks.length}, событий ${createdEvents.length}${guidance?" • GPT-слой обновлён":""}`)
-}
+};
 
 function gpt1351GuidancePreviewHtml(g,checked=true){
   if(!g)return "";
