@@ -1,0 +1,45 @@
+Life RPG 13.4 — настройка Secure AI Bridge с телефона
+
+ВАЖНО
+OPENAI_API_KEY нельзя вставлять в Life RPG, GitHub Pages, secure-ai-bridge-13.4.js или GitHub Secrets, которые затем попадают в клиентский bundle.
+В этой схеме ключ находится только в backend Worker secret.
+
+1. Сначала загрузить в корень GitHub все файлы из ZIP 13.4 и дождаться зелёного GitHub Actions.
+
+2. Создать server-side Worker в любом сервисе, который умеет хранить secrets.
+Для Cloudflare Workers можно создать обычный module Worker и вставить содержимое ai-bridge-worker.mjs.
+
+3. В secrets/variables Worker задать:
+OPENAI_API_KEY = ваш API key (SECRET)
+BRIDGE_ACCESS_TOKEN = длинная случайная строка 32+ символа (SECRET)
+ALLOWED_ORIGINS = https://pashafevralsky.github.io
+OPENAI_MODEL = gpt-6-luna
+OPENAI_REASONING = low
+MAX_OUTPUT_TOKENS = 1600
+ENABLE_WEB_SEARCH = 0
+
+OPENAI_API_KEY и BRIDGE_ACCESS_TOKEN должны быть secrets, а не публичными переменными.
+
+4. Развернуть Worker и скопировать его базовый HTTPS URL, например:
+https://life-rpg-ai.<account>.workers.dev
+
+5. В Life RPG:
+Ещё → Настройки → Secure AI Bridge 13.4
+- Backend URL: URL Worker
+- Bridge Access Token: ровно тот же BRIDGE_ACCESS_TOKEN
+- выбрать Summary или Detailed и нужные домены
+- Сохранить
+- Проверить backend
+
+6. Использование:
+Ещё → Обзор → Secure AI Bridge 13.4
+Можно задать вопрос, выбрать пресет или прикрепить файл.
+Кнопка «Из Share Hub» берёт последний элемент локальной очереди, но не удаляет его.
+
+Безопасность:
+- provider API key отсутствует в PWA;
+- Bridge Access Token не хранится в S и не входит в backup/DR;
+- файлы отправляются только после явного прикрепления;
+- AI не применяет изменения к Life RPG автоматически;
+- web search по умолчанию выключен;
+- для отладки в ответе сохраняется provider request id, но не секреты.

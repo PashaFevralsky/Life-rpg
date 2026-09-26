@@ -1,0 +1,22 @@
+Life RPG 13.4.0 — Secure AI Bridge
+
+Что добавлено
+- безопасный AI Bridge: PWA никогда не хранит OPENAI_API_KEY;
+- backend URL + отдельный Bridge Access Token, token хранится только локально вне S/state/backups;
+- fact pack из Life OS, Finance, Work/CRM, Tennis, Training, Knowledge, Decision Intelligence и Predictive Trends;
+- privacy modes Summary / Detailed и отдельные переключатели доменов;
+- SHA-256 hash отправленного контекста и локальная история запросов;
+- пресеты: Сегодня, Риски, Проверить решение, NEVATOM-заявка;
+- явное прикрепление PDF/XLSX/DOCX/CSV/JSON/TXT и изображений;
+- последний элемент Share Hub можно передать в AI без удаления из очереди;
+- AI-ответ не меняет состояние Life RPG автоматически;
+- backend health-check;
+- серверный шаблон ai-bridge-worker.mjs с CORS allowlist, отдельным access token, лимитами payload и Responses API;
+- server-side store:false; опциональный web search выключен по умолчанию;
+- unit/static guard и mobile Playwright E2E.
+
+Совместимость
+- APP_VERSION остаётся 13.2.2.
+- STATE_VERSION остаётся 18.
+- Миграция данных не требуется.
+- Recovery 13.3 и старые backup остаются совместимыми.

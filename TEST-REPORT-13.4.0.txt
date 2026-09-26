@@ -1,0 +1,21 @@
+Life RPG 13.4.0 — TEST REPORT
+
+Локальные проверки пакета:
+- JS syntax: secure-ai-bridge-13.4.js
+- ESM syntax: ai-bridge-worker.mjs
+- JS syntax: secure-ai-bridge-13.4.test.js
+- JS syntax: secure-ai-bridge-13.4.e2e.test.js
+- JS syntax: bootstrap.js
+- ESM syntax: vite.config.mjs
+- ESM syntax: playwright.config.mjs
+- JSON parse: package.json
+- security invariants: client module не содержит api.openai.com и OPENAI_API_KEY
+- bridge token хранится вне S/state/backups
+- server template требует OPENAI_API_KEY + BRIDGE_ACCESS_TOKEN
+- server request uses Responses API with store:false
+- APP_VERSION guard remains 13.2.2
+- STATE_VERSION remains 18
+
+Дополнительно PASS: server Worker integration simulation — CORS/origin, Bridge Access Token gate, server-only provider authorization, Responses API payload и store:false.
+
+Полный legacy + Playwright suite должен быть подтверждён GitHub Actions после загрузки, так как полный репозиторий недоступен в локальной среде сборки этого ZIP.
