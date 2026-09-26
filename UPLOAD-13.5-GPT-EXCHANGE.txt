@@ -1,0 +1,28 @@
+Загрузить в корень репозитория все файлы из архива с заменой совпадающих.
+
+Новые:
+- gpt-exchange-13.5.js
+- gpt-exchange-13.5.test.js
+- gpt-exchange-13.5.e2e.test.js
+- CHANGELOG-13.5.0.txt
+- UPLOAD-13.5-GPT-EXCHANGE.txt
+
+Заменить:
+- bootstrap.js
+- vite.config.mjs
+- playwright.config.mjs
+- package.json
+
+Старые secure-ai-bridge-13.4.* и ai-bridge-worker.mjs можно оставить в репозитории как историю:
+приложение, Vite и тестовый pipeline их больше не загружают и не запускают.
+При желании их можно удалить позже вручную.
+
+После успешного GitHub Actions:
+1. Закрыть установленную PWA Life RPG.
+2. Открыть снова / применить обновление.
+3. Ещё → Обзор → GPT Exchange 13.5.
+4. Выбрать запрос → Скачать пакет для GPT.
+5. Загрузить пакет в ChatGPT.
+6. Скачать life-rpg-gpt-response-v1 JSON из ChatGPT.
+7. В Life RPG нажать «Загрузить ответ GPT».
+8. Проверить preview и нажать «Применить выбранное».

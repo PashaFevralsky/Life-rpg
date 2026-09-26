@@ -1,0 +1,18 @@
+Life RPG 13.5 — GPT Exchange
+
+Удалено из runtime:
+- Secure AI Bridge 13.4
+- вызовы Cloudflare Worker / Workers AI
+- token / backend URL / AI network UI
+
+Добавлено:
+- локальный экспорт life-rpg-gpt-context-v1
+- строгая схема ответа life-rpg-gpt-response-v1
+- импорт ответа GPT с предпросмотром
+- выбор задач/событий перед применением
+- защита от повторного импорта и дублей
+- recovery snapshot перед применением
+- создание только новых Tasks OS и Calendar OS записей
+- очистка старых AI Bridge settings/token на устройстве
+
+Глобальные APP_VERSION=13.2.2 и STATE_VERSION=18 не меняются.
