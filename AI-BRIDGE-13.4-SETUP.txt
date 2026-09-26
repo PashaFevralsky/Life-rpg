@@ -1,45 +1,54 @@
-Life RPG 13.4 — настройка Secure AI Bridge с телефона
+Life RPG 13.4.1 — Free AI Bridge
+НАСТРОЙКА ТОЛЬКО С ТЕЛЕФОНА, БЕЗ ПЛАТНОГО API
 
-ВАЖНО
-OPENAI_API_KEY нельзя вставлять в Life RPG, GitHub Pages, secure-ai-bridge-13.4.js или GitHub Secrets, которые затем попадают в клиентский bundle.
-В этой схеме ключ находится только в backend Worker secret.
+Что работает без какой-либо настройки Cloudflare:
+- Life RPG собирает fact pack локально.
+- Кнопка «Поделиться → ChatGPT» открывает Android Share.
+- Выбираешь приложение ChatGPT и продолжаешь анализ там.
+- Если Android Share недоступен, fact pack копируется в буфер обмена.
 
-1. Сначала загрузить в корень GitHub все файлы из ZIP 13.4 и дождаться зелёного GitHub Actions.
+Чтобы получать AI-ответ прямо внутри Life RPG бесплатно:
+1. Открой Cloudflare Dashboard в Chrome на телефоне.
+2. Workers & Pages → Create → Worker.
+3. Назови, например, life-rpg-free-ai.
+4. Открой Edit code и полностью замени пример кодом из ai-bridge-worker.mjs.
+5. Deploy.
+6. Открой Worker → Settings → Bindings → Add binding → Workers AI.
+   Variable name / binding name: AI
+   Сохрани и Deploy.
+7. Рекомендуется добавить Secret:
+   BRIDGE_ACCESS_TOKEN = длинная случайная строка 32+ символа.
+   Это НЕ платный API key, а локальный пароль между Life RPG и Worker.
+8. Добавь обычную переменную:
+   ALLOWED_ORIGINS = https://pashafevralsky.github.io
+9. Дополнительно можно оставить значения по умолчанию либо задать:
+   WORKERS_AI_MODEL = @cf/zai-org/glm-4.7-flash
+   WORKERS_AI_FALLBACK_MODEL = @cf/google/gemma-4-26b-a4b-it
+   MAX_OUTPUT_TOKENS = 1400
+10. Deploy.
+11. Открой адрес Worker + /health.
+    Должны быть:
+    ok: true
+    provider: cloudflare-workers-ai
+    aiBindingConfigured: true
+12. Life RPG → Ещё → Настройки → Free AI Bridge 13.4.1.
+    Backend URL = адрес workers.dev без /health.
+    Bridge Access Token = значение BRIDGE_ACCESS_TOKEN, если ты его создавал.
+    Сохранить → Проверить Worker.
 
-2. Создать server-side Worker в любом сервисе, который умеет хранить secrets.
-Для Cloudflare Workers можно создать обычный module Worker и вставить содержимое ai-bridge-worker.mjs.
+Бесплатный лимит Cloudflare Workers AI:
+- Free-план включает 10 000 Neurons в сутки.
+- Лимит сбрасывается ежедневно в 00:00 UTC.
+- На Free-плане превышение лимита приводит к ошибке, а не к автоматическому платному списанию.
+- Используемые по умолчанию GLM-4.7-Flash и Gemma 4 26B A4B относятся к моделям, доступным на Workers Free по состоянию на сентябрь 2026.
 
-3. В secrets/variables Worker задать:
-OPENAI_API_KEY = ваш API key (SECRET)
-BRIDGE_ACCESS_TOKEN = длинная случайная строка 32+ символа (SECRET)
-ALLOWED_ORIGINS = https://pashafevralsky.github.io
-OPENAI_MODEL = gpt-6-luna
-OPENAI_REASONING = low
-MAX_OUTPUT_TOKENS = 1600
-ENABLE_WEB_SEARCH = 0
+Если квота закончилась:
+- Life RPG покажет понятную ошибку.
+- Используй «Поделиться → ChatGPT».
+- Локальная Decision Intelligence продолжит работать без AI.
 
-OPENAI_API_KEY и BRIDGE_ACCESS_TOKEN должны быть secrets, а не публичными переменными.
-
-4. Развернуть Worker и скопировать его базовый HTTPS URL, например:
-https://life-rpg-ai.<account>.workers.dev
-
-5. В Life RPG:
-Ещё → Настройки → Secure AI Bridge 13.4
-- Backend URL: URL Worker
-- Bridge Access Token: ровно тот же BRIDGE_ACCESS_TOKEN
-- выбрать Summary или Detailed и нужные домены
-- Сохранить
-- Проверить backend
-
-6. Использование:
-Ещё → Обзор → Secure AI Bridge 13.4
-Можно задать вопрос, выбрать пресет или прикрепить файл.
-Кнопка «Из Share Hub» берёт последний элемент локальной очереди, но не удаляет его.
-
-Безопасность:
-- provider API key отсутствует в PWA;
-- Bridge Access Token не хранится в S и не входит в backup/DR;
-- файлы отправляются только после явного прикрепления;
-- AI не применяет изменения к Life RPG автоматически;
-- web search по умолчанию выключен;
-- для отладки в ответе сохраняется provider request id, но не секреты.
+Важно:
+- В этой версии вообще нет OpenAI API key.
+- Не нужно добавлять банковскую карту для OpenAI API.
+- Файлы хранятся в AI Bridge только на время запроса и не записываются в S/state.
+- Bridge token хранится локально вне S и не попадает в backup/DR.

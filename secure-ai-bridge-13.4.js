@@ -1,11 +1,11 @@
 "use strict";
 
-/* Life RPG 13.4.0 — Secure AI Bridge.
-   Client-side bridge only. No OpenAI/API provider keys are stored here.
-   The PWA sends an explicit, privacy-scoped fact pack to a user-controlled backend. */
+/* Life RPG 13.4.1 — Free AI Bridge.
+   Free Cloudflare Workers AI backend + Android Share fallback to ChatGPT.
+   No paid provider API key is required or stored in the PWA. */
 
 const AI134_PROTOCOL="life-rpg-secure-ai-bridge-v1";
-const AI134_VERSION=1;
+const AI134_VERSION=2;
 const AI134_TOKEN_KEY="lifeRpgAiBridge134AccessToken";
 const AI134_MAX_HISTORY=30;
 const AI134_MAX_FILE_BYTES=8*1024*1024;
@@ -147,7 +147,7 @@ function ai134SharedText(){return [AI134_PENDING_SHARE?.title,AI134_PENDING_SHAR
 async function ai134BuildRequest(question,mode="general"){
   question=String(question||"").trim();if(!question)throw new Error("Введите вопрос");if(question.length>6000)throw new Error("Вопрос слишком длинный");
   const context=ai134BuildContext(),contextHash=await ai134Hash(context),attachments=await ai134Attachments();
-  return {body:{protocol:AI134_PROTOCOL,requestId:(globalThis.crypto?.randomUUID?.()||`lrpg-${Date.now()}`),mode:String(mode||"general"),question,context,contextHash,sharedText:ai134SharedText(),attachments,client:{name:"Life RPG",module:"Secure AI Bridge 13.4.0",appVersion:typeof APP_VERSION!=="undefined"?APP_VERSION:"",stateVersion:typeof STATE_VERSION!=="undefined"?STATE_VERSION:null}},contextHash}
+  return {body:{protocol:AI134_PROTOCOL,requestId:(globalThis.crypto?.randomUUID?.()||`lrpg-${Date.now()}`),mode:String(mode||"general"),question,context,contextHash,sharedText:ai134SharedText(),attachments,client:{name:"Life RPG",module:"Free AI Bridge 13.4.1",appVersion:typeof APP_VERSION!=="undefined"?APP_VERSION:"",stateVersion:typeof STATE_VERSION!=="undefined"?STATE_VERSION:null}},contextHash}
 }
 function ai134HistoryAdd(row){
   const st=ai134Store(),x={id:globalThis.crypto?.randomUUID?.()||`ai-${Date.now()}`,at:new Date().toISOString(),...row};
@@ -158,7 +158,7 @@ function ai134Endpoint(){
   const raw=ai134Store().endpoint;if(!raw)throw new Error("Сначала укажите Backend URL в Настройках");
   return ai134NormalizeBaseUrl(raw)
 }
-function ai134CorsError(e){const s=String(e?.message||e);return /fetch|network|cors/i.test(s)?"Backend недоступен. Проверь URL, CORS и Worker.":s}
+function ai134CorsError(e){const s=String(e?.message||e);if(/neuron|quota|daily limit|3040|capacity|free allocation/i.test(s))return "Cloudflare Workers AI: бесплатная квота или доступная мощность на сегодня исчерпана. Используй «Поделиться → ChatGPT».";return /fetch|network|cors/i.test(s)?"Backend недоступен. Проверь URL, CORS и Worker.":s}
 async function ai134Health(){
   const base=ai134Endpoint(),ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),15000);
   try{
@@ -171,16 +171,17 @@ function ai134Busy(on){AI134_BUSY=!!on;for(const id of ["ai134AskBtn","ai134Heal
 async function ai134Ask(mode="general",explicitQuestion=""){
   if(AI134_BUSY)return;const box=document.getElementById("ai134Question"),question=String(explicitQuestion||box?.value||"").trim();ai134Busy(true);
   try{
-    const base=ai134Endpoint(),token=ai134Token();if(!token)throw new Error("Введите Bridge Access Token в Настройках");
+    const base=ai134Endpoint(),token=ai134Token();
     const {body,contextHash}=await ai134BuildRequest(question,mode),ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),90000);let r,data,text;
     try{
-      r=await fetch(`${base}/v1/ask`,{method:"POST",headers:{"Content-Type":"application/json","X-Life-RPG-Token":token},body:JSON.stringify(body),signal:ctl.signal});
+      const headers={"Content-Type":"application/json"};if(token)headers["X-Life-RPG-Token"]=token;
+      r=await fetch(`${base}/v1/ask`,{method:"POST",headers,body:JSON.stringify(body),signal:ctl.signal});
       text=await r.text();try{data=JSON.parse(text)}catch{data={error:text.slice(0,500)}}
     }finally{clearTimeout(timer)}
     if(!r.ok||!data?.ok)throw new Error(data?.error||`AI Bridge HTTP ${r.status}`);
     const answer=String(data.answer||"").trim();if(!answer)throw new Error("Backend вернул пустой ответ");
     ai134HistoryAdd({status:"ok",mode,question,answer,contextHash,model:String(data.model||""),requestId:String(data.requestId||body.requestId),providerRequestId:String(data.providerRequestId||""),files:(body.attachments||[]).map(x=>x.name),sources:body.context.sources||[]});
-    if(typeof audit==="function")audit("Secure AI Bridge","system",`${mode} • ${contextHash.slice(0,24)}`);
+    if(typeof audit==="function")audit("Free AI Bridge","system",`${mode} • ${contextHash.slice(0,24)}`);
     if(typeof persist==="function")await persist();
     if(box)box.value="";AI134_PENDING_FILES=[];AI134_PENDING_SHARE=null;renderAi134();try{toast("AI Bridge: ответ получен")}catch{}
     return data
@@ -191,8 +192,49 @@ async function ai134Ask(mode="general",explicitQuestion=""){
 }
 function ai134Preset(mode){
   const q={today:"На основе только переданных фактов: что мне делать сегодня? Дай максимум 3 приоритета, объясни почему и что сознательно отложить.",risk:"Разбери мои ближайшие риски по доменам. Отдели факты, выводы и неизвестные. Для каждого существенного риска дай один проверяемый следующий шаг.",decision:"Проверь мои текущие приоритеты и решения. Где данные слабые, где рекомендация может быть ошибочной и какой факт сильнее всего изменит решение?",nevatom:"Разбери приложенную рабочую заявку NEVATOM. Сначала извлеки технические требования и противоречия/пробелы, затем предложи дальнейшие действия. Не выдумывай номенклатуру, характеристики или наличие, которых нет в переданных данных."}[mode]||"";
-  const el=document.getElementById("ai134Question");if(el)el.value=q;return ai134Ask(mode,q)
+  const el=document.getElementById("ai134Question");if(el){el.value=q;el.focus?.()}return q
 }
+
+function ai134SharePrompt(question,mode="general",context=null,contextHash=""){
+  const ctx=context||ai134BuildContext(),shared=ai134SharedText(),rules=[
+    "Используй только факты из FACT_PACK и приложенных файлов.",
+    "Отделяй факты от интерпретаций и неизвестного.",
+    "Не утверждай, что изменил Life RPG: это только анализ.",
+    "Если данных недостаточно, укажи конкретно, чего не хватает."
+  ];
+  return [
+    "LIFE RPG → CHATGPT",
+    `MODE: ${String(mode||"general")}`,
+    `QUESTION:\n${String(question||"").trim()}`,
+    `CONTEXT_HASH: ${contextHash||""}`,
+    `RULES:\n- ${rules.join("\n- ")}`,
+    `FACT_PACK:\n${JSON.stringify(ctx,null,2)}`,
+    shared?`SHARED_TEXT:\n${shared}`:""
+  ].filter(Boolean).join("\n\n")
+}
+async function ai134ShareToChatGPT(mode="general",explicitQuestion=""){
+  const box=document.getElementById("ai134Question"),question=String(explicitQuestion||box?.value||"").trim();if(!question)throw new Error("Введите вопрос");
+  const context=ai134BuildContext(),contextHash=await ai134Hash(context),text=ai134SharePrompt(question,mode,context,contextHash),files=(AI134_PENDING_FILES||[]).slice(0,AI134_MAX_FILES),payload={title:"Life RPG → ChatGPT",text};
+  if(files.length&&navigator?.canShare?.({files}))payload.files=files;
+  try{
+    if(!navigator?.share)throw new Error("share-unavailable");
+    await navigator.share(payload);
+    ai134HistoryAdd({status:"shared",mode,question,contextHash,model:"ChatGPT / Android Share",files:files.map(x=>x.name),sources:context.sources||[]});
+    if(typeof audit==="function")audit("Free AI Bridge → Share","system",`${mode} • ${contextHash.slice(0,24)}`);
+    if(typeof persist==="function")await persist();renderAi134();try{toast("Пакет передан в Android Share — выбери ChatGPT")}catch{}
+    return {shared:true,contextHash}
+  }catch(e){
+    if(String(e?.name||"")==="AbortError")return {shared:false,cancelled:true};
+    if(navigator?.clipboard?.writeText){
+      await navigator.clipboard.writeText(text);
+      ai134HistoryAdd({status:"copied",mode,question,contextHash,model:"Clipboard → ChatGPT",files:files.map(x=>x.name),sources:context.sources||[]});
+      if(typeof persist==="function")await persist();renderAi134();try{toast("Fact pack скопирован. Вставь его в ChatGPT; файлы при необходимости приложи вручную.")}catch{}
+      return {shared:false,copied:true,contextHash}
+    }
+    throw new Error("Android Share и буфер обмена недоступны")
+  }
+}
+
 function ai134SetFiles(input){
   AI134_PENDING_FILES=[...(input?.files||[])].slice(0,AI134_MAX_FILES);AI134_PENDING_SHARE=null;renderAi134()
 }
@@ -211,7 +253,7 @@ async function ai134SaveSettings(){
   const st=ai134Store(),endpoint=document.getElementById("ai134Endpoint"),token=document.getElementById("ai134Token"),privacy=document.getElementById("ai134Privacy");
   if(endpoint)st.endpoint=ai134NormalizeBaseUrl(endpoint.value);if(privacy)st.privacy=privacy.value==="detailed"?"detailed":"summary";if(token)ai134SetToken(token.value);
   for(const k of Object.keys(st.scopes)){const el=document.getElementById(`ai134Scope-${k}`);if(el)st.scopes[k]=!!el.checked}
-  if(typeof audit==="function")audit("Secure AI Bridge settings","system",st.endpoint?"backend configured":"backend cleared");
+  if(typeof audit==="function")audit("Free AI Bridge settings","system",st.endpoint?"backend configured":"backend cleared");
   if(typeof persist==="function")await persist();renderAi134();toast("AI Bridge настройки сохранены")
 }
 async function ai134ClearToken(){ai134SetToken("");const el=document.getElementById("ai134Token");if(el)el.value="";renderAi134();toast("Bridge token удалён с этого устройства")}
@@ -222,12 +264,12 @@ function ai134FilesHtml(){
   return `<div class="notice">${share?`<div class="qmeta">${share}</div>`:""}${names.map(x=>`<div class="qmeta">${x}</div>`).join("")}<button class="btn ghost small" style="margin-top:6px" onclick="ai134ClearFiles()">Убрать</button></div>`
 }
 function ai134HealthHtml(){
-  const h=AI134_LAST_HEALTH;if(!h)return '<span class="tag">не проверен</span>';if(!h.ok)return `<span class="tag">ошибка</span> <span class="qmeta">${escapeHtml(h.error||"")}</span>`;
-  return `<span class="tag">backend OK</span> <span class="qmeta">${escapeHtml(h.model||"model server-side")} • web ${h.webSearch?"on":"off"} • token ${h.accessTokenConfigured?"on":"off"}</span>`
+  const h=AI134_LAST_HEALTH;if(!h)return '<span class="tag">Cloudflare не проверен</span>';if(!h.ok)return `<span class="tag">ошибка</span> <span class="qmeta">${escapeHtml(h.error||"")}</span>`;
+  return `<span class="tag">Workers AI Free OK</span> <span class="qmeta">${escapeHtml(h.model||"")} • ${escapeHtml(h.provider||"Cloudflare")} • token ${h.tokenRequired?(h.accessTokenConfigured?"on":"нужен"):"optional"}</span>`
 }
 function ai134HistoryHtml(){
   const rows=ai134Store().history.slice(0,8);if(!rows.length)return '<div class="empty">Запросов пока нет.</div>';
-  return rows.map(x=>`<details class="log-item"><summary><b>${new Date(x.at).toLocaleString("ru-RU")}</b> • ${escapeHtml(x.mode||"general")} • ${escapeHtml((x.question||"").slice(0,90))}</summary><div class="qmeta" style="margin-top:6px">${escapeHtml(x.model||"")}${x.contextHash?` • ${escapeHtml(x.contextHash.slice(0,24))}`:""}${x.files?.length?` • ${x.files.map(escapeHtml).join(", ")}`:""}</div>${x.answer?`<div style="white-space:pre-wrap;margin-top:8px">${escapeHtml(x.answer)}</div>`:`<div class="notice diagnostic-bad" style="margin-top:8px">${escapeHtml(x.error||"Ошибка")}</div>`}</details>`).join("")
+  return rows.map(x=>{const body=x.answer?`<div style="white-space:pre-wrap;margin-top:8px">${escapeHtml(x.answer)}</div>`:x.status==="shared"?'<div class="notice" style="margin-top:8px">Fact pack передан через Android Share.</div>':x.status==="copied"?'<div class="notice" style="margin-top:8px">Fact pack скопирован в буфер обмена.</div>':`<div class="notice diagnostic-bad" style="margin-top:8px">${escapeHtml(x.error||"Ошибка")}</div>`;return `<details class="log-item"><summary><b>${new Date(x.at).toLocaleString("ru-RU")}</b> • ${escapeHtml(x.mode||"general")} • ${escapeHtml((x.question||"").slice(0,90))}</summary><div class="qmeta" style="margin-top:6px">${escapeHtml(x.model||"")}${x.contextHash?` • ${escapeHtml(x.contextHash.slice(0,24))}`:""}${x.files?.length?` • ${x.files.map(escapeHtml).join(", ")}`:""}</div>${body}</details>`}).join("")
 }
 function ai134LastAnswerHtml(){
   const x=ai134Store().history.find(r=>r.status==="ok");if(!x)return '<div class="empty">Здесь появится ответ. AI не изменяет данные Life RPG автоматически.</div>';
@@ -235,18 +277,18 @@ function ai134LastAnswerHtml(){
 }
 function ai134PatchShareHub(){
   const card=document.getElementById("share131Command")?.closest?.(".card");if(!card||document.getElementById("ai134ShareHubPatch"))return;
-  card.insertAdjacentHTML("beforeend",`<div id="ai134ShareHubPatch" class="notice" style="margin-top:12px"><div class="split" style="gap:6px;flex-wrap:wrap"><div><b>Secure AI Bridge 13.4</b><div class="qmeta">Не записывает результат автоматически.</div></div><button class="btn ghost small" onclick="ai134AttachLatestShare()">Последний Share → AI</button></div></div>`)
+  card.insertAdjacentHTML("beforeend",`<div id="ai134ShareHubPatch" class="notice" style="margin-top:12px"><div class="split" style="gap:6px;flex-wrap:wrap"><div><b>Free AI Bridge 13.4.1</b><div class="qmeta">Cloudflare Workers AI Free или Android Share → ChatGPT.</div></div><button class="btn ghost small" onclick="ai134AttachLatestShare()">Последний Share → AI</button></div></div>`)
 }
 function ensureAi134Ui(){
   const grid=document.querySelector?.("#more .grid");if(!grid)return;
-  if(!document.getElementById("ai134Card"))grid.insertAdjacentHTML("beforeend",`<div id="ai134Card" data-ux7-view="overview" class="card ux7-card span-12"><div class="split" style="gap:6px;flex-wrap:wrap"><div><div class="eyebrow">Secure AI Bridge 13.4</div><div class="section-title">AI поверх фактов Life RPG</div></div><div id="ai134HealthState"></div></div><div class="muted" style="margin-top:6px">Контекст собирается локально из Life OS, Decision Intelligence и выбранных доменов. В API уходит только fact pack и явно прикреплённые файлы.</div><div class="field" style="margin-top:10px"><label>Вопрос</label><textarea id="ai134Question" rows="4" placeholder="Например: что мне делать сегодня и почему?"></textarea></div><div class="split" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button id="ai134AskBtn" class="btn secondary" onclick="ai134Ask()">Спросить</button><button class="btn ghost small" onclick="ai134Preset('today')">Сегодня</button><button class="btn ghost small" onclick="ai134Preset('risk')">Риски</button><button class="btn ghost small" onclick="ai134Preset('decision')">Проверить решение</button><button class="btn ghost small" onclick="ai134Preset('nevatom')">NEVATOM-заявка</button></div><div class="split" style="margin-top:8px;gap:6px;flex-wrap:wrap"><label class="btn ghost small">Файл<input id="ai134Files" type="file" multiple accept=".pdf,.txt,.md,.json,.html,.xml,.csv,.xls,.xlsx,.doc,.docx,.rtf,.odt,.ppt,.pptx,image/*" style="display:none" onchange="ai134SetFiles(this)"></label><button class="btn ghost small" onclick="ai134AttachLatestShare()">Из Share Hub</button><button class="btn ghost small" onclick="ai134PreviewContext()">Показать fact pack</button></div><div id="ai134AttachmentState" style="margin-top:8px"></div><div id="ai134Answer" style="margin-top:10px"></div><details style="margin-top:12px"><summary>Fact pack / evidence</summary><div id="ai134ContextPreview" style="margin-top:8px"></div></details><details style="margin-top:12px"><summary>История запросов</summary><div id="ai134History" style="margin-top:8px"></div></details></div>`);
-  if(!document.getElementById("ai134SettingsCard"))grid.insertAdjacentHTML("beforeend",`<div id="ai134SettingsCard" data-ux7-view="settings" class="card ux7-card span-12"><div class="eyebrow">Secure AI Bridge 13.4</div><div class="section-title">Безопасное подключение</div><div class="notice" style="margin-top:8px"><b>API key сюда не вводится.</b><div class="qmeta">Provider API key хранится только в backend Worker. В Life RPG сохраняются URL и локальный Bridge Access Token; token не входит в state/backups.</div></div><div class="field" style="margin-top:10px"><label>Backend URL</label><input id="ai134Endpoint" type="url" placeholder="https://...workers.dev"></div><div class="field"><label>Bridge Access Token</label><input id="ai134Token" type="password" autocomplete="off" placeholder="отдельный token из Worker Secret"></div><div class="field"><label>Объём контекста</label><select id="ai134Privacy"><option value="summary">Summary — агрегаты и решения</option><option value="detailed">Detailed — + активные задачи/сделки/долги</option></select></div><div class="title" style="margin-top:10px">Что можно отправлять в fact pack</div><div class="formgrid" id="ai134Scopes">${["finance","work","tennis","training","knowledge","planning","intelligence"].map(k=>`<label class="check"><input id="ai134Scope-${k}" type="checkbox"> ${({finance:"Финансы",work:"Работа / CRM",tennis:"Теннис",training:"Training",knowledge:"Знания",planning:"Планы / календарь",intelligence:"Decision Intelligence"})[k]}</label>`).join("")}</div><div class="split" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn secondary" onclick="ai134SaveSettings()">Сохранить</button><button id="ai134HealthBtn" class="btn ghost" onclick="ai134Health().then(()=>toast('AI Bridge доступен')).catch(e=>toast(String(e.message||e)))">Проверить backend</button><button class="btn ghost" onclick="ai134ClearToken()">Удалить token</button><button class="btn ghost" onclick="ai134ClearHistory()">Очистить историю</button></div><div id="ai134SettingsStatus" style="margin-top:8px"></div></div>`);
+  if(!document.getElementById("ai134Card"))grid.insertAdjacentHTML("beforeend",`<div id="ai134Card" data-ux7-view="overview" class="card ux7-card span-12"><div class="split" style="gap:6px;flex-wrap:wrap"><div><div class="eyebrow">Free AI Bridge 13.4.1</div><div class="section-title">AI без платного API</div></div><div id="ai134HealthState"></div></div><div class="muted" style="margin-top:6px">Два канала: бесплатный Cloudflare Workers AI внутри Life RPG и Android Share → ChatGPT. Fact pack собирается локально и ничего сам не меняет в базе.</div><div class="field" style="margin-top:10px"><label>Вопрос</label><textarea id="ai134Question" rows="4" placeholder="Например: что мне делать сегодня и почему?"></textarea></div><div class="split" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button id="ai134AskBtn" class="btn secondary" onclick="ai134Ask()">Спросить бесплатно</button><button id="ai134ShareChatGptBtn" class="btn ghost" onclick="ai134ShareToChatGPT()">Поделиться → ChatGPT</button></div><div class="split" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button class="btn ghost small" onclick="ai134Preset('today')">Сегодня</button><button class="btn ghost small" onclick="ai134Preset('risk')">Риски</button><button class="btn ghost small" onclick="ai134Preset('decision')">Проверить решение</button><button class="btn ghost small" onclick="ai134Preset('nevatom')">NEVATOM-заявка</button></div><div class="split" style="margin-top:8px;gap:6px;flex-wrap:wrap"><label class="btn ghost small">Файл<input id="ai134Files" type="file" multiple accept=".pdf,.txt,.md,.json,.html,.xml,.csv,.xls,.xlsx,.doc,.docx,.rtf,.odt,.ppt,.pptx,image/*" style="display:none" onchange="ai134SetFiles(this)"></label><button class="btn ghost small" onclick="ai134AttachLatestShare()">Из Share Hub</button><button class="btn ghost small" onclick="ai134PreviewContext()">Показать fact pack</button></div><div id="ai134AttachmentState" style="margin-top:8px"></div><div id="ai134Answer" style="margin-top:10px"></div><details style="margin-top:12px"><summary>Fact pack / evidence</summary><div id="ai134ContextPreview" style="margin-top:8px"></div></details><details style="margin-top:12px"><summary>История запросов</summary><div id="ai134History" style="margin-top:8px"></div></details></div>`);
+  if(!document.getElementById("ai134SettingsCard"))grid.insertAdjacentHTML("beforeend",`<div id="ai134SettingsCard" data-ux7-view="settings" class="card ux7-card span-12"><div class="eyebrow">Free AI Bridge 13.4.1</div><div class="section-title">Бесплатное подключение</div><div class="notice" style="margin-top:8px"><b>Платный API key не нужен.</b><div class="qmeta">Cloudflare Worker использует встроенный Workers AI binding. На Free-плане доступна бесплатная дневная квота. Backend URL нужен только для ответа внутри Life RPG; «Поделиться → ChatGPT» работает и без Worker.</div></div><div class="field" style="margin-top:10px"><label>Cloudflare Worker URL</label><input id="ai134Endpoint" type="url" placeholder="https://...workers.dev"></div><div class="field"><label>Bridge Access Token (необязательно, но рекомендуется)</label><input id="ai134Token" type="password" autocomplete="off" placeholder="случайная строка из Worker Secret"></div><div class="field"><label>Объём контекста</label><select id="ai134Privacy"><option value="summary">Summary — агрегаты и решения</option><option value="detailed">Detailed — + активные задачи/сделки/долги</option></select></div><div class="title" style="margin-top:10px">Что можно отправлять в fact pack</div><div class="formgrid" id="ai134Scopes">${["finance","work","tennis","training","knowledge","planning","intelligence"].map(k=>`<label class="check"><input id="ai134Scope-${k}" type="checkbox"> ${({finance:"Финансы",work:"Работа / CRM",tennis:"Теннис",training:"Training",knowledge:"Знания",planning:"Планы / календарь",intelligence:"Decision Intelligence"})[k]}</label>`).join("")}</div><div class="split" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn secondary" onclick="ai134SaveSettings()">Сохранить</button><button id="ai134HealthBtn" class="btn ghost" onclick="ai134Health().then(()=>toast('Workers AI доступен')).catch(e=>toast(String(e.message||e)))">Проверить Worker</button><button class="btn ghost" onclick="ai134ClearToken()">Удалить token</button><button class="btn ghost" onclick="ai134ClearHistory()">Очистить историю</button></div><div id="ai134SettingsStatus" style="margin-top:8px"></div></div>`);
   ai134PatchShareHub()
 }
 function renderAi134(){
   const st=ai134Store();ai134PatchShareHub();
   const health=document.getElementById("ai134HealthState"),settingsStatus=document.getElementById("ai134SettingsStatus"),attach=document.getElementById("ai134AttachmentState"),answer=document.getElementById("ai134Answer"),history=document.getElementById("ai134History");
-  if(health)health.innerHTML=ai134HealthHtml();if(settingsStatus)settingsStatus.innerHTML=`${st.endpoint?'<span class="tag">URL настроен</span>':'<span class="tag">URL не задан</span>'} ${ai134Token()?'<span class="tag">token на устройстве</span>':'<span class="tag">token не задан</span>'}`;if(attach)attach.innerHTML=ai134FilesHtml();if(answer)answer.innerHTML=ai134LastAnswerHtml();if(history)history.innerHTML=ai134HistoryHtml();
+  if(health)health.innerHTML=ai134HealthHtml();if(settingsStatus)settingsStatus.innerHTML=`${st.endpoint?'<span class="tag">Worker настроен</span>':'<span class="tag">Worker не настроен</span>'} ${ai134Token()?'<span class="tag">token на устройстве</span>':'<span class="tag">token optional</span>'} <span class="tag">ChatGPT Share готов</span>`;if(attach)attach.innerHTML=ai134FilesHtml();if(answer)answer.innerHTML=ai134LastAnswerHtml();if(history)history.innerHTML=ai134HistoryHtml();
   const endpoint=document.getElementById("ai134Endpoint"),token=document.getElementById("ai134Token"),privacy=document.getElementById("ai134Privacy");if(endpoint&&document.activeElement!==endpoint)endpoint.value=st.endpoint||"";if(token&&document.activeElement!==token)token.value=ai134Token();if(privacy&&document.activeElement!==privacy)privacy.value=st.privacy;
   for(const [k,v] of Object.entries(st.scopes)){const el=document.getElementById(`ai134Scope-${k}`);if(el)el.checked=!!v}
   ai134Busy(AI134_BUSY)

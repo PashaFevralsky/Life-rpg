@@ -1,0 +1,21 @@
+Life RPG 13.4.1 — Free AI Bridge
+
+Изменено
+- платный OpenAI API backend полностью удалён из архитектуры;
+- ai-bridge-worker.mjs теперь использует нативный Cloudflare Workers AI binding env.AI;
+- основной бесплатный model: @cf/zai-org/glm-4.7-flash;
+- fallback: @cf/google/gemma-4-26b-a4b-it;
+- документы/таблицы/PDF/изображения преобразуются через env.AI.toMarkdown перед анализом;
+- Bridge Access Token стал опциональным, но рекомендуется для защиты бесплатной квоты;
+- добавлена кнопка «Поделиться → ChatGPT» через Android Web Share API;
+- если Web Share недоступен, fact pack копируется в буфер обмена;
+- пресеты «Сегодня / Риски / Проверить решение / NEVATOM-заявка» теперь только заполняют вопрос и не запускают запрос автоматически;
+- понятная обработка исчерпания бесплатной квоты/мощности Cloudflare;
+- история различает Worker-ответ, Android Share и Clipboard;
+- никаких provider API keys в клиенте или Worker secrets.
+
+Не изменено
+- имя runtime-файла secure-ai-bridge-13.4.js — чтобы не трогать bootstrap/Vite registry;
+- APP_VERSION остаётся 13.2.2;
+- STATE_VERSION остаётся 18;
+- существующие данные и Recovery 13.3 совместимы.

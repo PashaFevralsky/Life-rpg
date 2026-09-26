@@ -1,0 +1,26 @@
+Life RPG 13.4.1 — TEST REPORT
+
+Локально проверяется:
+- syntax secure-ai-bridge-13.4.js;
+- syntax ai-bridge-worker.mjs;
+- unit/integration secure-ai-bridge-13.4.test.js;
+- client не содержит прямых provider API вызовов;
+- worker не содержит платных provider API keys/endpoints;
+- fact pack redaction;
+- bridge token остаётся вне S/state/backups;
+- Cloudflare Worker health;
+- обязательная авторизация при заданном BRIDGE_ACCESS_TOKEN;
+- env.AI.toMarkdown для attachments;
+- env.AI.run для inference;
+- default free models GLM-4.7-Flash + Gemma 4 26B A4B;
+- ChatGPT Android Share payload содержит question + fact pack;
+- runtime filename/configuration remain compatible with existing 13.4 registry.
+
+После загрузки GitHub Actions должен дополнительно подтвердить:
+- полный legacy unit/static suite;
+- Vite + Workbox build;
+- production service worker;
+- весь mobile Playwright E2E suite;
+- новый Free AI Bridge Worker mock flow;
+- Android Share fallback;
+- Pages deploy.
