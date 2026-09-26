@@ -167,12 +167,12 @@ async function ai134Health(){
   }catch(e){AI134_LAST_HEALTH={ok:false,error:ai134CorsError(e),checkedAt:new Date().toISOString()};renderAi134();throw e
   }finally{clearTimeout(timer)}
 }
-function ai134Busy(on){
+function ai134Busy(on,showStatus=true){
   AI134_BUSY=!!on;
   const ask=document.getElementById("ai134AskBtn"),health=document.getElementById("ai134HealthBtn"),answer=document.getElementById("ai134Answer");
   if(ask){ask.disabled=AI134_BUSY;ask.textContent=AI134_BUSY?"AI думает…":"Спросить бесплатно"}
   if(health)health.disabled=AI134_BUSY;
-  if(AI134_BUSY&&answer)answer.innerHTML='<div class="notice"><b>AI думает…</b><div class="qmeta">Если основная модель занята, Worker автоматически попробует резервную.</div></div>'
+  if(AI134_BUSY&&showStatus&&answer)answer.innerHTML='<div class="notice"><b>AI думает…</b><div class="qmeta">Если основная модель занята, Worker автоматически попробует резервную.</div></div>'
 }
 async function ai134Ask(mode="general",explicitQuestion=""){
   if(AI134_BUSY)return;const box=document.getElementById("ai134Question"),question=String(explicitQuestion||box?.value||"").trim();ai134Busy(true);
@@ -298,5 +298,5 @@ function renderAi134(){
   if(health)health.innerHTML=ai134HealthHtml();if(settingsStatus)settingsStatus.innerHTML=`${st.endpoint?'<span class="tag">Worker настроен</span>':'<span class="tag">Worker не настроен</span>'} ${ai134Token()?'<span class="tag">token на устройстве</span>':'<span class="tag">token optional</span>'} <span class="tag">ChatGPT Share готов</span>`;if(attach)attach.innerHTML=ai134FilesHtml();if(answer)answer.innerHTML=ai134LastAnswerHtml();if(history)history.innerHTML=ai134HistoryHtml();
   const endpoint=document.getElementById("ai134Endpoint"),token=document.getElementById("ai134Token"),privacy=document.getElementById("ai134Privacy");if(endpoint&&document.activeElement!==endpoint)endpoint.value=st.endpoint||"";if(token&&document.activeElement!==token)token.value=ai134Token();if(privacy&&document.activeElement!==privacy)privacy.value=st.privacy;
   for(const [k,v] of Object.entries(st.scopes)){const el=document.getElementById(`ai134Scope-${k}`);if(el)el.checked=!!v}
-  ai134Busy(AI134_BUSY)
+  ai134Busy(AI134_BUSY,false)
 }
