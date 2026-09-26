@@ -1,0 +1,37 @@
+Life RPG Recovery Center 13.3 — upload from phone
+
+1. Download and unpack Life-rpg-Recovery-13.3-root-files.zip.
+2. Open GitHub repository PashaFevralsky/Life-rpg.
+3. Open the repository root (main branch).
+4. Add file -> Upload files.
+5. Upload ALL files from the archive root in one batch.
+6. Allow GitHub to replace files with the same names:
+   bootstrap.js
+   vite.config.mjs
+   package.json
+   playwright.config.mjs
+7. The following files are new and must appear in the root:
+   recovery-center-13.3.js
+   recovery-13.3.test.js
+   recovery-13.3.e2e.test.js
+   CHANGELOG-13.3.0.txt
+   INSTALL-13.3.0.txt
+   TEST-REPORT-13.3.0.txt
+   SHA256SUMS.txt
+8. Commit directly to main as one commit, for example:
+   Recovery Center 13.3: backup, integrity, rollback and safe mode
+9. Wait for the existing GitHub Actions / Pages workflow to finish.
+10. Reopen the installed PWA. If an application update prompt appears, apply it and reopen once.
+
+After deploy
+------------
+Open More -> Settings -> Recovery Center 13.3.
+Run "Сканировать" first.
+Then create one manual "+ Checkpoint".
+For an external backup use "DR-пакет" or "DR + пароль".
+Use "Поделиться" on Android to save the package to your preferred cloud/file provider through the system share sheet.
+
+Important
+---------
+STATE_VERSION remains 18. This update must not reset your existing data.
+The app-wide visible shell version remains 13.2.2 intentionally; the Recovery Center module is 13.3.0.

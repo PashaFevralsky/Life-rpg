@@ -1,0 +1,72 @@
+Life RPG — Recovery Center 13.3.0
+Date: 2026-09-25
+
+Scope
+-----
+Feature release layered on the current stable Life RPG 13.2.2 shell.
+STATE_VERSION remains 18. No user-data reset or schema migration is required.
+The global APP_VERSION / Workbox cache id stay at 13.2.2 intentionally so the existing release guards remain compatible; the Recovery module itself is 13.3.0.
+
+What was added
+--------------
+1. Recovery Center 13.3 in More -> Settings.
+2. Checksummed snapshots (SHA-256 when WebCrypto is available).
+3. Upgrade of legacy snapshots with recovery metadata during verification.
+4. Snapshot generations and bounded retention for daily/manual/import/operation/rollback copies.
+5. Manual checkpoints.
+6. Data Integrity Scanner:
+   - validates the current state;
+   - runs existing domain/data-integrity checks;
+   - compares current RAM state with IndexedDB and localStorage copies;
+   - verifies recent snapshot checksums and recoverability.
+7. Dry-run restore test before applying a snapshot.
+8. Full restore with automatic rollback snapshot.
+9. Selective restore for:
+   - Finances;
+   - Work / CRM;
+   - Tennis;
+   - Knowledge;
+   - Planning / Tasks / Goals / Calendar entities;
+   - Profile / RPG.
+10. One-click rollback to the state before the latest recovery operation.
+11. Safe Mode that blocks normal editing while keeping Recovery Center controls available.
+12. Emergency Safe Mode boot via ?safe=1.
+13. Disaster-recovery package (.lrpgdr):
+   - current state;
+   - current-state checksum and metadata;
+   - up to 20 recent snapshots;
+   - recovery operation log;
+   - whole-package checksum.
+14. Optional password-protected DR package:
+   - PBKDF2-SHA256, 250,000 iterations;
+   - AES-GCM-256.
+15. DR bundle verification before import.
+16. Import modes:
+   - full restore;
+   - import snapshots only.
+17. Android/system Share action for saving a DR package to Drive, Files, messenger, etc. No fake silent cloud sync is claimed; there is no backend service in this local-first app.
+18. Recovery operation log.
+19. Old Recovery 2.0 card is hidden when Recovery Center 13.3 is available, avoiding duplicate controls.
+20. New unit/static test and mobile Playwright E2E coverage.
+
+Files changed / added
+---------------------
+bootstrap.js
+vite.config.mjs
+package.json
+playwright.config.mjs
+recovery-center-13.3.js (new)
+recovery-13.3.test.js (new)
+recovery-13.3.e2e.test.js (new)
+CHANGELOG-13.3.0.txt (new)
+INSTALL-13.3.0.txt (new)
+TEST-REPORT-13.3.0.txt (new)
+SHA256SUMS.txt (generated for this package)
+
+Compatibility
+-------------
+- Existing STATE_VERSION: 18
+- Existing IndexedDB DB_VERSION: 7
+- Existing state and backup stores are reused.
+- No data reset.
+- Existing snapshots without checksum remain readable and are upgraded when checked.

@@ -1,0 +1,31 @@
+Life RPG Recovery Center 13.3.0 — local verification report
+Date: 2026-09-25
+
+PASS: JavaScript syntax — recovery-center-13.3.js
+PASS: JavaScript syntax — recovery-13.3.test.js
+PASS: JavaScript syntax — recovery-13.3.e2e.test.js
+PASS: JavaScript syntax — playwright.config.mjs
+PASS: Recovery unit/static test
+  - canonical JSON independent of object-key order
+  - deterministic SHA-256 checksum
+  - snapshot type classification
+  - state statistics
+  - valid snapshot verification
+  - tamper detection after checksum creation
+  - DR bundle self-verification
+  - encrypted DR bundle AES-GCM round trip
+  - Safe Mode on/off persistence
+PASS: Runtime integration guard
+  - recovery-center-13.3.js registered in bootstrap runtime
+  - Recovery Center render hook registered
+  - module copied by Vite classic runtime
+  - existing Workbox cache id retained at 13.2.2
+  - recovery-13.3.test.js registered in npm test
+  - recovery-13.3.e2e.test.js registered in Playwright config
+PASS: Architecture guard
+  - no new persist/save/createPreActionSnapshot monkey patches
+  - STATE_VERSION is not changed
+  - DB schema version is not changed
+
+Not claimed as locally executed:
+The complete historical repository-wide npm/e2e suite could not be cloned into this execution container because direct GitHub archive/network access is blocked here. The package is wired into the repository's existing npm and Playwright suites so GitHub Actions will execute those checks after upload.
