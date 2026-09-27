@@ -392,6 +392,22 @@ jobs:
                       return s
                     });
           
+                    patch("e2e.test.js",s=>{
+                      s=once(s,`await expect(page.locator("#versionStatus")).toContainText("13.2.2");`,`await expect(page.locator("#versionStatus")).toContainText("${TARGET}");`,"main e2e release");
+                      const migrationNeedle=["  await page.evaluate(async()=>{","    const raw={"].join("\n");
+                      const migrationReplacement=[
+                        "  await page.evaluate(async()=>{",
+                        "    if(typeof dbDelete===\"function\"){",
+                        "      try{if(!db)await openDB();await dbDelete(\"state\",\"current\")}catch{}",
+                        "    }",
+                        "    localStorage.removeItem(\"lifeRpg3\");",
+                        "    localStorage.removeItem(\"lifeRpgPwa\");",
+                        "    const raw={"
+                      ].join("\n");
+                      s=once(s,migrationNeedle,migrationReplacement,"main e2e isolated v17 migration");
+                      return s
+                    });
+
                     for(const p of fs.readdirSync(".").filter(x=>x.endsWith(".e2e.test.js"))){
                       let s=read(p),next=s
                         .replaceAll(`toContainText("13.2.2")`,`toContainText("${TARGET}")`)
@@ -485,7 +501,7 @@ jobs:
             index.html core.js manifest.webmanifest vite.config.mjs \
             package.json package-lock.json static-check.js architecture.test.js \
             stage2-ci-release-integrity.test.js recovery-13.3.test.js dist-audit.test.js \
-            stage3-system-hardening.test.js \
+            stage3-system-hardening.test.js e2e.test.js \
             '*.e2e.test.js'
           if git diff --cached --quiet; then
             echo "No changes to commit."
