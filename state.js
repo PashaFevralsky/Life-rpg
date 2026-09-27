@@ -200,7 +200,7 @@ async function loadState(){
     else if(!hasDatabase){storageLoadBlocked=true;throw new Error("Не удалось проверить основную базу. Перезапусти приложение; запись отключена для защиты данных.")}
     else await persist(true);
     if(checkAchievements())await persist();render();runReminderCheck();setInterval(runReminderCheck,3600000);
-  }catch(e){storageMessage(e.message);toast(e.message)}finally{requestAnimationFrame(()=>document.documentElement.classList.remove("life-rpg-booting"))}
+  }catch(e){storageMessage(e.message);toast(e.message)}
 }
 function persist(makeBackup=false){
   if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));
