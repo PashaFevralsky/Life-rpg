@@ -7,11 +7,12 @@ function focusSessions(){return personalData().focusSessions.filter(x=>x&&x.arch
 function focusSyncLinkedTask(tb){const task=personalFindTask(tb?.taskId);if(task&&validDateKey(tb.dateKey)){task.plannedDate=tb.dateKey;task.updatedAt=personalNow()}return task}
 
 function focusAutoCarry(){
+  if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return;
   const p=personalData(),today=localDateKey();if(p.lastAutoCarryDate===today)return;
   const moved=focusTimeboxes().filter(x=>x.status==="planned"&&validDateKey(x.dateKey)&&x.dateKey<today);
   for(const x of moved){x.dateKey=today;x.startTime="";x.carryCount=Math.max(0,+x.carryCount||0)+1;focusSyncLinkedTask(x)}
   p.lastAutoCarryDate=today;
-  if(moved.length)setTimeout(()=>save(`Автоперенос фокус-блоков: ${moved.length}`),0)
+  if(moved.length)setTimeout(()=>save(`Автоперенос фокус-блоков: ${moved.length}`).catch(()=>{}),0)
 }
 
 function focusToday(){const k=localDateKey();return focusTimeboxes().filter(x=>x.dateKey===k).sort((a,b)=>String(a.startTime||"99:99").localeCompare(String(b.startTime||"99:99")))}

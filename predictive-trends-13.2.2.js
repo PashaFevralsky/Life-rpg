@@ -12,13 +12,14 @@ let PREDICTIVE1322_INTEGRATED=false;
 let PREDICTIVE1322_PERSIST_DAY="";
 
 function predictive1322Store(){
-  S.settings=S.settings||{};
-  let x=S.settings.predictive1322;
+  const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+  if(!readOnly)S.settings=S.settings||{};
+  let x=readOnly?deepClone(S.settings?.predictive1322||{}):S.settings.predictive1322;
   if(!x||typeof x!=="object"||Array.isArray(x))x={};
   if(!Array.isArray(x.snapshots))x.snapshots=[];
   if(!x.ui||typeof x.ui!=="object"||Array.isArray(x.ui))x.ui={horizon:7};
   x.ui.horizon=PREDICTIVE1322_HORIZONS.includes(+x.ui.horizon)?+x.ui.horizon:7;
-  x.version=PREDICTIVE1322_VERSION;S.settings.predictive1322=x;return x
+  x.version=PREDICTIVE1322_VERSION;if(!readOnly)S.settings.predictive1322=x;return x
 }
 function predictive1322Num(v,f=0){const n=Number(v);return Number.isFinite(n)?n:f}
 function predictive1322DateDiff(a,b){if(!validDateKey(String(a||"").slice(0,10))||!validDateKey(String(b||"").slice(0,10)))return null;const A=String(a).slice(0,10).split("-").map(Number),B=String(b).slice(0,10).split("-").map(Number);return Math.max(0,Math.round((Date.UTC(B[0],B[1]-1,B[2])-Date.UTC(A[0],A[1]-1,A[2]))/86400000))}
@@ -119,6 +120,7 @@ function predictive1322EvaluateSnapshots(){
   return changed
 }
 function predictive1322CaptureDaily(){
+  if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return false;
   const st=predictive1322Store(),today=localDateKey(),exists=st.snapshots.some(x=>x.capturedDate===today);let changed=predictive1322EvaluateSnapshots();
   if(!exists){for(const f of predictive1322AllForecasts())st.snapshots.unshift({id:uid(),capturedAt:new Date().toISOString(),capturedDate:today,targetDate:localDateKey(addDays(new Date(),f.horizon)),key:f.key,domain:f.domain,horizon:f.horizon,riskScore:f.riskScore,confidence:f.confidence,metric:f.metric,target:f.target,trajectory:f.trajectory,evaluatedAt:"",verificationStatus:"pending",observed:null,predictedRisk:f.riskScore>=60,directionHit:null});changed=true}
   st.snapshots=st.snapshots.slice(0,PREDICTIVE1322_MAX_SNAPSHOTS);

@@ -99,10 +99,15 @@ function normalizeState(raw){
 }
 
 // Persistence chooses the newest valid copy and acknowledges transaction commit.
-let persistenceQueue=Promise.resolve(),storageLoadBlocked=false,storageConflictBlocked=false,storageKnownRevision=0,storageKnownUpdated="",storage137BootSettling=false;
+let persistenceQueue=Promise.resolve(),storageLoadBlocked=false,storageConflictBlocked=false,storageKnownRevision=0,storageKnownUpdated="",storage137BootSettling=false,storageLastDurableState=null,storageSafeWriteOverride=0;
 const STORAGE137_META_KEY="storageSync137",STORAGE137_WRITER_ID=`tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 let storage137Channel=null;
 function storageMessage(message){const el=$("storageStatus");if(el)el.textContent=message}
+function storageSafeModeActive(){try{return storageSafeWriteOverride<=0&&((typeof recovery133SafeModeActive==="function"&&recovery133SafeModeActive())||localStorage.getItem("lifeRpgRecovery133SafeMode")==="1")}catch{return false}}
+function storageSafeModeError(){const e=new Error("Safe Mode: запись состояния заблокирована до выхода из аварийного режима");e.code="LIFE_RPG_SAFE_MODE";storageMessage(e.message);return e}
+async function withStorageSafeWrite(fn){storageSafeWriteOverride++;try{return await fn()}finally{storageSafeWriteOverride--}}
+function storageRememberDurable(state){storageLastDurableState=state?deepClone(state):null}
+function storageRollbackMemory(){if(!storageLastDurableState)return false;S=normalizeState(deepClone(storageLastDurableState));return true}
 function storage137Meta(state){const x=state?.settings?.[STORAGE137_META_KEY];return x&&typeof x==="object"&&!Array.isArray(x)?x:{}}
 function storage137Revision(state){const n=Number(storage137Meta(state).revision);return Number.isInteger(n)&&n>=0?n:0}
 function storage137Writer(state){return String(storage137Meta(state).writerId||"")}
@@ -111,7 +116,7 @@ function storage137ConflictError(remoteRevision=0){
   const e=new Error(`Данные изменены в другой вкладке (rev ${remoteRevision}). Эта вкладка не будет перезаписывать свежую копию. Перезагрузи приложение.`);
   e.code="LIFE_RPG_STORAGE_CONFLICT";storageMessage(e.message);return e
 }
-function storage137MarkLoaded(state){storageKnownRevision=storage137Revision(state);storageKnownUpdated=String(state?.updated||"");storageConflictBlocked=false}
+function storage137MarkLoaded(state){storageKnownRevision=storage137Revision(state);storageKnownUpdated=String(state?.updated||"");storageConflictBlocked=false;storageRememberDurable(state)}
 function storage137WithLock(fn){
   const locks=globalThis.navigator?.locks;
   return locks?.request?locks.request("life-rpg-state-write-13.7",{mode:"exclusive"},fn):Promise.resolve().then(fn)
@@ -191,9 +196,10 @@ function validateStateShape(raw){
   const entityKeysForValidation=["projects","tasks","goals","routines","routineLogs","reviews","inbox","calendarEvents"];
   const rejectDuplicateEntityIds=collections=>{for(const key of entityKeysForValidation){const arr=Array.isArray(collections?.[key])?collections[key]:[],seen=new Set();for(const x of arr){const id=String(x?.id||"").trim();if(!id)continue;if(!isSafeStateId(id))throw new Error(`Небезопасный ID entities.${key}`);if(seen.has(id))throw new Error(`Дублирующийся ID entities.${key}: ${id}`);seen.add(id)}}};
   if(Number(raw.version)>=18){const keys=entityKeysForValidation;if(!raw.entities)throw new Error("Данные v18 без entities");for(const key of keys){if(!Array.isArray(raw.entities[key]))throw new Error(`Некорректная коллекция entities.${key}`);if(raw.entities[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)||!String(x.id||"").trim()))throw new Error(`Повреждённая запись entities.${key}`)}for(const t of raw.entities.tasks)if(t.blockedByIds!=null&&(!Array.isArray(t.blockedByIds)||t.blockedByIds.some(id=>!String(id||"").trim())))throw new Error("Повреждены зависимости задач");for(const g of raw.entities.goals)if(g.projectIds!=null&&(!Array.isArray(g.projectIds)||g.projectIds.some(id=>!String(id||"").trim())))throw new Error("Повреждены связи целей с проектами");for(const r of raw.entities.routines)if(r.days!=null&&(!Array.isArray(r.days)||r.days.some(n=>!Number.isInteger(Number(n))||Number(n)<1||Number(n)>7)))throw new Error("Повреждено расписание рутины");for(const rv of raw.entities.reviews)if(rv?.plan?.focusProjectIds!=null&&!Array.isArray(rv.plan.focusProjectIds))throw new Error("Повреждены связи Review с проектами");validateNestedStateIds(raw.entities,"entities");rejectDuplicateEntityIds(raw.entities)}else if(raw.settings&&typeof raw.settings==="object"){const legacy=Object.fromEntries(entityKeysForValidation.map(key=>[key,Array.isArray(raw.settings[key])?raw.settings[key]:[]]));validateNestedStateIds(legacy,"settings.legacyEntities");rejectDuplicateEntityIds(legacy)}
-  for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(`Некорректный список ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(`Повреждённая запись в ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key))for(const x of raw[key])if(x?.id!=null&&!isSafeStateId(x.id))throw new Error(`Небезопасный ID в ${key}`)}
+  const strictNestedIdCollections=new Set(["accounts","debts","payments","workLogs","tennis","books","readingLogs","expenses","incomeLogs","bankTransfers","regularPayments","cashAdjustments","reservations","fundTransfers","assets","assetTransfers","crmDeals"]);
+  for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(`Некорректный список ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(`Повреждённая запись в ${key}`);if(!["bankImportIds","screenshotImportIds"].includes(key)){const seen=new Set();for(let i=0;i<raw[key].length;i++){const x=raw[key][i];if(x?.id!=null){if(!isSafeStateId(x.id))throw new Error(`Небезопасный ID в ${key}`);const id=String(x.id);if(seen.has(id))throw new Error(`Дублирующийся ID в ${key}: ${id}`);seen.add(id)}if(strictNestedIdCollections.has(key))validateNestedStateIds(x,`${key}[${i}]`)}}}
   for(const x of raw.workLogs||[])if(typeof x.date!=="string")throw new Error("Рабочая запись без даты");
-  for(const x of raw.tennis||[]){if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");for(const m of x.matches||[])if(m?.id!=null&&!isSafeStateId(m.id))throw new Error("Небезопасный ID матча")}for(const d of raw.debts||[])for(const p of d?.parts||[])if(p?.id!=null&&!isSafeStateId(p.id))throw new Error("Небезопасный ID части долга");
+  for(const x of raw.tennis||[]){if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");const seen=new Set();for(const m of x.matches||[])if(m?.id!=null){if(!isSafeStateId(m.id))throw new Error("Небезопасный ID матча");const id=String(m.id);if(seen.has(id))throw new Error(`Дублирующийся ID матча: ${id}`);seen.add(id)}}for(const d of raw.debts||[]){const seen=new Set();for(const p of d?.parts||[])if(p?.id!=null){if(!isSafeStateId(p.id))throw new Error("Небезопасный ID части долга");const id=String(p.id);if(seen.has(id))throw new Error(`Дублирующийся ID части долга: ${id}`);seen.add(id)}}
   for(const x of raw.readingLogs||[])if(x.tags!=null&&!Array.isArray(x.tags))throw new Error("Повреждены теги чтения");
 }
 function openDB(){return new Promise((res,rej)=>{
@@ -209,24 +215,26 @@ function dbPut(store,val,key){return dbWrite(store,os=>key===undefined?os.put(va
 function dbGetAll(store){return new Promise((res,rej)=>{const q=db.transaction(store,"readonly").objectStore(store).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
 function dbDelete(store,key){return dbWrite(store,os=>os.delete(key))}
 async function createPreActionSnapshot(label=""){if(!db)await openDB();let ts=Date.now();while(await dbGet("backups",ts))ts++;await dbPut("backups",{ts,day:localDateKey(),label,state:deepClone(S)});await cleanupBackups(40);return ts}
-async function cleanupBackups(limit=30){const all=(await dbGetAll("backups")).sort((a,b)=>b.ts-a.ts);for(const x of all.slice(limit))await dbDelete("backups",x.ts)}
+async function cleanupBackups(limit=30){if(typeof recovery133CleanupBackups==="function")return recovery133CleanupBackups(Math.max(60,limit));const all=(await dbGetAll("backups")).sort((a,b)=>b.ts-a.ts);for(const x of all.slice(limit))await dbDelete("backups",x.ts)}
 function stateTimestamp(state){const n=Date.parse(state?.updated||"");return Number.isFinite(n)?n:0}
+function storage137CompareCandidates(a,b){const ar=storage137Revision(a?.raw),br=storage137Revision(b?.raw);if(ar!==br&&(ar>0||br>0))return br-ar;return stateTimestamp(b?.raw)-stateTimestamp(a?.raw)||(b?.source==="IndexedDB")-(a?.source==="IndexedDB")}
 async function loadState(){
   const candidates=[];let damaged=false,hasDatabase=false,newerVersion=false;
   const accept=(raw,source)=>{try{if(typeof raw==="string")raw=JSON.parse(raw);if(Number(raw?.version)>STATE_VERSION)newerVersion=true;validateStateShape(raw);candidates.push({raw,source})}catch(e){damaged=true}};
   for(const key of ["lifeRpg4","lifeRpg3","lifeRpgPwa"]){try{const raw=localStorage.getItem(key);if(raw)accept(raw,key)}catch(e){}}
   try{await openDB();const saved=await dbGet("state","current");hasDatabase=true;if(saved)accept(saved,"IndexedDB")}catch(e){}
-  candidates.sort((a,b)=>stateTimestamp(b.raw)-stateTimestamp(a.raw)||(b.source==="IndexedDB")-(a.source==="IndexedDB"));
+  candidates.sort(storage137CompareCandidates);
   try{
     if(newerVersion){storageLoadBlocked=true;throw new Error("Найдены данные более новой версии. Обнови приложение; сохранение остановлено.")}
-    if(candidates.length){const chosen=candidates[0],maxRevision=Math.max(0,...candidates.map(x=>storage137Revision(x.raw)));S=normalizeState(chosen.raw);storage137MarkLoaded(chosen.raw);storageKnownRevision=Math.max(storageKnownRevision,maxRevision);storageLoadBlocked=false;storageMessage(`Загружена свежая копия: ${chosen.source}${damaged?" • другая копия повреждена":""}`)}
+    if(candidates.length){const chosen=candidates[0];S=normalizeState(chosen.raw);storage137MarkLoaded(chosen.raw);storageLoadBlocked=false;storageMessage(`Загружена свежая копия: ${chosen.source}${damaged?" • другая копия повреждена":""}`)}
     else if(damaged){storageLoadBlocked=true;throw new Error("Копии данных повреждены или требуют новой версии. Автосохранение остановлено; восстанови резервную копию.")}
     else if(!hasDatabase){storageLoadBlocked=true;throw new Error("Не удалось проверить основную базу. Перезапусти приложение; запись отключена для защиты данных.")}
-    else await persist(true);
-    if(checkAchievements())await persist();render();runReminderCheck();setInterval(runReminderCheck,3600000);
+    else if(!storageSafeModeActive())await persist(true);
+    if(!storageSafeModeActive()&&checkAchievements())await persist();render();runReminderCheck();setInterval(runReminderCheck,3600000);
   }catch(e){storageMessage(e.message);toast(e.message)}
 }
 function persist(makeBackup=false){
+  if(storageSafeModeActive())return Promise.reject(storageSafeModeError());
   if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));
   if(storageConflictBlocked)return Promise.reject(storage137ConflictError(storageKnownRevision+1));
   if(typeof syncAutoDailyQuests==="function")syncAutoDailyQuests();checkAchievements();S.version=STATE_VERSION;
@@ -235,13 +243,14 @@ function persist(makeBackup=false){
   const task=persistenceQueue.catch(()=>{}).then(()=>storage137WithLock(()=>persist137Current(captured,makeBackup)));persistenceQueue=task;return task
 }
 async function persist137Current(captured,makeBackup=false){
+  if(storageSafeModeActive())throw storageSafeModeError();
   if(storageConflictBlocked)throw storage137ConflictError(storageKnownRevision+1);
   const expectedRevision=storageKnownRevision,nextRevision=expectedRevision+1,snapshot=deepClone(captured);
   snapshot.settings=snapshot.settings||{};snapshot.settings[STORAGE137_META_KEY]={revision:nextRevision,parentRevision:expectedRevision,writerId:STORAGE137_WRITER_ID,updatedAt:new Date().toISOString()};
   const knownTs=Date.parse(storageKnownUpdated||"");
   snapshot.updated=new Date(Math.max(Date.now(),stateTimestamp(snapshot)+1,Number.isFinite(knownTs)?knownTs+1:0)).toISOString();
   await writeStateSnapshot(snapshot,makeBackup,expectedRevision);
-  storageKnownRevision=nextRevision;storageKnownUpdated=snapshot.updated;storageConflictBlocked=false;
+  storageKnownRevision=nextRevision;storageKnownUpdated=snapshot.updated;storageConflictBlocked=false;storageRememberDurable(snapshot);
   S.settings=S.settings||{};S.settings[STORAGE137_META_KEY]=deepClone(snapshot.settings[STORAGE137_META_KEY]);if(stateTimestamp(S)<stateTimestamp(snapshot))S.updated=snapshot.updated;
   storage137Signal(snapshot);return snapshot
 }
@@ -262,7 +271,8 @@ async function writeStateSnapshot(snapshot,makeBackup,expectedRevision=storageKn
   if(databaseSaved){try{const day=localDateKey(),last=localStorage.getItem("lifeRpgBackupDay");if(makeBackup||day!==last){await dbPut("backups",{ts:Date.now(),day,state:deepClone(snapshot)});await cleanupBackups(30);localStorage.setItem("lifeRpgBackupDay",day)}}catch(e){storageMessage("Данные сохранены • не удалось создать дополнительный снимок.")}}
 }
 
-async function save(msg){await persist();render();if(msg)toast(msg)}
+async function commitStateAtomically(mutator,{makeBackup=false,allowSafeWrite=false}={}){const before=deepClone(S),beforeLoadBlocked=storageLoadBlocked;const run=async()=>{try{const result=await mutator();await persist(makeBackup);return result}catch(e){S=before;storageLoadBlocked=beforeLoadBlocked;throw e}};return allowSafeWrite?withStorageSafeWrite(run):run()}
+async function save(msg){try{await persist();render();if(msg)toast(msg);return true}catch(e){storageRollbackMemory();try{render()}catch{};storageMessage(e.message);toast(`Изменение не сохранено: ${e.message}`);throw e}}
 
 function audit(action,entity="",detail=""){S.auditLog=S.auditLog||[];S.auditLog.unshift({id:uid(),date:new Date().toISOString(),action,entity,detail:String(detail||"")});S.auditLog=S.auditLog.slice(0,300)}
 
@@ -272,11 +282,11 @@ function renderAudit(){const box=$("auditLog");if(!box)return;box.innerHTML=(S.a
 
 async function renderSnapshots(){const box=$("snapshotList");if(!box)return;try{if(!db)await openDB();const all=(await dbGetAll("backups")).sort((a,b)=>b.ts-a.ts).slice(0,8);box.innerHTML=all.length?all.map(x=>`<div class="log-item"><div class="qtitle">${new Date(x.ts).toLocaleString("ru-RU")}</div><div class="qmeta">${escapeHtml(x.label||"Локальный снимок")} • ${escapeHtml(x.day||"")}</div><button class="btn ghost small" style="margin-top:7px" onclick="restoreSnapshot(${x.ts})">Восстановить</button></div>`).join(""):'<div class="empty">Снимков пока нет.</div>'}catch(e){box.innerHTML='<div class="empty">Локальные снимки недоступны.</div>'}}
 
-async function restoreSnapshot(ts){if(!confirm("Восстановить этот снимок? Текущее состояние сначала будет сохранено отдельной копией."))return;try{if(!db)await openDB();const snap=await dbGet("backups",ts);if(!snap?.state){toast("Снимок не найден");return}await persist(true);S=normalizeState(snap.state);await persist(true);render();toast("Снимок восстановлен")}catch(e){toast("Не удалось восстановить снимок")}}
+async function restoreSnapshot(ts){if(!confirm("Восстановить этот снимок? Текущее состояние сначала будет сохранено отдельной копией."))return;try{if(!db)await openDB();const snap=await dbGet("backups",ts);if(!snap?.state){toast("Снимок не найден");return}await withStorageSafeWrite(async()=>{await persist(true);await commitStateAtomically(()=>{S=normalizeState(snap.state)},{makeBackup:true})});render();toast("Снимок восстановлен")}catch(e){storageRollbackMemory();try{render()}catch{};toast(`Не удалось восстановить снимок: ${e.message}`)}}
 
 async function exportBackup(encrypted){const data=JSON.stringify(S);let blob,name;if(encrypted){const pass=$("backupPassword").value;if(!pass){toast("Укажи пароль");return}const enc=new TextEncoder(),salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["encrypt"]),cipher=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,enc.encode(data));blob=new Blob([JSON.stringify({format:"life-rpg-encrypted-v1",salt:bytesToBase64(salt),iv:bytesToBase64(iv),data:bytesToBase64(new Uint8Array(cipher))})],{type:"application/octet-stream"});name=`life-rpg-${localDateKey()}.lrpg`;closeModal("encryptedBackupModal")}else{blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});name=`life-rpg-${localDateKey()}.json`}const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 
-async function importBackupFile(file){const text=await file.text();let obj=JSON.parse(text);if(obj.format==="life-rpg-encrypted-v1"){const pass=prompt("Пароль от резервной копии:");if(!pass)throw new Error("Пароль не указан");const dec64=base64ToBytes,enc=new TextEncoder(),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:dec64(obj.salt),iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["decrypt"]),plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:dec64(obj.iv)},key,dec64(obj.data));obj=JSON.parse(new TextDecoder().decode(plain))}const checked=window.LifePlatform?.validateBackup?.(obj);if(checked&&!checked.ok)throw new Error(checked.error||"Резервная копия не прошла проверку");obj=checked?.data||obj;await createPreActionSnapshot("Перед импортом резервной копии");S=normalizeState(obj);storageLoadBlocked=false;await persist();render();toast("Резервная копия восстановлена • предыдущее состояние сохранено в снимках")}
+async function importBackupFile(file){const text=await file.text();let obj=JSON.parse(text);if(obj.format==="life-rpg-encrypted-v1"){const pass=prompt("Пароль от резервной копии:");if(!pass)throw new Error("Пароль не указан");const dec64=base64ToBytes,enc=new TextEncoder(),keyMat=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]),key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:dec64(obj.salt),iterations:200000,hash:"SHA-256"},keyMat,{name:"AES-GCM",length:256},false,["decrypt"]),plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:dec64(obj.iv)},key,dec64(obj.data));obj=JSON.parse(new TextDecoder().decode(plain))}const checked=window.LifePlatform?.validateBackup?.(obj);if(checked&&!checked.ok)throw new Error(checked.error||"Резервная копия не прошла проверку");obj=checked?.data||obj;await createPreActionSnapshot("Перед импортом резервной копии");await commitStateAtomically(()=>{S=normalizeState(obj);storageLoadBlocked=false});render();toast("Резервная копия восстановлена • предыдущее состояние сохранено в снимках")}
 
 function dataIntegrityIssues(){
   const issues=[],ids=new Map(),add=(level,title,detail="")=>issues.push({level,title,detail});
@@ -327,4 +337,4 @@ async function repairDomainIntegrity(){if(!confirm("Выполнить безо�
 
 function renderSystemDiagnostics(){const box=$("systemDiagnostics");if(!box)return;const issues=dataIntegrityIssues();if($("trashStatus"))$("trashStatus").textContent=(S.trash||[]).length?`В корзине: ${S.trash.length}`:"Корзина пуста";if(!issues.length){box.innerHTML='<div class="status"><b>OK.</b> Финансы, CRM, Work, Tennis и Knowledge не показывают критичных проблем целостности.</div>';return}box.innerHTML=issues.map(x=>`<div class="notice ${x.level==="bad"?"diagnostic-bad":""}" style="margin-top:8px"><b>${escapeHtml(x.title)}</b>${x.detail?`<div class="sub">${escapeHtml(x.detail)}</div>`:""}</div>`).join("")}
 
-async function resetAll(){if(!confirm("Точно сбросить весь прогресс и начать с чистого профиля? Текущее состояние будет сохранено отдельным снимком."))return;await createPreActionSnapshot("Перед полным сбросом");S=deepClone(DEFAULT_STATE);bankSyncSession={accountId:"main",bankBalance:null,balanceConfidence:0,balanceLabel:"",balanceSource:"",baseExpected:0,wasVerified:false,importedNet:0,detectedAt:"",lastText:""};screenshotImportQueue=[];await persist();render();toast("Создан чистый профиль • предыдущее состояние сохранено в снимках")}
+async function resetAll(){if(!confirm("Точно сбросить весь прогресс и начать с чистого профиля? Текущее состояние будет сохранено отдельным снимком."))return;await createPreActionSnapshot("Перед полным сбросом");await commitStateAtomically(()=>{S=deepClone(DEFAULT_STATE)});bankSyncSession={accountId:"main",bankBalance:null,balanceConfidence:0,balanceLabel:"",balanceSource:"",baseExpected:0,wasVerified:false,importedNet:0,detectedAt:"",lastText:""};screenshotImportQueue=[];render();toast("Создан чистый профиль • предыдущее состояние сохранено в снимках")}

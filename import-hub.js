@@ -124,7 +124,7 @@ function import127CanApply(p=IMPORT127_PREVIEW){
 function import127HistoryAdd(row){const s=import127State();s.history.unshift({id:uid(),at:new Date().toISOString(),...row});s.history=s.history.slice(0,60);return s.history[0]}
 async function import127Apply(){
   if(IMPORT127_APPLY_PENDING){toast("Import Hub уже применяет пакет");return}
-  const p=IMPORT127_PREVIEW;if(!p||!import127CanApply(p))return;IMPORT127_APPLY_PENDING=true;let history=null;
+  const p=IMPORT127_PREVIEW;if(!p||!import127CanApply(p))return;IMPORT127_APPLY_PENDING=true;let history=null;const before=typeof deepClone==="function"?deepClone(S):(typeof structuredClone==="function"?structuredClone(S):JSON.parse(JSON.stringify(S))),beforeLoadBlocked=storageLoadBlocked;
   try{
     const beforeTs=await createPreActionSnapshot(`Import Hub 12.7 • ${p.name||p.kind}`),now=new Date().toISOString();
     if(p.kind==="backup"){S=normalizeState(p.payload);storageLoadBlocked=false;history=import127HistoryAdd({kind:p.kind,name:p.name,count:Object.values(p.counts||{}).reduce((a,b)=>a+(+b||0),0),snapshotTs:beforeTs,rollback:"snapshot"});await persist();render();toast("Резервная копия восстановлена через Import Hub")}
@@ -135,7 +135,7 @@ async function import127Apply(){
     else if(p.kind==="work-csv"){const ids=[],fps=[];for(const x of p.rows||[]){if(import127Seen(x.fp))continue;if(!import127ValidActivityDate(x.date))continue;const row={id:uid(),date:x.date,createdAt:now,updatedAt:now,sourceDealId:"",sales:x.sales,contacts:x.contacts,followups:x.followups,lpr:x.lpr,meetings:x.meetings,proposals:x.proposals,wins:x.wins,pipeline:x.pipeline,note:x.note,xpAward:0,imported:"hub-12.7",importFp:x.fp};S.workLogs.unshift(row);ids.push(row.id);fps.push(x.fp);import127Remember([x.fp])}S.workLogs.sort((a,b)=>String(b.date).localeCompare(String(a.date)));history=import127HistoryAdd({kind:p.kind,name:p.name,count:ids.length,ids,fps,snapshotTs:beforeTs,rollback:"work"});audit("Import Hub • Work","work",`${ids.length} строк`);await save(`Work импорт: ${ids.length}`)}
     else if(p.kind==="tennis-csv"){const ids=[],fps=[];for(const x of p.rows||[]){if(import127Seen(x.fp))continue;if(!import127ValidActivityDate(x.dateKey))continue;const row={id:uid(),dateKey:x.dateKey,date:parseLocal(x.dateKey).toLocaleDateString("ru-RU"),createdAt:now,updatedAt:now,type:x.type,min:x.min,focus:x.focus,load:x.load,w:x.w,l:x.l,serveMin:x.serveMin,footMin:x.footMin,matches:[],opponent:x.opponent,opponentRating:x.opponentRating,score:x.score,note:x.note,xpAward:0,imported:"hub-12.7",importFp:x.fp};S.tennis.unshift(row);ids.push(row.id);fps.push(x.fp);import127Remember([x.fp])}if(typeof recomputeTennisElo==="function")recomputeTennisElo();history=import127HistoryAdd({kind:p.kind,name:p.name,count:ids.length,ids,fps,snapshotTs:beforeTs,rollback:"tennis"});audit("Import Hub • Tennis","sport",`${ids.length} строк`);await save(`Tennis импорт: ${ids.length}`)}
     IMPORT127_PREVIEW=null;renderImport127()
-  }catch(e){if(!history)toast("Импорт не применён: "+String(e?.message||e));throw e}
+  }catch(e){S=before;storageLoadBlocked=beforeLoadBlocked;try{render()}catch{}try{renderImport127()}catch{}toast("Импорт не применён: "+String(e?.message||e));throw e}
   finally{IMPORT127_APPLY_PENDING=false}
 }
 async function import127Rollback(id){

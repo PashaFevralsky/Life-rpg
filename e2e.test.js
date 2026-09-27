@@ -11,7 +11,7 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#today")).toHaveClass(/active/);
-  await expect(page.locator("#versionStatus")).toContainText("13.2.2");
+  await expect(page.locator("#versionStatus")).toContainText("13.7.1");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
   await expect(page.locator("#lifeOsCommand")).toBeVisible();
@@ -212,6 +212,11 @@ test("v17 local state migrates durably to entity architecture v18", async ({ pag
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   await page.evaluate(async()=>{
+    if(typeof dbDelete==="function"){
+      try{if(!db)await openDB();await dbDelete("state","current")}catch{}
+    }
+    localStorage.removeItem("lifeRpg3");
+    localStorage.removeItem("lifeRpgPwa");
     const raw={
       version:17,
       created:new Date().toISOString(),
