@@ -27,8 +27,8 @@ function personalWidgetPrefs(){
 function personalText(v){return String(v??"").trim()}
 function personalNow(){return new Date().toISOString()}
 function personalDaysSince(dateLike){
-  const t=Date.parse(dateLike||"");if(!Number.isFinite(t))return null;
-  return Math.max(0,Math.floor((Date.now()-t)/86400000))
+  const d=new Date(dateLike||"");if(!Number.isFinite(d.getTime()))return null;
+  const n=dateKeyDiff(localDateKey(d),localDateKey());return n==null?null:Math.max(0,n)
 }
 function personalDatePlus(days,from=new Date()){return localDateKey(addDays(from,days))}
 function personalFindTask(id){return typeof taskAll==="function"?taskAll().find(x=>String(x.id)===String(id)):null}

@@ -6,7 +6,8 @@
 
 function tennisDecision22Sessions(days=30){
   const start=localDateKey(addDays(new Date(),-(Math.max(1,days)-1)));
-  return (S.tennis||[]).filter(x=>String(x.dateKey||"")>=start)
+  const rows=typeof tennisRecordedSessions==="function"?tennisRecordedSessions():(S.tennis||[]).filter(x=>validActivityDate(String(x.dateKey||""))&&Math.max(0,+x.min||0)>0);
+  return rows.filter(x=>x.dateKey>=start)
 }
 function tennisDecision22Matches(){
   return typeof tennisMatchTimeline==="function"?tennisMatchTimeline():(typeof tennisAllMatches==="function"?tennisAllMatches():[])
@@ -27,12 +28,12 @@ function tennisDecision22LeastFocus(days=21){
 }
 function tennisDecision22Load(){
   const base=typeof tennisLoadProfile==="function"?tennisLoadProfile():{acute:0,baseline:0,ratio:null,hard3:0,interpretable:false};
-  const wearable=typeof tennisHuaweiAll==="function"?tennisHuaweiAll().slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||"")))[0]||null:null;
+  const wearable=typeof tennisHuaweiAll==="function"?tennisHuaweiAll().filter(x=>validActivityDate(String(x.dateKey||""))).slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||"")))[0]||null:null;
   return {...base,wearable}
 }
 function tennisDecision22MonthPace(d=new Date()){
   const totalDays=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(),elapsed=Math.max(1,d.getDate());
-  const month=localMonthKey(d),sessions=(S.tennis||[]).filter(x=>String(x.dateKey||"").startsWith(month)).length;
+  const month=localMonthKey(d),sessions=tennisDecision22Sessions(totalDays).filter(x=>x.dateKey.startsWith(month)).length;
   const target=Math.max(1,Math.round(typeof tennisOsNumber==="function"?tennisOsNumber("tennisMonthlyTarget",S.settings.tennisMonthlyTarget||12,1,60):(+S.settings.tennisMonthlyTarget||12)));
   const expected=target*elapsed/totalDays,projected=sessions/elapsed*totalDays;
   return {month,sessions,target,totalDays,elapsed,expected,projected,delta:sessions-expected,onPace:sessions+0.25>=expected}

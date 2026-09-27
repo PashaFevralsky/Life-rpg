@@ -6,6 +6,7 @@
 function reviewStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.reviews))S.entities.reviews=[];return S.entities.reviews}
 function reviewWipLimit(){return Math.round(lifeOsSettingNumber("reviewProjectWipLimit",5,1,12))}
 function reviewPeriodKey(kind,date=new Date()){return kind==="month"?localMonthKey(date):isoWeekKey(date)}
+function reviewDaysSince(v){const d=new Date(v||"");if(!Number.isFinite(d.getTime()))return null;const k=localDateKey(d),n=typeof dateKeyDiff==="function"?dateKeyDiff(k,localDateKey()):null;return n==null?null:Math.max(0,n)}
 function reviewCurrent(kind){const key=reviewPeriodKey(kind);return reviewStore().find(x=>x.kind===kind&&x.periodKey===key)||null}
 function reviewLatest(kind){
   return reviewStore().filter(x=>x.kind===kind).slice().sort((a,b)=>Date.parse(b.savedAt||b.createdAt||0)-Date.parse(a.savedAt||a.createdAt||0))[0]||null
@@ -20,7 +21,7 @@ function reviewSnapshot(kind){
   const score=lifeScore(),projects=projectSummary(),life=lifeOsDailyPlan(),finance=typeof decisionEngineData==="function"?decisionEngineData():null,tasks=typeof taskSummary==="function"?taskSummary():{active:0,overdue:0,due:0,high:0,doneMonth:0},inboxRows=typeof inboxOpen==="function"?inboxOpen():[];
   const inbox={open:inboxRows.length,old:inboxRows.filter(x=>typeof inboxAgeDays==="function"&&inboxAgeDays(x)>=2).length},goals=typeof goalSummary==="function"?goalSummary():{active:0,atRisk:0,overdue:0,avg:0,doneMonth:0},routines=typeof routine28Stats==="function"?routine28Stats():{scheduled:0,done:0,rate:0},execution=typeof executionPlan==="function"?executionPlan():{unscheduled:[],late:[],critical:0,capacityFactor:1},calibration=typeof calibrationSummary==="function"?calibrationSummary():null;
   if(kind==="month"){
-    const r=currentMonthReport(),month=localMonthKey(),readDays=new Set((S.readingLogs||[]).filter(x=>String(x.dateKey||"").startsWith(month)).map(x=>x.dateKey)).size;
+    const r=currentMonthReport(),month=localMonthKey(),reading=typeof knowledgeFactualReadingLogs==="function"?knowledgeFactualReadingLogs():(S.readingLogs||[]).filter(x=>validActivityDate(String(x.dateKey||""))),readDays=new Set(reading.filter(x=>x.dateKey.startsWith(month)).map(x=>x.dateKey)).size;
     return {
       at:new Date().toISOString(),kind,periodKey:month,lifeScore:Math.round(score.total),
       finance:{income:r.income,expenses:r.expenses,payments:r.payments,cash:r.cash,debt:totalDebt(),cashGap:finance?.p?.cashGapDate||""},
@@ -32,7 +33,7 @@ function reviewSnapshot(kind){
       system:{hard:life.hardAll.length,deferred:life.deferred.length,unscheduled:execution.unscheduled.length,lateTasks:execution.late.length,executionCritical:execution.critical,capacityFactor:execution.capacityFactor||1,planAdherence:calibration?.plan?.ready?calibration.plan.adherence:null,calibrationDays:calibration?.plan?.n||0}
     }
   }
-  const [a,b]=weekBounds(),w=workWeek(),t=tennisWeek(),reads=(S.readingLogs||[]).filter(x=>inRange(x.dateKey,a,b)),readDays=new Set(reads.map(x=>x.dateKey)).size;
+  const [a,b]=weekBounds(),w=workWeek(),t=tennisWeek(),reads=(typeof knowledgeFactualReadingLogs==="function"?knowledgeFactualReadingLogs():(S.readingLogs||[]).filter(x=>validActivityDate(String(x.dateKey||"")))).filter(x=>inRange(x.dateKey,a,b)),readDays=new Set(reads.map(x=>x.dateKey)).size;
   const income=(S.incomeLogs||[]).filter(x=>inRange(x.dateKey||String(x.date||"").slice(0,10),a,b)).reduce((n,x)=>n+(+x.amount||0),0);
   const expenses=(S.expenses||[]).filter(x=>inRange(x.dateKey,a,b)).reduce((n,x)=>n+(+x.amount||0),0);
   const payments=(S.payments||[]).filter(x=>inRange(x.localDate||String(x.date||"").slice(0,10),a,b)).reduce((n,x)=>n+(+x.amount||0),0);
@@ -73,8 +74,8 @@ function reviewSuggestedPlan(){
 function reviewActivePlan(){
   const current=reviewCurrent("week");if(current?.plan)return current.plan;
   const latest=reviewLatest("week");if(!latest?.plan)return null;
-  const age=(Date.now()-Date.parse(latest.savedAt||latest.createdAt||0))/86400000;
-  return age<=8?latest.plan:null
+  const age=reviewDaysSince(latest.savedAt||latest.createdAt);
+  return age!=null&&age<=8?latest.plan:null
 }
 function reviewPlanCandidates(){
   const plan=reviewActivePlan();if(!plan)return[];
@@ -85,7 +86,7 @@ function reviewPlanCandidates(){
 }
 function reviewNeedsWeekly(){
   const current=reviewCurrent("week");if(current)return false;
-  const latest=reviewLatest("week"),age=latest?(Date.now()-Date.parse(latest.savedAt||latest.createdAt||0))/86400000:null,day=new Date().getDay();
+  const latest=reviewLatest("week"),age=latest?reviewDaysSince(latest.savedAt||latest.createdAt):null,day=new Date().getDay();
   if(age!=null&&age>=7)return true;
   return !latest&&(day===0||day===1)
 }

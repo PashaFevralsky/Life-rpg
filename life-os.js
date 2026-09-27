@@ -11,12 +11,12 @@ function lifeOsSettingNumber(key,fallback,min=0,max=Number.POSITIVE_INFINITY){
 
 const lifeOsLegacyScore=lifeScore;
 lifeScore=function(){
-  const base=lifeOsLegacyScore(),week=typeof tennisWeek==="function"?tennisWeek():{sessions:0},monthSessions=(S.tennis||[]).filter(x=>x.dateKey?.startsWith(localMonthKey())).length;
+  const base=lifeOsLegacyScore(),week=typeof tennisWeek==="function"?tennisWeek():{sessions:0},monthSessions=(typeof tennisRecordedSessions==="function"?tennisRecordedSessions():(S.tennis||[]).filter(x=>validActivityDate(String(x.dateKey||"")))).filter(x=>x.dateKey.startsWith(localMonthKey())).length;
   const tennisMonthTarget=Math.max(1,lifeOsSettingNumber("tennisMonthlyTarget",12,1,60)),tennisWeekTarget=Math.max(1,lifeOsSettingNumber("tennisWeeklyTarget",4,1,14));
   const tennisRegular=clamp(monthSessions/tennisMonthTarget*100,0,100),tennisWeekScore=clamp((week.sessions||0)/tennisWeekTarget*100,0,100),rated=typeof tennisAllMatches==="function"?tennisAllMatches().filter(m=>(+m.opponentRating||0)>0).length:0;
   base.tennis=tennisRegular*.55+tennisWeekScore*.30+Math.min(100,rated*10)*.15;
 
-  const readingWeekTarget=Math.max(1,lifeOsSettingNumber("readingWeeklyDaysTarget",7,1,7)),readDays=clamp(readingDaysThisWeek()/readingWeekTarget*100,0,100),b=currentBook(),bookProgress=b&&+b.totalPages?clamp((+b.currentPage||0)/(+b.totalPages||1)*100,0,100):50,applied=(S.readingLogs||[]).filter(x=>x.application).filter(x=>x.dateKey>=localDateKey(addDays(new Date(),-30))).length;
+  const readingWeekTarget=Math.max(1,lifeOsSettingNumber("readingWeeklyDaysTarget",7,1,7)),readDays=clamp(readingDaysThisWeek()/readingWeekTarget*100,0,100),b=currentBook(),bookProgress=b&&+b.totalPages?clamp((+b.currentPage||0)/(+b.totalPages||1)*100,0,100):50,applied=(typeof knowledgeFactualReadingLogs==="function"?knowledgeFactualReadingLogs():(S.readingLogs||[]).filter(x=>validActivityDate(String(x.dateKey||"")))).filter(x=>x.application&&x.dateKey>=localDateKey(addDays(new Date(),-30))).length;
   base.reading=readDays*.55+bookProgress*.25+Math.min(100,applied*20)*.20;
 
   base.total=(base.finance+base.career+base.tennis+base.reading+base.discipline)/5;
