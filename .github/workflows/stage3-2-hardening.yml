@@ -1,0 +1,460 @@
+name: Apply Stage 3.2 hardening
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/stage3-2-hardening.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-stage3-2-hardening
+  cancel-in-progress: false
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply Stage 3.2 patch
+        shell: bash
+        run: |
+          node <<'NODE'
+                    "use strict";
+                    const fs=require("fs");
+                    const TARGET="13.7.1";
+          
+                    const read=p=>fs.readFileSync(p,"utf8");
+                    const write=(p,s)=>fs.writeFileSync(p,s);
+                    function once(s,a,b,label){
+                      const n=s.split(a).length-1;
+                      if(n!==1)throw new Error(`${label}: expected exactly 1 match, got ${n}`);
+                      return s.replace(a,b)
+                    }
+                    function patch(path,fn){
+                      const before=read(path),after=fn(before);
+                      if(after===before)throw new Error(`${path}: patch produced no change`);
+                      write(path,after);
+                      console.log(`patched ${path}: ${before.length} -> ${after.length}`)
+                    }
+          
+                    if(read("core.js").includes(`APP_VERSION="${TARGET}"`) && fs.existsSync("stage3-system-hardening.test.js")){
+                      console.log(`Stage 3.2 ${TARGET} is already applied`);
+                      process.exit(0)
+                    }
+          
+                    patch("state.js",s=>{
+                      s=once(s,
+          `let persistenceQueue=Promise.resolve(),storageLoadBlocked=false,storageConflictBlocked=false,storageKnownRevision=0,storageKnownUpdated="",storage137BootSettling=false;
+          const STORAGE137_META_KEY="storageSync137",STORAGE137_WRITER_ID=\`tab-\${Date.now().toString(36)}-\${Math.random().toString(36).slice(2,10)}\`;
+          let storage137Channel=null;
+          function storageMessage(message){const el=$("storageStatus");if(el)el.textContent=message}
+          `,
+          `let persistenceQueue=Promise.resolve(),storageLoadBlocked=false,storageConflictBlocked=false,storageKnownRevision=0,storageKnownUpdated="",storage137BootSettling=false,storageLastDurableState=null,storageSafeWriteOverride=0;
+          const STORAGE137_META_KEY="storageSync137",STORAGE137_WRITER_ID=\`tab-\${Date.now().toString(36)}-\${Math.random().toString(36).slice(2,10)}\`;
+          let storage137Channel=null;
+          function storageMessage(message){const el=$("storageStatus");if(el)el.textContent=message}
+          function storageSafeModeActive(){try{return storageSafeWriteOverride<=0&&((typeof recovery133SafeModeActive==="function"&&recovery133SafeModeActive())||localStorage.getItem("lifeRpgRecovery133SafeMode")==="1")}catch{return false}}
+          function storageSafeModeError(){const e=new Error("Safe Mode: запись состояния заблокирована до выхода из аварийного режима");e.code="LIFE_RPG_SAFE_MODE";storageMessage(e.message);return e}
+          async function withStorageSafeWrite(fn){storageSafeWriteOverride++;try{return await fn()}finally{storageSafeWriteOverride--}}
+          function storageRememberDurable(state){storageLastDurableState=state?deepClone(state):null}
+          function storageRollbackMemory(){if(!storageLastDurableState)return false;S=normalizeState(deepClone(storageLastDurableState));return true}
+          `,"state: safe/durable helpers");
+          
+                      s=once(s,
+          `function storage137MarkLoaded(state){storageKnownRevision=storage137Revision(state);storageKnownUpdated=String(state?.updated||"");storageConflictBlocked=false}`,
+          `function storage137MarkLoaded(state){storageKnownRevision=storage137Revision(state);storageKnownUpdated=String(state?.updated||"");storageConflictBlocked=false;storageRememberDurable(state)}`,
+          "state: remember loaded durable");
+          
+                      s=once(s,
+          `async function cleanupBackups(limit=30){const all=(await dbGetAll("backups")).sort((a,b)=>b.ts-a.ts);for(const x of all.slice(limit))await dbDelete("backups",x.ts)}
+          function stateTimestamp(state){const n=Date.parse(state?.updated||"");return Number.isFinite(n)?n:0}`,
+          `async function cleanupBackups(limit=30){if(typeof recovery133CleanupBackups==="function")return recovery133CleanupBackups(Math.max(60,limit));const all=(await dbGetAll("backups")).sort((a,b)=>b.ts-a.ts);for(const x of all.slice(limit))await dbDelete("backups",x.ts)}
+          function stateTimestamp(state){const n=Date.parse(state?.updated||"");return Number.isFinite(n)?n:0}
+          function storage137CompareCandidates(a,b){const ar=storage137Revision(a?.raw),br=storage137Revision(b?.raw);if(ar!==br&&(ar>0||br>0))return br-ar;return stateTimestamp(b?.raw)-stateTimestamp(a?.raw)||(b?.source==="IndexedDB")-(a?.source==="IndexedDB")}`,
+          "state: unified retention and revision ordering");
+          
+                      s=once(s,
+          `  candidates.sort((a,b)=>stateTimestamp(b.raw)-stateTimestamp(a.raw)||(b.source==="IndexedDB")-(a.source==="IndexedDB"));`,
+          `  candidates.sort(storage137CompareCandidates);`,
+          "state: candidate sort");
+          
+                      s=once(s,
+          `    if(candidates.length){const chosen=candidates[0],maxRevision=Math.max(0,...candidates.map(x=>storage137Revision(x.raw)));S=normalizeState(chosen.raw);storage137MarkLoaded(chosen.raw);storageKnownRevision=Math.max(storageKnownRevision,maxRevision);storageLoadBlocked=false;storageMessage(\`Загружена свежая копия: \${chosen.source}\${damaged?" • другая копия повреждена":""}\`)}`,
+          `    if(candidates.length){const chosen=candidates[0];S=normalizeState(chosen.raw);storage137MarkLoaded(chosen.raw);storageLoadBlocked=false;storageMessage(\`Загружена свежая копия: \${chosen.source}\${damaged?" • другая копия повреждена":""}\`)}`,
+          "state: chosen revision must match chosen copy");
+          
+                      s=once(s,`    else await persist(true);`,`    else if(!storageSafeModeActive())await persist(true);`,"state: safe fresh boot");
+                      s=once(s,
+          `    if(checkAchievements())await persist();render();runReminderCheck();setInterval(runReminderCheck,3600000);`,
+          `    if(!storageSafeModeActive()&&checkAchievements())await persist();render();runReminderCheck();setInterval(runReminderCheck,3600000);`,
+          "state: no achievement writes in safe mode");
+          
+                      s=once(s,
+          `function persist(makeBackup=false){
+            if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));`,
+          `function persist(makeBackup=false){
+            if(storageSafeModeActive())return Promise.reject(storageSafeModeError());
+            if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));`,
+          "state: block persistence in safe mode");
+          
+                      s=once(s,
+          `async function persist137Current(captured,makeBackup=false){
+            if(storageConflictBlocked)throw storage137ConflictError(storageKnownRevision+1);`,
+          `async function persist137Current(captured,makeBackup=false){
+            if(storageSafeModeActive())throw storageSafeModeError();
+            if(storageConflictBlocked)throw storage137ConflictError(storageKnownRevision+1);`,
+          "state: block queued writes in safe mode");
+          
+                      s=once(s,
+          `  await writeStateSnapshot(snapshot,makeBackup,expectedRevision);
+            storageKnownRevision=nextRevision;storageKnownUpdated=snapshot.updated;storageConflictBlocked=false;`,
+          `  await writeStateSnapshot(snapshot,makeBackup,expectedRevision);
+            storageKnownRevision=nextRevision;storageKnownUpdated=snapshot.updated;storageConflictBlocked=false;storageRememberDurable(snapshot);`,
+          "state: remember successful durable snapshot");
+          
+                      s=once(s,
+          `async function save(msg){await persist();render();if(msg)toast(msg)}`,
+          `async function commitStateAtomically(mutator,{makeBackup=false,allowSafeWrite=false}={}){const before=deepClone(S),beforeLoadBlocked=storageLoadBlocked;const run=async()=>{try{const result=await mutator();await persist(makeBackup);return result}catch(e){S=before;storageLoadBlocked=beforeLoadBlocked;throw e}};return allowSafeWrite?withStorageSafeWrite(run):run()}
+          async function save(msg){try{await persist();render();if(msg)toast(msg);return true}catch(e){storageRollbackMemory();try{render()}catch{};storageMessage(e.message);toast(\`Изменение не сохранено: \${e.message}\`);throw e}}`,
+          "state: atomic helper and UI-save rollback");
+          
+                      s=once(s,
+          `async function restoreSnapshot(ts){if(!confirm("Восстановить этот снимок? Текущее состояние сначала будет сохранено отдельной копией."))return;try{if(!db)await openDB();const snap=await dbGet("backups",ts);if(!snap?.state){toast("Снимок не найден");return}await persist(true);S=normalizeState(snap.state);await persist(true);render();toast("Снимок восстановлен")}catch(e){toast("Не удалось восстановить снимок")}}`,
+          `async function restoreSnapshot(ts){if(!confirm("Восстановить этот снимок? Текущее состояние сначала будет сохранено отдельной копией."))return;try{if(!db)await openDB();const snap=await dbGet("backups",ts);if(!snap?.state){toast("Снимок не найден");return}await withStorageSafeWrite(async()=>{await persist(true);await commitStateAtomically(()=>{S=normalizeState(snap.state)},{makeBackup:true})});render();toast("Снимок восстановлен")}catch(e){storageRollbackMemory();try{render()}catch{};toast(\`Не удалось восстановить снимок: \${e.message}\`)}}`,
+          "state: atomic snapshot restore");
+          
+                      s=once(s,
+          `obj=checked?.data||obj;await createPreActionSnapshot("Перед импортом резервной копии");S=normalizeState(obj);storageLoadBlocked=false;await persist();render();toast("Резервная копия восстановлена • предыдущее состояние сохранено в снимках")`,
+          `obj=checked?.data||obj;await createPreActionSnapshot("Перед импортом резервной копии");await commitStateAtomically(()=>{S=normalizeState(obj);storageLoadBlocked=false});render();toast("Резервная копия восстановлена • предыдущее состояние сохранено в снимках")`,
+          "state: atomic backup import");
+          
+                      s=once(s,
+          `  for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(\`Некорректный список \${key}\`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(\`Повреждённая запись в \${key}\`);if(!["bankImportIds","screenshotImportIds"].includes(key))for(const x of raw[key])if(x?.id!=null&&!isSafeStateId(x.id))throw new Error(\`Небезопасный ID в \${key}\`)}`,
+          `  const strictNestedIdCollections=new Set(["accounts","debts","payments","workLogs","tennis","books","readingLogs","expenses","incomeLogs","bankTransfers","regularPayments","cashAdjustments","reservations","fundTransfers","assets","assetTransfers","crmDeals"]);
+            for(const [key,value] of Object.entries(DEFAULT_STATE)){if(!Array.isArray(value)||raw[key]==null)continue;if(!Array.isArray(raw[key]))throw new Error(\`Некорректный список \${key}\`);if(!["bankImportIds","screenshotImportIds"].includes(key)&&raw[key].some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw new Error(\`Повреждённая запись в \${key}\`);if(!["bankImportIds","screenshotImportIds"].includes(key)){const seen=new Set();for(let i=0;i<raw[key].length;i++){const x=raw[key][i];if(x?.id!=null){if(!isSafeStateId(x.id))throw new Error(\`Небезопасный ID в \${key}\`);const id=String(x.id);if(seen.has(id))throw new Error(\`Дублирующийся ID в \${key}: \${id}\`);seen.add(id)}if(strictNestedIdCollections.has(key))validateNestedStateIds(x,\`\${key}[\${i}]\`)}}}`,
+          "state: duplicate and nested ID validation");
+          
+                      s=once(s,
+          `  for(const x of raw.tennis||[]){if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");for(const m of x.matches||[])if(m?.id!=null&&!isSafeStateId(m.id))throw new Error("Небезопасный ID матча")}for(const d of raw.debts||[])for(const p of d?.parts||[])if(p?.id!=null&&!isSafeStateId(p.id))throw new Error("Небезопасный ID части долга");`,
+          `  for(const x of raw.tennis||[]){if(x.matches!=null&&(!Array.isArray(x.matches)||x.matches.some(m=>!m||typeof m!=="object")))throw new Error("Повреждённый список матчей");const seen=new Set();for(const m of x.matches||[])if(m?.id!=null){if(!isSafeStateId(m.id))throw new Error("Небезопасный ID матча");const id=String(m.id);if(seen.has(id))throw new Error(\`Дублирующийся ID матча: \${id}\`);seen.add(id)}}for(const d of raw.debts||[]){const seen=new Set();for(const p of d?.parts||[])if(p?.id!=null){if(!isSafeStateId(p.id))throw new Error("Небезопасный ID части долга");const id=String(p.id);if(seen.has(id))throw new Error(\`Дублирующийся ID части долга: \${id}\`);seen.add(id)}}`,
+          "state: duplicate nested IDs");
+          
+                      s=once(s,
+          `async function resetAll(){if(!confirm("Точно сбросить весь прогресс и начать с чистого профиля? Текущее состояние будет сохранено отдельным снимком."))return;await createPreActionSnapshot("Перед полным сбросом");S=deepClone(DEFAULT_STATE);bankSyncSession={accountId:"main",bankBalance:null,balanceConfidence:0,balanceLabel:"",balanceSource:"",baseExpected:0,wasVerified:false,importedNet:0,detectedAt:"",lastText:""};screenshotImportQueue=[];await persist();render();toast("Создан чистый профиль • предыдущее состояние сохранено в снимках")}`,
+          `async function resetAll(){if(!confirm("Точно сбросить весь прогресс и начать с чистого профиля? Текущее состояние будет сохранено отдельным снимком."))return;await createPreActionSnapshot("Перед полным сбросом");await commitStateAtomically(()=>{S=deepClone(DEFAULT_STATE)});bankSyncSession={accountId:"main",bankBalance:null,balanceConfidence:0,balanceLabel:"",balanceSource:"",baseExpected:0,wasVerified:false,importedNet:0,detectedAt:"",lastText:""};screenshotImportQueue=[];render();toast("Создан чистый профиль • предыдущее состояние сохранено в снимках")}`,
+          "state: atomic full reset");
+                      return s
+                    });
+          
+                    patch("recovery-center-13.3.js",s=>{
+                      s=once(s,
+          `    S=normalizeState(next);validateStateShape(S);recovery133SetRollback(rollback);audit("Selective restore 13.3","system",RECOVERY133_DOMAIN_LABELS[domain]);await persist(true);recovery133Log("Selective restore","ok",RECOVERY133_DOMAIN_LABELS[domain]);render();await renderRecovery133();toast(\`Восстановлено: \${RECOVERY133_DOMAIN_LABELS[domain]}\`)}`,
+          `    await withStorageSafeWrite(()=>commitStateAtomically(()=>{S=normalizeState(next);validateStateShape(S);audit("Selective restore 13.3","system",RECOVERY133_DOMAIN_LABELS[domain])},{makeBackup:true}));recovery133SetRollback(rollback);recovery133Log("Selective restore","ok",RECOVERY133_DOMAIN_LABELS[domain]);render();await renderRecovery133();toast(\`Восстановлено: \${RECOVERY133_DOMAIN_LABELS[domain]}\`)}`,
+          "recovery: selective restore");
+          
+                      s=once(s,
+          `  {const snap=await recovery133LoadSnapshot(ts),check=await recovery133VerifySnapshot(snap,{upgradeLegacy:true});if(!check.ok)throw new Error(check.error||"Snapshot повреждён");const rollback=await recovery133CreateSnapshot("Перед полным восстановлением 13.3","rollback");S=normalizeState(deepClone(snap.state));validateStateShape(S);recovery133SetRollback(rollback);audit(label,"system",new Date(Number(ts)).toISOString());await persist(true);recovery133Log(label,"ok",String(ts));render();await renderRecovery133();toast("Snapshot полностью восстановлен")}`,
+          `  {const snap=await recovery133LoadSnapshot(ts),check=await recovery133VerifySnapshot(snap,{upgradeLegacy:true});if(!check.ok)throw new Error(check.error||"Snapshot повреждён");const rollback=await recovery133CreateSnapshot("Перед полным восстановлением 13.3","rollback");await withStorageSafeWrite(()=>commitStateAtomically(()=>{S=normalizeState(deepClone(snap.state));validateStateShape(S);audit(label,"system",new Date(Number(ts)).toISOString())},{makeBackup:true}));recovery133SetRollback(rollback);recovery133Log(label,"ok",String(ts));render();await renderRecovery133();toast("Snapshot полностью восстановлен")}`,
+          "recovery: full restore");
+          
+                      s=once(s,
+          `  {if(!db)await openDB();const rollback=await recovery133CreateSnapshot("Перед импортом DR bundle 13.3","rollback");for(const row of recovery133PendingBundle.snapshots||[])await recovery133StoreImportedSnapshot(row);if(mode!=="snapshots"){S=normalizeState(deepClone(recovery133PendingBundle.current.state));validateStateShape(S);recovery133SetRollback(rollback);audit("DR bundle restore 13.3","system",recovery133PendingBundle.createdAt||"");await persist(true)}await recovery133CleanupBackups(RECOVERY133_MAX_SNAPSHOTS);recovery133Log("DR bundle применён","ok",mode);recoverySnapshotsCache=await recovery133LoadAllSnapshots();render();await renderRecovery133();toast(mode==="snapshots"?"Snapshots импортированы":"Recovery-пакет восстановлен")}`,
+          `  {if(!db)await openDB();const rollback=await recovery133CreateSnapshot("Перед импортом DR bundle 13.3","rollback"),importedTs=[];try{for(const row of recovery133PendingBundle.snapshots||[])importedTs.push(await recovery133StoreImportedSnapshot(row));if(mode!=="snapshots"){await withStorageSafeWrite(()=>commitStateAtomically(()=>{S=normalizeState(deepClone(recovery133PendingBundle.current.state));validateStateShape(S);audit("DR bundle restore 13.3","system",recovery133PendingBundle.createdAt||"")},{makeBackup:true}));recovery133SetRollback(rollback)}}catch(e){for(const ts of importedTs)try{await dbDelete("backups",ts)}catch{}throw e}try{await recovery133CleanupBackups(RECOVERY133_MAX_SNAPSHOTS)}catch(e){recovery133Log("Очистка snapshots","warn",String(e?.message||e))}recovery133Log("DR bundle применён","ok",mode);recoverySnapshotsCache=await recovery133LoadAllSnapshots();render();await renderRecovery133();toast(mode==="snapshots"?"Snapshots импортированы":"Recovery-пакет восстановлен")}`,
+          "recovery: DR bundle");
+                      return s
+                    });
+          
+                    patch("calibration-os.js",s=>{
+                      s=once(s,
+          `function calibrationState(){
+            let c=S.settings.calibration;`,
+          `function calibrationState(){
+            const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+            let c=readOnly?deepClone(S.settings.calibration||{}):S.settings.calibration;`,
+          "calibration: read-only state");
+          
+                      s=once(s,
+          `  S.settings.calibration=c;
+            return c`,
+          `  if(!readOnly)S.settings.calibration=c;
+            return c`,
+          "calibration: do not normalize into S in safe mode");
+          
+                      s=once(s,
+          `async function calibrationOnBoot(){if(typeof storageLoadBlocked!=="undefined"&&storageLoadBlocked)return {skipped:true};`,
+          `async function calibrationOnBoot(){if((typeof storageSafeModeActive==="function"&&storageSafeModeActive())||(typeof storageLoadBlocked!=="undefined"&&storageLoadBlocked))return {skipped:true};`,
+          "calibration: safe boot");
+          
+                      s=once(s,
+          `function calibrationRecordDecisionExposure(rows){const c=calibrationState(),today=localDateKey(),seen=new Set(c.decisionEvents.filter(x=>x.type==="shown"&&x.dateKey===today).map(x=>x.id));`,
+          `function calibrationRecordDecisionExposure(rows){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return;const c=calibrationState(),today=localDateKey(),seen=new Set(c.decisionEvents.filter(x=>x.type==="shown"&&x.dateKey===today).map(x=>x.id));`,
+          "calibration: no exposure writes in safe mode");
+                      return s
+                    });
+          
+                    patch("focus-os.js",s=>{
+                      s=once(s,
+          `function focusAutoCarry(){
+            const p=personalData(),today=localDateKey();`,
+          `function focusAutoCarry(){
+            if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return;
+            const p=personalData(),today=localDateKey();`,
+          "focus: safe auto-carry");
+                      s=once(s,
+          `if(moved.length)setTimeout(()=>save(\`Автоперенос фокус-блоков: \${moved.length}\`),0)`,
+          `if(moved.length)setTimeout(()=>save(\`Автоперенос фокус-блоков: \${moved.length}\`).catch(()=>{}),0)`,
+          "focus: handled save rejection");
+                      return s
+                    });
+          
+                    patch("predictive-trends-13.2.2.js",s=>{
+                      s=once(s,
+          `function predictive1322Store(){
+            S.settings=S.settings||{};
+            let x=S.settings.predictive1322;
+            if(!x||typeof x!=="object"||Array.isArray(x))x={};
+            if(!Array.isArray(x.snapshots))x.snapshots=[];
+            if(!x.ui||typeof x.ui!=="object"||Array.isArray(x.ui))x.ui={horizon:7};
+            x.ui.horizon=PREDICTIVE1322_HORIZONS.includes(+x.ui.horizon)?+x.ui.horizon:7;
+            x.version=PREDICTIVE1322_VERSION;S.settings.predictive1322=x;return x
+          }`,
+          `function predictive1322Store(){
+            const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+            if(!readOnly)S.settings=S.settings||{};
+            let x=readOnly?deepClone(S.settings?.predictive1322||{}):S.settings.predictive1322;
+            if(!x||typeof x!=="object"||Array.isArray(x))x={};
+            if(!Array.isArray(x.snapshots))x.snapshots=[];
+            if(!x.ui||typeof x.ui!=="object"||Array.isArray(x.ui))x.ui={horizon:7};
+            x.ui.horizon=PREDICTIVE1322_HORIZONS.includes(+x.ui.horizon)?+x.ui.horizon:7;
+            x.version=PREDICTIVE1322_VERSION;if(!readOnly)S.settings.predictive1322=x;return x
+          }`,
+          "predictive: read-only store");
+          
+                      s=once(s,
+          `function predictive1322CaptureDaily(){
+            const st=predictive1322Store(),today=localDateKey(),exists=st.snapshots.some(x=>x.capturedDate===today);let changed=predictive1322EvaluateSnapshots();`,
+          `function predictive1322CaptureDaily(){
+            if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return false;
+            const st=predictive1322Store(),today=localDateKey(),exists=st.snapshots.some(x=>x.capturedDate===today);let changed=predictive1322EvaluateSnapshots();`,
+          "predictive: no capture in safe mode");
+                      return s
+                    });
+          
+                    patch("import-hub.js",s=>{
+                      s=once(s,
+          `  const p=IMPORT127_PREVIEW;if(!p||!import127CanApply(p))return;IMPORT127_APPLY_PENDING=true;let history=null;`,
+          `  const p=IMPORT127_PREVIEW;if(!p||!import127CanApply(p))return;IMPORT127_APPLY_PENDING=true;let history=null;const before=deepClone(S),beforeLoadBlocked=storageLoadBlocked;`,
+          "import hub: transaction snapshot");
+          
+                      s=once(s,
+          `  }catch(e){if(!history)toast("Импорт не применён: "+String(e?.message||e));throw e}
+            finally{IMPORT127_APPLY_PENDING=false}`,
+          `  }catch(e){S=before;storageLoadBlocked=beforeLoadBlocked;try{render()}catch{}try{renderImport127()}catch{}toast("Импорт не применён: "+String(e?.message||e));throw e}
+            finally{IMPORT127_APPLY_PENDING=false}`,
+          "import hub: rollback failed apply");
+                      return s
+                    });
+          
+                    patch("finance.js",s=>{
+                      s=once(s,`save(provided?"Счёт добавлен и остаток подтверждён":"Счёт добавлен — сверь остаток") }`,`void save(provided?"Счёт добавлен и остаток подтверждён":"Счёт добавлен — сверь остаток").catch(()=>{}) }`,"finance add account save");
+                      s=once(s,`save("Остаток счёта подтверждён")}`,`void save("Остаток счёта подтверждён").catch(()=>{})}`,"finance sync account save");
+                      s=once(s,`save("Счёт скрыт")}`,`void save("Счёт скрыт").catch(()=>{})}`,"finance archive account save");
+                      s=once(s,`save("Умный бюджет применён")}`,`void save("Умный бюджет применён").catch(()=>{})}`,"finance smart budget save");
+                      return s
+                    });
+          
+                    patch("imports.js",s=>{
+                      s=once(s,
+          `function learnScreenshotRule(id){const c=screenshotImportQueue.find(x=>x.id===id);if(!c)return;const keyword=ruleKeyword(c.desc);if(!keyword){toast("Не удалось выделить ключевое слово");return}const old=(S.importRules||[]).find(r=>r.keyword===keyword);const rule={id:old?.id||uid(),keyword,type:c.type,category:c.type==="expense"?c.category:"",active:true};if(old)Object.assign(old,rule);else S.importRules.push(rule);audit("Правило импорта","ocr",\`\${keyword} → \${c.type}\${c.category?\` / \${c.category}\`:""}\`);persist();toast(\`Правило «\${keyword}» сохранено\`)}`,
+          `async function learnScreenshotRule(id){const c=screenshotImportQueue.find(x=>x.id===id);if(!c)return;const keyword=ruleKeyword(c.desc);if(!keyword){toast("Не удалось выделить ключевое слово");return}const old=(S.importRules||[]).find(r=>r.keyword===keyword);const rule={id:old?.id||uid(),keyword,type:c.type,category:c.type==="expense"?c.category:"",active:true};if(old)Object.assign(old,rule);else S.importRules.push(rule);audit("Правило импорта","ocr",\`\${keyword} → \${c.type}\${c.category?\` / \${c.category}\`:""}\`);try{await save();toast(\`Правило «\${keyword}» сохранено\`)}catch{}}`,
+          "imports learn rule");
+          
+                      s=once(s,
+          `function addImportRule(){const keyword=$("ruleKeyword").value.trim().toLowerCase(),type=$("ruleType").value,category=$("ruleCategory").value;if(!keyword){toast("Укажи ключевое слово");return}S.importRules.push({id:uid(),keyword,type,category:type==="expense"?category:"",active:true});$("ruleKeyword").value="";audit("Правило импорта","ocr",keyword);save("Правило добавлено")}`,
+          `async function addImportRule(){const keyword=$("ruleKeyword").value.trim().toLowerCase(),type=$("ruleType").value,category=$("ruleCategory").value;if(!keyword){toast("Укажи ключевое слово");return}S.importRules.push({id:uid(),keyword,type,category:type==="expense"?category:"",active:true});$("ruleKeyword").value="";audit("Правило импорта","ocr",keyword);try{await save("Правило добавлено")}catch{}}`,
+          "imports add rule");
+          
+                      s=once(s,
+          `function deleteImportRule(id){S.importRules=S.importRules.filter(x=>x.id!==id);save("Правило удалено")}`,
+          `async function deleteImportRule(id){S.importRules=S.importRules.filter(x=>x.id!==id);try{await save("Правило удалено")}catch{}}`,
+          "imports delete rule");
+          
+                      s=once(s,
+          `async function confirmScreenshotImport(){const selected=screenshotImportQueue.filter(x=>x.include!==false&&x.type!=="ignore"&&x.amount>0);if(!selected.length){toast("Нет выбранных операций");return}const syncId=selectedBankSyncAccountId(),hadSync=bankSyncSession.bankBalance!=null&&bankSyncSession.accountId===syncId,result=await applyImportedCandidates(selected,"screenshot");if(hadSync)bankSyncSession.importedNet+=importedResultNet(result,syncId);screenshotImportQueue=[];await persist();renderScreenshotQueue();render();`,
+          `async function confirmScreenshotImport(){const selected=screenshotImportQueue.filter(x=>x.include!==false&&x.type!=="ignore"&&x.amount>0);if(!selected.length){toast("Нет выбранных операций");return}const syncId=selectedBankSyncAccountId(),hadSync=bankSyncSession.bankBalance!=null&&bankSyncSession.accountId===syncId;let result;await commitStateAtomically(async()=>{result=await applyImportedCandidates(selected,"screenshot")});if(hadSync)bankSyncSession.importedNet+=importedResultNet(result,syncId);screenshotImportQueue=[];renderScreenshotQueue();render();`,
+          "imports atomic screenshot import");
+                      return s
+                    });
+          
+                    patch("index.html",s=>{
+                      const count=(s.match(/13\.2\.2/g)||[]).length;
+                      if(count<10)throw new Error(`index release markers unexpectedly low: ${count}`);
+                      s=s.replaceAll("13.2.2",TARGET);
+                      const p=(s.match(/;persist\(\)/g)||[]).length;
+                      if(p!==2)throw new Error(`index inline persist count expected 2, got ${p}`);
+                      s=s.replaceAll(";persist()", ";save().catch(()=>{})");
+                      return s
+                    });
+          
+                    patch("core.js",s=>once(s,`const APP_VERSION="13.2.2";`,`const APP_VERSION="${TARGET}";`,"core release"));
+          
+                    patch("manifest.webmanifest",s=>{
+                      const n=(s.match(/13\.2\.2/g)||[]).length;
+                      if(n!==3)throw new Error(`manifest release marker count expected 3, got ${n}`);
+                      return s.replaceAll("13.2.2",TARGET)
+                    });
+          
+                    patch("vite.config.mjs",s=>once(s,`cacheId:"life-rpg-13.2.2"`,`cacheId:"life-rpg-${TARGET}"`,"vite cache namespace"));
+          
+                    {
+                      const pkg=JSON.parse(read("package.json"));
+                      pkg.version=TARGET;
+                      const testName="stage3-system-hardening.test.js";
+                      if(!pkg.scripts.test.includes(testName))pkg.scripts.test+=` && node ${testName}`;
+                      write("package.json",JSON.stringify(pkg,null,2)+"\n")
+                    }
+                    {
+                      const lock=JSON.parse(read("package-lock.json"));
+                      lock.version=TARGET;
+                      if(lock.packages?.[""])lock.packages[""].version=TARGET;
+                      write("package-lock.json",JSON.stringify(lock,null,2)+"\n")
+                    }
+          
+                    patch("static-check.js",s=>once(s,`const RELEASE="13.2.2",SHELL_ANCHOR="13.2.2";`,`const RELEASE="${TARGET}",SHELL_ANCHOR="${TARGET}";`,"static release"));
+                    patch("architecture.test.js",s=>{
+                      s=once(s,`const RELEASE="13.2.2",`,`const RELEASE="${TARGET}",`,"architecture release");
+                      s=once(s,`assert.equal(pkg.version,RELEASE);assert.equal(lock.version,"12.0.3");assert.equal(lock.packages?.[""]?.version,"12.0.3");`,`assert.equal(pkg.version,RELEASE);assert.equal(lock.version,RELEASE);assert.equal(lock.packages?.[""]?.version,RELEASE);`,"architecture lock release");
+                      return s
+                    });
+                    patch("stage2-ci-release-integrity.test.js",s=>once(s,`assert.equal(release,"13.2.2");`,`assert.equal(release,"${TARGET}");`,"release integrity"));
+                    patch("recovery-13.3.test.js",s=>{
+                      s=once(s,`APP_VERSION:"13.2.2"`,`APP_VERSION:"${TARGET}"`,"recovery test app version");
+                      s=once(s,`cacheId:"life-rpg-13.2.2"`,`cacheId:"life-rpg-${TARGET}"`,"recovery test cache");
+                      return s
+                    });
+                    patch("dist-audit.test.js",s=>{
+                      s=once(s,`sw.includes("life-rpg-13.2.2")`,`sw.includes("life-rpg-${TARGET}")`,"dist cache");
+                      s=once(s,`the 13.2.2 cache namespace`,`the ${TARGET} cache namespace`,"dist cache message");
+                      s=once(s,`read("core.js").includes('APP_VERSION="13.2.2"')`,`read("core.js").includes('APP_VERSION="${TARGET}"')`,"dist core release");
+                      s=once(s,`read("manifest.webmanifest").includes("Life RPG 13.2.2")`,`read("manifest.webmanifest").includes("Life RPG ${TARGET}")`,"dist manifest release");
+                      s=once(s,`production dist contains Life RPG 13.2.2 with`,`production dist contains Life RPG ${TARGET} with`,"dist message");
+                      return s
+                    });
+          
+                    for(const p of fs.readdirSync(".").filter(x=>x.endsWith(".e2e.test.js"))){
+                      let s=read(p),next=s
+                        .replaceAll(`toContainText("13.2.2")`,`toContainText("${TARGET}")`)
+                        .replaceAll(`toBe("13.2.2")`,`toBe("${TARGET}")`);
+                      if(next!==s){write(p,next);console.log(`updated E2E release expectation: ${p}`)}
+                    }
+          
+                    const test=`"use strict";
+          const fs=require("fs"),vm=require("vm"),path=require("path"),assert=require("assert");
+          const root=__dirname,storage=new Map(),RealDate=Date,FIXED="2026-09-27T12:00:00+02:00";
+          class FixedDate extends RealDate{constructor(...a){super(...(a.length?a:[FIXED]))}static now(){return new RealDate(FIXED).getTime()}static parse(v){return RealDate.parse(v)}static UTC(...a){return RealDate.UTC(...a)}}
+          const context=vm.createContext({
+            console,Date:FixedDate,Math,JSON,Intl,Number,Promise,setTimeout:()=>0,clearTimeout:()=>{},setInterval:()=>0,
+            structuredClone:global.structuredClone,crypto:global.crypto,Blob:global.Blob,URL:global.URL,Map,Set,String,Array,Object,RegExp,
+            document:{getElementById:()=>null,querySelectorAll:()=>[],querySelector:()=>null,createElement:()=>({}),addEventListener:()=>{},body:{classList:{add(){},remove(){}}}},
+            window:{addEventListener:()=>{},scrollTo:()=>{},location:{}},navigator:{},location:{},
+            localStorage:{getItem:k=>storage.has(k)?storage.get(k):null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)},
+            Notification:function(){},confirm:()=>true,prompt:()=>"",toast:()=>{},audit:()=>{},render:()=>{},
+            workXpOnDate:()=>0,readingBaseXpOnDate:()=>0,crmCompleteness:()=>({ok:true,done:0,total:0}),computeTennisElo:()=>({rating:1000})
+          });
+          context.window.window=context.window;context.window.document=context.document;context.globalThis=context;
+          for(const file of ["core.js","state.js"])new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file}).runInContext(context);
+          const run=code=>new vm.Script(code).runInContext(context);
+          
+          assert.ok(run(\`storage137CompareCandidates(
+            {raw:{updated:"2026-09-27T10:00:00Z",settings:{storageSync137:{revision:9}}},source:"lifeRpg4"},
+            {raw:{updated:"2026-09-27T11:00:00Z",settings:{storageSync137:{revision:8}}},source:"IndexedDB"})<0\`),
+            "higher revision must beat a newer wall-clock timestamp");
+          
+          assert.ok(run(\`storage137CompareCandidates(
+            {raw:{updated:"2026-09-27T10:00:00Z",settings:{}},source:"lifeRpg4"},
+            {raw:{updated:"2026-09-27T11:00:00Z",settings:{}},source:"IndexedDB"})>0\`),
+            "legacy revision-0 copies must still use updated timestamp");
+          
+          assert.throws(()=>run(\`(()=>{const x=deepClone(DEFAULT_STATE);x.accounts=[{id:"dup",name:"A"},{id:"dup",name:"B"}];return validateStateShape(x)})()\`),/Дублирующийся ID/);
+          assert.throws(()=>run(\`(()=>{const x=deepClone(DEFAULT_STATE);x.bankTransfers=[{id:"t1",fromAccountId:"bad id",toAccountId:""}];return validateStateShape(x)})()\`),/Небезопасный ID/);
+          
+          (async()=>{
+            context.recovery133CleanupBackups=async limit=>limit;
+            assert.equal(await run(\`cleanupBackups(30)\`),60,"legacy cleanup must delegate to Recovery retention");
+          
+            storage.set("lifeRpgRecovery133SafeMode","1");
+            assert.equal(run(\`storageSafeModeActive()\`),true);
+            const code=await run(\`persist().then(()=>"",e=>e.code||"")\`);
+            assert.equal(code,"LIFE_RPG_SAFE_MODE","Safe Mode must block durable writes");
+            storage.delete("lifeRpgRecovery133SafeMode");
+
+            const name=await run(\`(async()=>{S=deepClone(DEFAULT_STATE);S.profile.name="before";persist=async()=>{throw new Error("storage fail")};try{await commitStateAtomically(()=>{S.profile.name="after"})}catch{}return S.profile.name})()\`);
+            assert.equal(name,"before","atomic state mutation must roll memory back on persistence failure");
+
+            const state=fs.readFileSync("state.js","utf8"),recovery=fs.readFileSync("recovery-center-13.3.js","utf8"),cal=fs.readFileSync("calibration-os.js","utf8"),focus=fs.readFileSync("focus-os.js","utf8"),pred=fs.readFileSync("predictive-trends-13.2.2.js","utf8"),hub=fs.readFileSync("import-hub.js","utf8"),imports=fs.readFileSync("imports.js","utf8");
+            assert.ok(state.includes("recovery133CleanupBackups(Math.max(60,limit))"));
+            assert.ok(recovery.includes("withStorageSafeWrite(()=>commitStateAtomically"));
+            assert.ok(cal.includes("storageSafeModeActive())return {skipped:true}"));
+            assert.ok(focus.includes("storageSafeModeActive())return;"));
+            assert.ok(pred.includes("storageSafeModeActive())return false;"));
+            assert.ok(hub.includes("S=before;storageLoadBlocked=beforeLoadBlocked"));
+            assert.ok(imports.includes("await commitStateAtomically(async()=>{result=await applyImportedCandidates"));
+            assert.equal((fs.readFileSync("index.html","utf8").match(/;persist\\(\\)/g)||[]).length,0);
+            console.log("OK — Stage 3.2 system hardening: revision ordering, atomic restore/import, unified retention, Safe Mode, ID integrity");
+          })().catch(e=>{console.error(e);process.exit(1)});
+          `;
+                    write("stage3-system-hardening.test.js",test);
+          
+                    console.log(`Stage 3.2 patch prepared for Life RPG ${TARGET}`);
+          NODE
+
+      - name: Run full unit and static test suite
+        run: npm test
+
+      - name: Build Vite + Workbox PWA
+        run: npm run build
+
+      - name: Verify generated service worker
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile/browser E2E
+        run: npm run test:e2e
+
+      - name: Commit only after every check passes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            state.js recovery-center-13.3.js calibration-os.js focus-os.js \
+            predictive-trends-13.2.2.js import-hub.js finance.js imports.js \
+            index.html core.js manifest.webmanifest vite.config.mjs \
+            package.json package-lock.json static-check.js architecture.test.js \
+            stage2-ci-release-integrity.test.js recovery-13.3.test.js dist-audit.test.js \
+            stage3-system-hardening.test.js \
+            '*.e2e.test.js'
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Stage 3.2 system hardening — Life RPG 13.7.1"
+          git push origin HEAD:main
