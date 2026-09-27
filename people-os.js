@@ -4,7 +4,7 @@
 
 function peopleAll(){return personalData().people.filter(x=>x&&x.archived!==true)}
 function peopleInteractions(){return personalData().interactions.filter(x=>x&&x.archived!==true)}
-function peopleNormalize(x={}){return {id:String(x.id||uid()),name:personalText(x.name)||"Без имени",relation:personalText(x.relation)||"Другое",cadenceDays:clamp(Math.round(+x.cadenceDays||30),1,365),birthday:String(x.birthday||""),note:personalText(x.note),createdAt:String(x.createdAt||personalNow()),archived:!!x.archived}}
+function peopleNormalize(x={}){const birthday=String(x.birthday||"");return {id:String(x.id||uid()),name:personalText(x.name)||"Без имени",relation:personalText(x.relation)||"Другое",cadenceDays:clamp(Math.round(+x.cadenceDays||30),1,365),birthday:validDateKey(birthday)?birthday:"",note:personalText(x.note),createdAt:String(x.createdAt||personalNow()),archived:!!x.archived}}
 function peopleCreate(data={}){const x=peopleNormalize({...data,id:uid(),createdAt:personalNow()});personalData().people.unshift(x);return x}
 function peopleFind(id){return peopleAll().find(x=>x.id===id)||null}
 function peopleLastInteraction(personId){return peopleInteractions().filter(x=>x.personId===personId).sort((a,b)=>String(b.occurredAt||b.dateKey).localeCompare(String(a.occurredAt||a.dateKey)))[0]||null}
@@ -12,7 +12,7 @@ function peopleHealth(person){const last=peopleLastInteraction(person.id),cad=Ma
 function peopleDue(){return peopleAll().map(p=>({p,h:peopleHealth(p)})).filter(x=>x.h.due).sort((a,b)=>b.h.days-a.h.days)}
 async function peopleSave(){
   const id=personalText(document.getElementById("peopleEditId")?.value),name=personalText(document.getElementById("peopleName")?.value);if(!name){toast("Укажи имя");return}
-  const data={name,relation:personalText(document.getElementById("peopleRelation")?.value)||"Другое",cadenceDays:Math.max(1,+document.getElementById("peopleCadence")?.value||30),birthday:String(document.getElementById("peopleBirthday")?.value||""),note:personalText(document.getElementById("peopleNote")?.value)};
+  const birthdayRaw=String(document.getElementById("peopleBirthday")?.value||""),data={name,relation:personalText(document.getElementById("peopleRelation")?.value)||"Другое",cadenceDays:Math.max(1,+document.getElementById("peopleCadence")?.value||30),birthday:validDateKey(birthdayRaw)?birthdayRaw:"",note:personalText(document.getElementById("peopleNote")?.value)};
   const old=id?peopleAll().find(x=>x.id===id):null;if(old)Object.assign(old,data);else peopleCreate(data);
   for(const k of ["peopleEditId","peopleName","peopleBirthday","peopleNote"]){const el=document.getElementById(k);if(el)el.value=""}
   document.getElementById("peopleEditor").hidden=true;audit(old?"Контакт обновлён":"Контакт создан","system",name);await save(old?"Контакт обновлён":"Контакт добавлен")
@@ -25,7 +25,10 @@ async function peopleAddInteraction(id){
 }
 async function peopleArchive(id){const p=peopleFind(id);if(!p)return;p.archived=true;await save("Контакт скрыт")}
 function peopleBirthdayDays(p){
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(p.birthday||"")))return null;const [,m,d]=p.birthday.split("-").map(Number),now=new Date(),candidate=new Date(now.getFullYear(),m-1,d,12);if(candidate<new Date(now.getFullYear(),now.getMonth(),now.getDate(),0))candidate.setFullYear(candidate.getFullYear()+1);return Math.round((candidate-new Date(now.getFullYear(),now.getMonth(),now.getDate(),12))/86400000)
+  const birthday=String(p?.birthday||"");if(!validDateKey(birthday))return null;
+  const [,m,d]=birthday.split("-").map(Number),today=localDateKey(),now=new Date();let y=now.getFullYear();
+  const candidateKey=year=>{const raw=`${year}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;if(validDateKey(raw))return raw;return m===2&&d===29?`${year}-03-01`:""};
+  let candidate=candidateKey(y);if(!candidate)return null;if(candidate<today)candidate=candidateKey(++y);return dateKeyDiff(today,candidate)
 }
 function ensurePeopleOsUi(){
   if(document.getElementById("peopleOsCommand"))return;const grid=document.querySelector("#more .grid");if(!grid)return;

@@ -4,9 +4,9 @@
 
 function totalDebt(){return moneyFromCents(S.debts.reduce((a,d)=>a+Math.max(0,moneyCents(d.balance)),0))}
 
-function startingDebt(){return S.debts.reduce((a,d)=>a+Math.max(0,Number(d.initial??d.balance)||0),0)}
+function startingDebt(){return moneySum(S.debts.map(d=>Math.max(0,Number(d.initial??d.balance)||0)))}
 
-function debtPaid(){return Math.max(0,startingDebt()-totalDebt())}
+function debtPaid(){return Math.max(0,moneySub(startingDebt(),totalDebt()))}
 
 function debtPct(){const start=startingDebt();return start>0?clamp(debtPaid()/start*100,0,100):0}
 
@@ -14,13 +14,13 @@ function monthPayments(month=localMonthKey()){return moneySum(S.payments.filter(
 
 function monthExpenses(month=localMonthKey()){return moneySum(S.expenses.filter(x=>x.dateKey?.startsWith(month)).map(x=>x.amount))}
 
-function monthLivingExpenses(month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)&&!x.regularPaymentId).reduce((a,x)=>a+(+x.amount||0),0)}
+function monthLivingExpenses(month=localMonthKey()){return moneySum(S.expenses.filter(x=>x.dateKey?.startsWith(month)&&!x.regularPaymentId).map(x=>x.amount))}
 
-function monthRegularExpenses(month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)&&!!x.regularPaymentId).reduce((a,x)=>a+(+x.amount||0),0)}
+function monthRegularExpenses(month=localMonthKey()){return moneySum(S.expenses.filter(x=>x.dateKey?.startsWith(month)&&!!x.regularPaymentId).map(x=>x.amount))}
 
 function monthIncome(month=localMonthKey()){return moneySum(S.incomeLogs.filter(x=>x.dateKey?.startsWith(month)).map(x=>x.amount))}
 
-function trackedCash(month=localMonthKey()){return monthIncome(month)-monthExpenses(month)-monthPayments(month)}
+function trackedCash(month=localMonthKey()){return moneyAdd(monthIncome(month),-monthExpenses(month),-monthPayments(month))}
 
 function totalLoggedIncome(){return moneySum(S.incomeLogs.map(x=>x.amount))}
 
@@ -30,22 +30,24 @@ function totalLoggedPayments(){return moneySum(S.payments.map(x=>x.amount))}
 
 function cashAdjustmentTotal(){return moneySum((S.cashAdjustments||[]).map(x=>x.delta))}
 
-function fundCashDelta(){return (S.fundTransfers||[]).reduce((a,x)=>a+(x.direction==="fromFund"?+x.amount||0:-(+x.amount||0)),0)}
+function fundCashDelta(){return moneySum((S.fundTransfers||[]).map(x=>x.direction==="fromFund"?(+x.amount||0):-(+x.amount||0)))}
 
 function legacyOperatingCashBalance(){return moneyAdd(totalLoggedIncome(),-totalLoggedExpenses(),-totalLoggedPayments(),cashAdjustmentTotal(),fundCashDelta())}
 
 function activeAccounts(){return (S.accounts||[]).filter(a=>a.active!==false)}
 
-function defaultAccountId(){const active=activeAccounts(),wanted=String(S.settings?.primaryAccountId||"");if(wanted&&active.some(a=>a.id===wanted))return wanted;const verified=active.filter(a=>a.verifiedAt&&a.verifiedBalance!=null).sort((a,b)=>Date.parse(b.verifiedAt)-Date.parse(a.verifiedAt));return verified[0]?.id||active.find(a=>a.id==="main")?.id||active[0]?.id||"main"}
+function defaultAccountId(){const active=activeAccounts(),wanted=String(S.settings?.primaryAccountId||"");if(wanted&&active.some(a=>a.id===wanted))return wanted;const verified=active.filter(accountVerified).sort((a,b)=>accountVerificationTs(b)-accountVerificationTs(a));return verified[0]?.id||active.find(a=>a.id==="main")?.id||active[0]?.id||"main"}
 
+function accountVerificationTs(a){const ts=Date.parse(a?.verifiedAt||"");return Number.isFinite(ts)&&ts<=Date.now()+300000?ts:null}
+function accountVerified(a){return a?.verifiedBalance!=null&&accountVerificationTs(a)!=null}
 function primaryAccount(){return (S.accounts||[]).find(a=>a.id===defaultAccountId()&&a.active!==false)||null}
-function primaryCashVerifiedAt(){return primaryAccount()?.verifiedAt||""}
+function primaryCashVerifiedAt(){const a=primaryAccount();return accountVerified(a)?a.verifiedAt:""}
 
-function accountsModeActive(){return activeAccounts().some(a=>a.verifiedAt&&a.verifiedBalance!=null)}
+function accountsModeActive(){return activeAccounts().some(accountVerified)}
 
 function eventTs(x){const occurred=Date.parse(x?.occurredAt||"");if(Number.isFinite(occurred))return occurred;const d=x?.dateKey||x?.localDate||"",dateRaw=String(x?.date||""),dateTs=Date.parse(dateRaw||x?.createdAt||"");if(validDateKey(d)){const dateKeyFromRaw=/^\d{4}-\d{2}-\d{2}/.test(dateRaw)?dateRaw.slice(0,10):"";if(!Number.isFinite(dateTs)||(dateKeyFromRaw&&dateKeyFromRaw!==d))return Date.parse(`${d}T12:00:00`)}return Number.isFinite(dateTs)?dateTs:0}
 
-function accountBalanceById(id){const a=(S.accounts||[]).find(x=>x.id===id);if(!a)return 0;if(a.verifiedAt&&a.verifiedBalance!=null){const t=Date.parse(a.verifiedAt)||0;return moneyAdd(a.verifiedBalance,accountDeltaAfter(a.id,t))}if(a.id===defaultAccountId()&&!accountsModeActive())return legacyOperatingCashBalance();return 0}
+function accountBalanceById(id){const a=(S.accounts||[]).find(x=>x.id===id);if(!a)return 0;const t=accountVerificationTs(a);if(a.verifiedBalance!=null&&t!=null)return moneyAdd(a.verifiedBalance,accountDeltaAfter(a.id,t));if(a.id===defaultAccountId()&&!accountsModeActive())return legacyOperatingCashBalance();return 0}
 
 function operatingCashBalance(){return accountsModeActive()?moneySum(activeAccounts().map(a=>accountBalanceById(a.id))):legacyOperatingCashBalance()}
 
@@ -73,20 +75,20 @@ function reservedCashTotal(){return moneySum(activeReservations().map(x=>x.remai
 
 function freeCashBalance(){return moneySub(operatingCashBalance(),reservedCashTotal())}
 
-function reservationAmount(type,debtIndex=null){return activeReservations().filter(x=>x.type===type&&(debtIndex==null||x.debtIndex===debtIndex)).reduce((a,x)=>a+(+x.remaining||0),0)}
+function reservationAmount(type,debtIndex=null){return moneySum(activeReservations().filter(x=>x.type===type&&(debtIndex==null||x.debtIndex===debtIndex)).map(x=>x.remaining))}
 
 function reservationBreakdown(){return {mandatory:reservationAmount("mandatory"),living:reservationAmount("living"),emergency:reservationAmount("emergency"),debt:reservationAmount("debt"),total:reservedCashTotal()}}
 
 function consumeReservation(types,amount,debtIndex=null,regularPaymentId=null){
-  types=Array.isArray(types)?types:[types];let left=Math.max(0,+amount||0),use=[];
+  types=Array.isArray(types)?types:[types];let leftCents=Math.max(0,moneyCents(amount)),use=[];
   const matches=r=>{if(!types.includes(r.type))return false;if(debtIndex!=null&&r.debtIndex!==debtIndex)return false;if(regularPaymentId!=null&&r.regularPaymentId!==regularPaymentId)return false;return true};
-  for(const type of types){for(const r of activeReservations().filter(x=>x.type===type&&matches(x)).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)))){if(left<=0.009)break;const take=Math.min(left,+r.remaining||0);if(take<=0)continue;r.remaining=Math.max(0,(+r.remaining||0)-take);if(r.remaining<=0.009)r.status="consumed";use.push({id:r.id,amount:take});left-=take}if(left<=0.009)break}
+  for(const type of types){for(const r of activeReservations().filter(x=>x.type===type&&matches(x)).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)))){if(leftCents<=0)break;const remainingCents=Math.max(0,moneyCents(r.remaining)),takeCents=Math.min(leftCents,remainingCents);if(takeCents<=0)continue;r.remaining=moneyFromCents(remainingCents-takeCents);if(moneyCents(r.remaining)<=0)r.status="consumed";use.push({id:r.id,amount:moneyFromCents(takeCents)});leftCents-=takeCents}if(leftCents<=0)break}
   return use
 }
 
-function restoreReservationUse(use){for(const u of (use||[])){const r=(S.reservations||[]).find(x=>x.id===u.id);if(!r)continue;r.remaining=(+r.remaining||0)+(+u.amount||0);r.status="active"}}
+function restoreReservationUse(use){for(const u of (use||[])){const r=(S.reservations||[]).find(x=>x.id===u.id);if(!r)continue;r.remaining=moneyAdd(r.remaining,u.amount);r.status="active"}}
 
-function reapplyReservationUse(use){for(const u of (use||[])){const r=(S.reservations||[]).find(x=>x.id===u.id);if(!r)continue;r.remaining=Math.max(0,(+r.remaining||0)-(+u.amount||0));if(r.remaining<=0.009)r.status="consumed"}}
+function reapplyReservationUse(use){for(const u of (use||[])){const r=(S.reservations||[]).find(x=>x.id===u.id);if(!r)continue;r.remaining=Math.max(0,moneySub(r.remaining,u.amount));if(moneyCents(r.remaining)<=0)r.status="consumed"}}
 
 function monthFromKey(mk){const [y,m]=String(mk).split("-").map(Number);return new Date(y,m-1,1,12)}
 
@@ -98,7 +100,7 @@ function effectiveEnvelopeLimit(cat,month=localMonthKey()){return Math.max(0,(+S
 
 function activeRegularPayments(){return (S.regularPayments||[]).filter(x=>x.active!==false&&(+x.amount||0)>0)}
 
-function regularPaidAmount(r,month=localMonthKey()){return S.expenses.filter(x=>x.regularPaymentId===r.id&&x.dateKey?.startsWith(month)).reduce((a,x)=>a+(+x.amount||0),0)}
+function regularPaidAmount(r,month=localMonthKey()){return moneySum(S.expenses.filter(x=>x.regularPaymentId===r.id&&x.dateKey?.startsWith(month)).map(x=>x.amount))}
 
 function regularRemaining(r,month=localMonthKey()){return Math.max(0,(+r.amount||0)-regularPaidAmount(r,month))}
 
@@ -449,7 +451,7 @@ function projectionLivingPerDay(d){const env=Object.values(S.envelopeLimits||{})
 
 function buildFinancialProjection(days=90,opts={}){days=clamp(Math.round(+days||90),1,180);const start=new Date(),startDay=new Date(start.getFullYear(),start.getMonth(),start.getDate(),12),end=addDays(startDay,days-1),incomeFactor=Math.max(0,opts.incomeFactor==null?100:(+opts.incomeFactor||0))/100,oneOff=Math.max(0,+opts.oneOffExpense||0),extraMonthly=Math.max(0,+opts.extraDebtMonthly||0),floor=Math.max(0,+S.settings.minimumCashFloor||0),events=[...incomeEventsBetween(startDay,end),...projectionPaymentEvents(startDay,end)];const by={};for(const e of events)(by[e.dateKey]??=[]).push(e);let balance=operatingCashBalance(),minBalance=balance,minDate=localDateKey(startDay),cashGapDate="",income=0,outflow=0,living=0;const series=[];for(let i=0;i<days;i++){const d=addDays(startDay,i),key=localDateKey(d),dayEvents=by[key]||[];for(const e of dayEvents){if(e.type==="income"){const v=e.amount*incomeFactor;balance+=v;income+=v}else{balance-=e.amount;outflow+=e.amount}}const live=projectionLivingPerDay(d);balance-=live;living+=live;if(i===0&&oneOff>0){balance-=oneOff;outflow+=oneOff}if(extraMonthly>0&&d.getDate()===25){balance-=extraMonthly;outflow+=extraMonthly}if(balance<minBalance){minBalance=balance;minDate=key}if(!cashGapDate&&balance<floor)cashGapDate=key;series.push({date:key,balance})}return {days,start:startDay,end,balanceStart:operatingCashBalance(),endingBalance:balance,minBalance,minDate,cashGapDate,income,outflow,living,series,events:events.sort((a,b)=>a.date-b.date),warnings:[...(accountsModeActive()?[]:["Нет подтверждённого банковского остатка"]),...(debtScheduleIssues().length?[`У ${debtScheduleIssues().length} долгов отсутствует или просрочена следующая дата платежа`]:[]),...((!+S.settings.dailySpendLimit&&!Object.values(S.envelopeLimits||{}).some(x=>+x>0))?["Не задан бюджет повседневных расходов"]:[])]}}
 
-function financialHealthData(){const p=buildFinancialProjection(30),cash=operatingCashBalance(),out30=p.outflow+p.living,liq=out30>0?cash/out30:null,debt30=p.events.filter(x=>x.kind==="debt").reduce((s,x)=>s+x.amount,0),income30=Math.max(0,p.income),burden=income30>0?debt30/income30:null,availableReserve=availableAssetValue()+(+S.settings.emergencyFundBalance||0),dailyEssential=out30/30,reserveDays=dailyEssential>0?availableReserve/dailyEssential:null;const verified=(S.accounts||[]).filter(a=>a.active!==false&&a.verifiedAt).map(a=>(Date.now()-Date.parse(a.verifiedAt))/86400000),fresh=verified.length?Math.max(...verified):null;return {liq,burden,reserveDays,fresh,cash,out30,income30,debt30,availableReserve,p}}
+function financialHealthData(){const p=buildFinancialProjection(30),cash=operatingCashBalance(),out30=moneyAdd(p.outflow,p.living),liq=out30>0?cash/out30:null,debt30=moneySum(p.events.filter(x=>x.kind==="debt").map(x=>x.amount)),income30=Math.max(0,moneyFromCents(moneyCents(p.income))),burden=income30>0?debt30/income30:null,availableReserve=moneyAdd(availableAssetValue(),+S.settings.emergencyFundBalance||0),dailyEssential=out30/30,reserveDays=dailyEssential>0?availableReserve/dailyEssential:null,today=localDateKey();const verified=activeAccounts().filter(accountVerified).map(a=>dateKeyDiff(localDateKey(new Date(accountVerificationTs(a))),today)).filter(Number.isFinite).map(x=>Math.max(0,x)),fresh=verified.length?Math.max(...verified):null;return {liq,burden,reserveDays,fresh,cash,out30,income30,debt30,availableReserve,p}}
 
 function healthBadge(label,value,detail,kind=""){return `<div class="health-item ${kind}"><div class="smallcaps">${label}</div><b>${value}</b><div class="sub">${detail}</div></div>`}
 
@@ -463,7 +465,7 @@ function renderFinancialForecast(){const box=$("financialForecast");if(!box)retu
 
 function renderFinancialControlCalendar(){const box=$("financialControlCalendar");if(!box)return;const p=buildFinancialProjection(90),events=p.events.slice(0,30);box.innerHTML=events.length?events.map(e=>`<div class="event ${e.type}"><div class="date">${fmtDate(e.date)}</div><div><b>${escapeHtml(e.label)}</b><div class="sub">${e.type==="income"?"ожидаемый доход":e.kind==="debt"?(e.confirmed?"подтверждённый платёж":"оценка по текущему графику"):"регулярное обязательство"}</div></div><b>${e.type==="income"?"+":"−"}${rub(e.amount)}</b></div>`).join(""):'<div class="empty">Нет событий на ближайшие 90 дней. Проверь график доходов и даты платежей.</div>'}
 
-function assetValueById(id){const a=(S.assets||[]).find(x=>x.id===id);if(!a)return 0;let value=+a.verifiedValue||0;if(a.verifiedAt){const t=Date.parse(a.verifiedAt)||0;for(const x of S.assetTransfers||[]){if(x.assetId!==id||eventTs(x)<=t)continue;value+=x.direction==="toAsset"?(+x.amount||0):-(+x.amount||0)}}return Math.max(0,value)}
+function assetValueById(id){const a=(S.assets||[]).find(x=>x.id===id);if(!a)return 0;let value=+a.verifiedValue||0;const t=accountVerificationTs(a);if(t!=null){for(const x of S.assetTransfers||[]){if(x.assetId!==id||eventTs(x)<=t)continue;value=moneyAdd(value,x.direction==="toAsset"?(+x.amount||0):-(+x.amount||0))}}return Math.max(0,moneyFromCents(moneyCents(value)))}
 
 function totalAssetValue(){return moneySum((S.assets||[]).filter(a=>a.active!==false).map(a=>assetValueById(a.id)))}
 
