@@ -104,9 +104,9 @@ function regularRemaining(r,month=localMonthKey()){return Math.max(0,(+r.amount|
 
 function regularDueDate(r,y,m){return new Date(y,m,Math.min(Math.max(1,+r.dueDay||1),new Date(y,m+1,0).getDate()),12)}
 
-function regularPaymentsBefore(dateLimit){
-  const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1),limit=new Date(dateLimit.getFullYear(),dateLimit.getMonth(),dateLimit.getDate(),23,59,59),items=[];
-  for(let off=0;off<2;off++){const y=now.getFullYear(),m=now.getMonth()+off,mk=`${y}-${String(m+1).padStart(2,"0")}`;for(const r of activeRegularPayments()){if(r.mandatory===false)continue;const due=regularDueDate(r,y,m),need=regularRemaining(r,mk);if(due>=start&&due<=limit&&need>0)items.push({kind:"regular",label:r.name,regularPaymentId:r.id,date:due,amount:need})}}
+function regularPaymentsBefore(dateLimit,from=new Date()){
+  const now=new Date(from),start=new Date(now.getFullYear(),now.getMonth(),1),limit=new Date(dateLimit.getFullYear(),dateLimit.getMonth(),dateLimit.getDate(),23,59,59),items=[];
+  for(let off=0;off<2;off++){const base=new Date(now.getFullYear(),now.getMonth()+off,1,12),y=base.getFullYear(),m=base.getMonth(),mk=localMonthKey(base);for(const r of activeRegularPayments()){if(r.mandatory===false)continue;const due=regularDueDate(r,y,m),need=regularRemaining(r,mk);if(due>=start&&due<=limit&&need>0)items.push({kind:"regular",label:r.name,regularPaymentId:r.id,date:due,amount:need})}}
   return items.sort((a,b)=>a.date-b.date)
 }
 
@@ -126,7 +126,7 @@ function applyEnvelopeCarryover(month){
 
 function plannedIncomeForMonth(){return (S.settings.incomeEvents||[]).reduce((a,x)=>a+(+x.amount||0),0)}
 
-function plannedIncomeToDate(d=new Date()){const today=d.getDate();return (S.settings.incomeEvents||[]).filter(x=>x.day<=today).reduce((a,x)=>a+(+x.amount||0),0)}
+function plannedIncomeToDate(d=new Date()){const today=d.getDate(),last=daysInMonth(d);return moneySum((S.settings.incomeEvents||[]).filter(x=>Math.min(+x.day||1,last)<=today).map(x=>x.amount))}
 
 function plannedIncomeReceived(ev,y,m){const mk=`${y}-${String(m+1).padStart(2,"0")}`,day=String(Math.min(ev.day,new Date(y,m+1,0).getDate())).padStart(2,"0"),dateKey=`${mk}-${day}`;return S.incomeLogs.filter(x=>{const xmk=x.plannedMonth||String(x.dateKey||"").slice(0,7);if(xmk!==mk)return false;if(x.plannedEventId)return x.plannedEventId===ev.id;if(x.dateKey===dateKey&&String(x.source||"")===String(ev.label||""))return true;const link=matchPlannedIncome(x.dateKey,+x.amount||0,`${x.source||""} ${x.note||""}`);return link?.eventId===ev.id&&link?.monthKey===mk}).reduce((a,x)=>a+(+x.amount||0),0)}
 
@@ -226,12 +226,12 @@ async function releaseAutopilotPlan(){const n=releaseActiveReservations(true);if
 async function syncCashBalance(){const desired=+$("cashSyncInput").value;if(!Number.isFinite(desired)||desired<0){toast("Укажи фактический баланс денег");return}const a=S.accounts.find(x=>x.id===defaultAccountId())||S.accounts[0];a.verifiedBalance=desired;a.verifiedAt=new Date().toISOString();S.settings.cashBalanceVerifiedAt=a.verifiedAt;$("cashSyncInput").value="";audit("Сверка Money Engine","account",`${a.name}: ${rub(desired)}`);await save("Баланс основного счёта подтверждён")}
 
 async function moveEmergencyFund(direction){
-  const amount=Math.max(0,+$('emergencyMoveAmount').value||0);if(amount<=0){toast("Укажи сумму перевода");return}
+  const amount=Math.max(0,+$('emergencyMoveAmount').value||0),accountId=defaultAccountId();if(amount<=0){toast("Укажи сумму перевода");return}
   if(direction==="toFund"){
     const emergencyReserved=reservationAmount("emergency"),available=Math.max(0,freeCashBalance()+emergencyReserved);if(amount>available+0.01){toast(`Доступно для перевода не больше ${rub(available)}`);return}
-    const use=consumeReservation("emergency",amount);S.settings.emergencyFundBalance=(+S.settings.emergencyFundBalance||0)+amount;S.fundTransfers.unshift({id:uid(),date:new Date().toISOString(),dateKey:localDateKey(),direction:"toFund",amount,reservationUse:use})
+    const use=consumeReservation("emergency",amount);S.settings.emergencyFundBalance=(+S.settings.emergencyFundBalance||0)+amount;S.fundTransfers.unshift({id:uid(),date:new Date().toISOString(),dateKey:localDateKey(),direction:"toFund",amount,accountId,reservationUse:use})
   }else{
-    const balance=+S.settings.emergencyFundBalance||0;if(amount>balance+0.01){toast(`В резерве только ${rub(balance)}`);return}S.settings.emergencyFundBalance=Math.max(0,balance-amount);S.fundTransfers.unshift({id:uid(),date:new Date().toISOString(),dateKey:localDateKey(),direction:"fromFund",amount})
+    const balance=+S.settings.emergencyFundBalance||0;if(amount>balance+0.01){toast(`В резерве только ${rub(balance)}`);return}S.settings.emergencyFundBalance=Math.max(0,balance-amount);S.fundTransfers.unshift({id:uid(),date:new Date().toISOString(),dateKey:localDateKey(),direction:"fromFund",amount,accountId})
   }
   $('emergencyMoveAmount').value="";await save(direction==="toFund"?"Деньги переведены в отдельный резерв":"Деньги возвращены из резерва")
 }
@@ -328,7 +328,7 @@ async function addRegularPayment(){
 
 async function deleteRegularPayment(id){if(!confirm("Удалить регулярный платёж из плана? История расходов останется."))return;S.regularPayments=S.regularPayments.filter(x=>x.id!==id);await save("Регулярный платёж удалён")}
 
-async function payRegularPayment(id){const r=S.regularPayments.find(x=>x.id===id);if(!r)return;const amount=regularRemaining(r);if(amount<=0){toast("Платёж уже закрыт в этом месяце");return}const reservationUse=consumeReservation("mandatory",amount,null,r.id);S.expenses.unshift({id:uid(),dateKey:localDateKey(),date:new Date().toISOString(),amount,category:r.category||"Другое",note:`Регулярный платёж: ${r.name}`,regularPaymentId:r.id,reservationUse});await save(`${r.name}: ${rub(amount)} записано`)}
+async function payRegularPayment(id){const r=S.regularPayments.find(x=>x.id===id);if(!r)return;const amount=regularRemaining(r);if(amount<=0){toast("Платёж уже закрыт в этом месяце");return}const reservationUse=consumeReservation("mandatory",amount,null,r.id),accountId=defaultAccountId();S.expenses.unshift({id:uid(),dateKey:localDateKey(),date:new Date().toISOString(),amount,accountId,category:r.category||"Другое",note:`Регулярный платёж: ${r.name}`,regularPaymentId:r.id,reservationUse});await save(`${r.name}: ${rub(amount)} записано`)}
 
 function renderRegularPayments(){
   if(!$("regularPaymentList"))return;$("regularCategory").innerHTML=regularCategoryOptions($("regularCategory").value||"Дом");const mk=localMonthKey(),rows=activeRegularPayments().slice().sort((a,b)=>a.dueDay-b.dueDay);$("regularPaymentList").innerHTML=rows.length?rows.map(r=>{const paid=regularPaidAmount(r,mk),rem=regularRemaining(r,mk);return `<div class="regular-row"><div><b>${escapeHtml(r.name)}</b><div class="qmeta">${r.dueDay}-е • ${escapeHtml(r.category||"Другое")} • ${r.mandatory===false?"плановый":"обязательный"}${r.keywords?` • ключи: ${escapeHtml(r.keywords)}`:""}</div></div><div class="right"><b>${rub(r.amount)}</b><div class="${rem<=0?"income-good":"sub"}">${rem<=0?"оплачено":`осталось ${rub(rem)}`}</div></div><div class="split"><button class="btn ${rem>0?"secondary":"ghost"} small" onclick="payRegularPayment('${r.id}')" ${rem<=0?"disabled":""}>Записать оплату</button><button class="btn ghost small" onclick="deleteRegularPayment('${r.id}')">Удалить</button></div></div>`}).join(""):'<div class="empty">Добавь аренду, связь, подписки и другие повторяющиеся обязательства.</div>'
