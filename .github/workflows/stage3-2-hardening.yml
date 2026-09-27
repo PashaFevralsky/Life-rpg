@@ -445,7 +445,7 @@ jobs:
             const state=fs.readFileSync("state.js","utf8"),recovery=fs.readFileSync("recovery-center-13.3.js","utf8"),cal=fs.readFileSync("calibration-os.js","utf8"),focus=fs.readFileSync("focus-os.js","utf8"),pred=fs.readFileSync("predictive-trends-13.2.2.js","utf8"),hub=fs.readFileSync("import-hub.js","utf8"),imports=fs.readFileSync("imports.js","utf8");
             assert.ok(state.includes("recovery133CleanupBackups(Math.max(60,limit))"));
             assert.ok(recovery.includes("withStorageSafeWrite(()=>commitStateAtomically"));
-            assert.ok(cal.includes("storageSafeModeActive())return {skipped:true}"));
+            assert.ok(cal.includes('async function calibrationOnBoot(){if((typeof storageSafeModeActive==="function"&&storageSafeModeActive())')&&cal.includes('return {skipped:true};'),"Calibration boot must skip in Safe Mode");
             assert.ok(focus.includes("storageSafeModeActive())return;"));
             assert.ok(pred.includes("storageSafeModeActive())return false;"));
             assert.ok(hub.includes("S=before;storageLoadBlocked=beforeLoadBlocked"));
