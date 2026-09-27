@@ -259,7 +259,7 @@ jobs:
                     patch("import-hub.js",s=>{
                       s=once(s,
           `  const p=IMPORT127_PREVIEW;if(!p||!import127CanApply(p))return;IMPORT127_APPLY_PENDING=true;let history=null;`,
-          `  const p=IMPORT127_PREVIEW;if(!p||!import127CanApply(p))return;IMPORT127_APPLY_PENDING=true;let history=null;const before=deepClone(S),beforeLoadBlocked=storageLoadBlocked;`,
+          `  const p=IMPORT127_PREVIEW;if(!p||!import127CanApply(p))return;IMPORT127_APPLY_PENDING=true;let history=null;const before=typeof deepClone==="function"?deepClone(S):(typeof structuredClone==="function"?structuredClone(S):JSON.parse(JSON.stringify(S))),beforeLoadBlocked=storageLoadBlocked;`,
           "import hub: transaction snapshot");
           
                       s=once(s,
