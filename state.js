@@ -98,8 +98,64 @@ function normalizeState(raw){
 }
 
 // Persistence chooses the newest valid copy and acknowledges transaction commit.
-let persistenceQueue=Promise.resolve(),storageLoadBlocked=false;
+let persistenceQueue=Promise.resolve(),storageLoadBlocked=false,storageConflictBlocked=false,storageKnownRevision=0,storageKnownUpdated="";
+const STORAGE137_META_KEY="storageSync137",STORAGE137_WRITER_ID=`tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+let storage137Channel=null;
 function storageMessage(message){const el=$("storageStatus");if(el)el.textContent=message}
+function storage137Meta(state){const x=state?.settings?.[STORAGE137_META_KEY];return x&&typeof x==="object"&&!Array.isArray(x)?x:{}}
+function storage137Revision(state){const n=Number(storage137Meta(state).revision);return Number.isInteger(n)&&n>=0?n:0}
+function storage137Writer(state){return String(storage137Meta(state).writerId||"")}
+function storage137ConflictError(remoteRevision=0){
+  storageConflictBlocked=true;
+  const e=new Error(`Данные изменены в другой вкладке (rev ${remoteRevision}). Эта вкладка не будет перезаписывать свежую копию. Перезагрузи приложение.`);
+  e.code="LIFE_RPG_STORAGE_CONFLICT";storageMessage(e.message);return e
+}
+function storage137MarkLoaded(state){storageKnownRevision=storage137Revision(state);storageKnownUpdated=String(state?.updated||"");storageConflictBlocked=false}
+function storage137WithLock(fn){
+  const locks=globalThis.navigator?.locks;
+  return locks?.request?locks.request("life-rpg-state-write-13.7",{mode:"exclusive"},fn):Promise.resolve().then(fn)
+}
+function storage137CurrentLocal(){
+  try{const raw=localStorage.getItem("lifeRpg4");return raw?JSON.parse(raw):null}catch{return null}
+}
+function storage137ExternalAdvance(remote,expectedRevision){
+  if(!remote)return false;const rev=storage137Revision(remote),writer=storage137Writer(remote),remoteTs=stateTimestamp(remote),knownTs=Date.parse(storageKnownUpdated||"");
+  if(rev>expectedRevision)return true;
+  return writer!==STORAGE137_WRITER_ID&&Number.isFinite(remoteTs)&&Number.isFinite(knownTs)&&remoteTs>knownTs
+}
+function dbCommitState137(snapshot,expectedRevision){
+  return new Promise((res,rej)=>{
+    let conflict=null,settled=false,tx;
+    try{tx=db.transaction("state","readwrite")}catch(e){rej(e);return}
+    const done=(ok,val)=>{if(settled)return;settled=true;ok?res(val):rej(val)};
+    tx.oncomplete=()=>done(true);
+    tx.onabort=()=>done(false,conflict||tx.error||new Error("Транзакция состояния отменена"));
+    tx.onerror=()=>{};
+    let q;try{q=tx.objectStore("state").get("current")}catch(e){try{tx.abort()}catch{};done(false,e);return}
+    q.onerror=()=>{try{tx.abort()}catch{}};
+    q.onsuccess=()=>{
+      const remote=q.result,remoteRevision=storage137Revision(remote);
+      if(storage137ExternalAdvance(remote,expectedRevision)){
+        conflict=storage137ConflictError(remoteRevision);try{tx.abort()}catch{};return
+      }
+      try{tx.objectStore("state").put(snapshot,"current")}catch(e){try{tx.abort()}catch{};done(false,e)}
+    }
+  })
+}
+function storage137Signal(snapshot){
+  const msg={revision:storage137Revision(snapshot),writerId:STORAGE137_WRITER_ID,updated:snapshot?.updated||""};
+  try{storage137Channel?.postMessage(msg)}catch{}
+}
+function storage137ObserveMessage(msg){
+  const rev=Number(msg?.revision)||0,writer=String(msg?.writerId||"");
+  if(writer&&writer!==STORAGE137_WRITER_ID&&rev>storageKnownRevision){
+    storageConflictBlocked=true;storageMessage(`Есть более свежие данные из другой вкладки (rev ${rev}). Перезагрузи приложение перед следующей записью.`)
+  }
+}
+try{
+  if(typeof BroadcastChannel==="function"){storage137Channel=new BroadcastChannel("life-rpg-state-13.7");storage137Channel.onmessage=e=>storage137ObserveMessage(e?.data)}
+  globalThis.addEventListener?.("storage",e=>{if(e?.key!=="lifeRpg4"||!e.newValue)return;try{const x=JSON.parse(e.newValue);storage137ObserveMessage({revision:storage137Revision(x),writerId:storage137Writer(x),updated:x.updated})}catch{}})
+}catch{}
 function isSafeStateId(value){
   const s=String(value??"");
   return s.length>0&&s.length<=180&&!/[\s'"<>\u0060\\]/.test(s)
@@ -139,7 +195,7 @@ async function loadState(){
   candidates.sort((a,b)=>stateTimestamp(b.raw)-stateTimestamp(a.raw)||(b.source==="IndexedDB")-(a.source==="IndexedDB"));
   try{
     if(newerVersion){storageLoadBlocked=true;throw new Error("Найдены данные более новой версии. Обнови приложение; сохранение остановлено.")}
-    if(candidates.length){S=normalizeState(candidates[0].raw);storageLoadBlocked=false;storageMessage(`Загружена свежая копия: ${candidates[0].source}${damaged?" • другая копия повреждена":""}`)}
+    if(candidates.length){S=normalizeState(candidates[0].raw);storage137MarkLoaded(candidates[0].raw);storageLoadBlocked=false;storageMessage(`Загружена свежая копия: ${candidates[0].source}${damaged?" • другая копия повреждена":""}`)}
     else if(damaged){storageLoadBlocked=true;throw new Error("Копии данных повреждены или требуют новой версии. Автосохранение остановлено; восстанови резервную копию.")}
     else if(!hasDatabase){storageLoadBlocked=true;throw new Error("Не удалось проверить основную базу. Перезапусти приложение; запись отключена для защиты данных.")}
     else await persist(true);
@@ -148,15 +204,34 @@ async function loadState(){
 }
 function persist(makeBackup=false){
   if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));
-  if(typeof syncAutoDailyQuests==="function")syncAutoDailyQuests();checkAchievements();S.version=STATE_VERSION;
-  S.updated=new Date(Math.max(Date.now(),stateTimestamp(S)+1)).toISOString();const snapshot=deepClone(S);
-  const task=persistenceQueue.catch(()=>{}).then(()=>writeStateSnapshot(snapshot,makeBackup));persistenceQueue=task;return task;
+  if(storageConflictBlocked)return Promise.reject(storage137ConflictError(storageKnownRevision+1));
+  const task=persistenceQueue.catch(()=>{}).then(()=>storage137WithLock(()=>persist137Current(makeBackup)));persistenceQueue=task;return task
 }
-async function writeStateSnapshot(snapshot,makeBackup){
-  let localSaved=false,databaseSaved=false;
-  try{localStorage.setItem("lifeRpg4",JSON.stringify(snapshot));localSaved=true}catch(e){}
-  try{if(!db)await openDB();await dbPut("state",snapshot,"current");databaseSaved=true}catch(e){db=null}
-  if(!databaseSaved&&!localSaved){storageMessage("НЕ СОХРАНЕНО: оба хранилища недоступны. Экспортируй резервную копию.");throw new Error("Не удалось сохранить данные")}
+async function persist137Current(makeBackup=false){
+  if(storageConflictBlocked)throw storage137ConflictError(storageKnownRevision+1);
+  if(typeof syncAutoDailyQuests==="function")syncAutoDailyQuests();checkAchievements();S.version=STATE_VERSION;
+  const expectedRevision=storageKnownRevision,nextRevision=expectedRevision+1,prevMeta=deepClone(storage137Meta(S));
+  S.settings=S.settings||{};S.settings[STORAGE137_META_KEY]={revision:nextRevision,parentRevision:expectedRevision,writerId:STORAGE137_WRITER_ID,updatedAt:new Date().toISOString()};
+  S.updated=new Date(Math.max(Date.now(),stateTimestamp(S)+1)).toISOString();const snapshot=deepClone(S);
+  try{
+    await writeStateSnapshot(snapshot,makeBackup,expectedRevision);storageKnownRevision=nextRevision;storageKnownUpdated=snapshot.updated;storageConflictBlocked=false;storage137Signal(snapshot);return snapshot
+  }catch(e){
+    S.settings[STORAGE137_META_KEY]=prevMeta;throw e
+  }
+}
+async function writeStateSnapshot(snapshot,makeBackup,expectedRevision=storageKnownRevision){
+  let localSaved=false,databaseSaved=false,dbError=null;
+  try{if(!db)await openDB();await dbCommitState137(snapshot,expectedRevision);databaseSaved=true}catch(e){if(e?.code==="LIFE_RPG_STORAGE_CONFLICT")throw e;dbError=e;db=null}
+  if(databaseSaved){
+    try{localStorage.setItem("lifeRpg4",JSON.stringify(snapshot));localSaved=true}catch{}
+  }else{
+    try{
+      const remote=storage137CurrentLocal(),remoteRevision=storage137Revision(remote);
+      if(storage137ExternalAdvance(remote,expectedRevision))throw storage137ConflictError(remoteRevision);
+      localStorage.setItem("lifeRpg4",JSON.stringify(snapshot));localSaved=true
+    }catch(e){if(e?.code==="LIFE_RPG_STORAGE_CONFLICT")throw e}
+  }
+  if(!databaseSaved&&!localSaved){storageMessage("НЕ СОХРАНЕНО: оба хранилища недоступны. Экспортируй резервную копию.");throw dbError||new Error("Не удалось сохранить данные")}
   storageMessage(databaseSaved?"Данные сохранены в IndexedDB"+(localSaved?" и резервной копии.":" • резервное хранилище недоступно."):"Данные сохранены только в резервном localStorage.");
   if(databaseSaved){try{const day=localDateKey(),last=localStorage.getItem("lifeRpgBackupDay");if(makeBackup||day!==last){await dbPut("backups",{ts:Date.now(),day,state:deepClone(snapshot)});await cleanupBackups(30);localStorage.setItem("lifeRpgBackupDay",day)}}catch(e){storageMessage("Данные сохранены • не удалось создать дополнительный снимок.")}}
 }

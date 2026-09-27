@@ -5,6 +5,7 @@
    advisory keep/revise/retire decisions. Still fully offline: no API/Worker/fetch. */
 
 const GPT136_VERSION=1;
+let GPT136_APPLY_PENDING=false;
 const GPT136_MAX_EXPORTS=40;
 const GPT136_MAX_RECEIPTS=30;
 const GPT136_DECISIONS=["keep","revise","retire"];
@@ -357,6 +358,9 @@ gpt135Export=async function(mode="custom"){
 
 /* Apply remains explicit and non-destructive, but now stores an import receipt with created IDs. */
 gpt135Apply=async function(){
+  if(GPT136_APPLY_PENDING){toast("GPT-ответ уже применяется");return}
+  GPT136_APPLY_PENDING=true;
+  try{
   const p=GPT135_PREVIEW;if(!p?.payload||p.error)return;
   if(!p.boundExport){toast("Ответ не привязан к известному GPT-пакету");return}
   if(p.alreadyApplied){toast("Этот GPT-ответ уже применялся");return}
@@ -370,8 +374,9 @@ gpt135Apply=async function(){
   if(typeof confirm==="function"&&!confirm(
     `Применить ответ GPT 13.6?\nПакет: ${p.payload.packageId}\nЗадач: ${tasks.length}\nСобытий: ${calendar.length}\nGPT-слой: ${guidance?"да":"нет"}\nFeedback решений: ${decisions.length}`
   ))return;
-  const snap=typeof createPreActionSnapshot==="function"?await createPreActionSnapshot(`GPT Exchange 13.6 • ${p.fileName}`):null,
-        createdTasks=[],createdEvents=[];
+  const snap=typeof createPreActionSnapshot==="function"?await createPreActionSnapshot(`GPT Exchange 13.6 • ${p.fileName}`):null;
+  if(gpt135Store().appliedFingerprints.includes(p.fingerprint)){toast("Этот GPT-ответ уже применялся");return}
+  const createdTasks=[],createdEvents=[];
   for(const x of tasks){
     const t=taskCreate({
       title:x.title,area:x.area,priority:x.priority,dueDate:x.dueDate,plannedDate:x.plannedDate,notBefore:x.notBefore,
@@ -408,6 +413,8 @@ gpt135Apply=async function(){
   if(typeof persist==="function")await persist();
   if(typeof render==="function")render();else renderGpt135();
   toast(`GPT 13.6: задач ${createdTasks.length}, событий ${createdEvents.length}, feedback ${decisions.length}`)
+
+  }finally{GPT136_APPLY_PENDING=false}
 };
 
 function gpt136DecisionHtml(rows){

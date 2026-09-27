@@ -6,6 +6,7 @@
 
 const TRAINING129_TRACKER_ID="tracker-training-outdoor";
 const TRAINING129_MARKER="Training OS 12.9";
+let TRAINING129_PLAN_PENDING=false;
 
 function training129EnsureTracker(){
   if(typeof growthData!=="function")return null;const g=growthData();let t=g.trackers.find(x=>x.id===TRAINING129_TRACKER_ID);
@@ -93,10 +94,16 @@ function training129SuggestedWeek(){
   return rows.sort((a,b)=>a.dateKey.localeCompare(b.dateKey))
 }
 async function training129PlanWeek(){
+  if(TRAINING129_PLAN_PENDING){toast("Training OS уже формирует план");return}
   const rows=training129SuggestedWeek();if(!rows.length){toast("Нет свободных дней для плана");return}const existing=(typeof calendarManualEvents==="function"?calendarManualEvents():[]).filter(x=>String(x.note||"").includes(TRAINING129_MARKER)&&x.status!=="cancelled"&&x.dateKey>=localDateKey());if(existing.length&&!confirm(`Уже есть ${existing.length} будущих Training OS событий. Добавить ещё ${rows.length}?`))return;
   if(!existing.length&&!confirm(`Добавить ${rows.length} тренировочных событий на ближайшие 7 дней? Время суток приложение не назначает.`))return;
-  await createPreActionSnapshot("Перед планированием Training OS 12.9");for(const x of rows)addCalendarPlan({title:x.title,dateKey:x.dateKey,type:"Тренировка",minutes:x.minutes,priority:2,note:`${TRAINING129_MARKER} | kind=${x.kind} | RPE ${x.rpe} | ${x.detail}`,repeatWeeks:1});
-  audit("Training OS: план 7 дней","sport",rows.map(x=>`${x.dateKey} ${x.kind}`).join("; "));await save(`Training OS: запланировано ${rows.length} сессий`)
+  TRAINING129_PLAN_PENDING=true;
+  try{
+    await createPreActionSnapshot("Перед планированием Training OS 12.9");
+    const current=typeof calendarManualEvents==="function"?calendarManualEvents():[],toAdd=rows.filter(x=>!current.some(e=>e.status!=="cancelled"&&e.dateKey===x.dateKey&&String(e.note||"").includes(TRAINING129_MARKER)&&String(e.note||"").includes(`kind=${x.kind}`)));
+    for(const x of toAdd)addCalendarPlan({title:x.title,dateKey:x.dateKey,type:"Тренировка",minutes:x.minutes,priority:2,note:`${TRAINING129_MARKER} | kind=${x.kind} | RPE ${x.rpe} | ${x.detail}`,repeatWeeks:1});
+    audit("Training OS: план 7 дней","sport",toAdd.map(x=>`${x.dateKey} ${x.kind}`).join("; "));await save(`Training OS: запланировано ${toAdd.length} сессий`)
+  }finally{TRAINING129_PLAN_PENDING=false}
 }
 function training129CompletePlanned(dateKey){
   const rows=(typeof calendarManualEvents==="function"?calendarManualEvents():[]).filter(x=>x.dateKey===dateKey&&x.status==="planned"&&String(x.note||"").includes(TRAINING129_MARKER));if(rows[0]){rows[0].status="done";rows[0].updatedAt=new Date().toISOString()}
@@ -113,7 +120,7 @@ async function training129Save(){
   const note=String(get("training129Note")||"").trim(),event=growthLogEvent(TRAINING129_TRACKER_ID,{dateKey,value:rpe,durationMin:minutes,note:training129Encode(meta,note)});training129CompletePlanned(dateKey);audit("Training OS: тренировка","sport",`${dateKey} • ${type} • ${minutes} мин × RPE ${rpe}`);training129Fill({dateKey:localDateKey(),type:"easy",rpe:4});const source=document.getElementById("training129Source");if(source)source.dataset.source="manual";await save(`Тренировка сохранена • нагрузка ${minutes*rpe}`);return event
 }
 async function training129Delete(id){
-  const g=typeof growthData==="function"?growthData():null;if(!g)return;const i=g.events.findIndex(x=>x.id===id&&x.trackerId===TRAINING129_TRACKER_ID);if(i<0)return;if(!confirm("Удалить эту ОФП-сессию?"))return;await createPreActionSnapshot("Перед удалением Training OS сессии");g.events.splice(i,1);audit("Training OS: удалено","sport",id);await save("Тренировка удалена")
+  const g=typeof growthData==="function"?growthData():null;if(!g)return;if(!g.events.some(x=>x.id===id&&x.trackerId===TRAINING129_TRACKER_ID))return;if(!confirm("Удалить эту ОФП-сессию?"))return;await createPreActionSnapshot("Перед удалением Training OS сессии");const i=g.events.findIndex(x=>x.id===id&&x.trackerId===TRAINING129_TRACKER_ID);if(i<0){toast("Сессия уже удалена");return}g.events.splice(i,1);audit("Training OS: удалено","sport",id);await save("Тренировка удалена")
 }
 function training129ParseDistance(text){
   const flat=String(text||"").replace(",",".");let m=flat.match(/(?:расстояние|distance)[^\d]{0,30}(\d+(?:\.\d+)?)\s*км/i);if(m)return +m[1]||0;m=flat.match(/(\d+(?:\.\d+)?)\s*км/i);return m?+m[1]||0:0

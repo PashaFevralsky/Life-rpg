@@ -1,0 +1,40 @@
+Life RPG — Stabilization Stage 1 / Data Safety
+
+Закрываемые пункты аудита:
+A01 — защита от silent overwrite между вкладками.
+A02 — строгая проверка Personal OS portable import и безопасных ID.
+A06 — защита GPT Exchange 13.6 от параллельного повторного Apply.
+A25 — повторное/параллельное удаление больше не может удалить соседнюю запись.
+A26 — Training OS week-plan защищён от двойного Apply.
+A30 — Import Hub защищён от параллельного Apply и повторно проверяет fingerprints перед вставкой.
+
+Что изменено:
+- state.js:
+  * revision metadata storageSync137;
+  * Web Locks при наличии;
+  * IndexedDB readwrite compare-and-swap;
+  * BroadcastChannel + storage-event обнаружение более свежей вкладки;
+  * stale вкладка блокируется вместо перезаписи свежего состояния.
+- personal-import-os.js:
+  * portable JSON проходит рекурсивную валидацию;
+  * unsafe id / *Id / *Ids и prototype-pollution keys отклоняются;
+  * direct Personal import имеет Apply-lock и snapshot.
+- import-hub.js:
+  * один Apply за раз;
+  * Personal portable проходит тот же sanitizer;
+  * Personal/Work/Tennis повторно проверяют dedupe непосредственно перед записью.
+- gpt-exchange-feedback-13.6.js:
+  * Apply-lock;
+  * fingerprint повторно проверяется после Recovery snapshot, до создания Tasks/Calendar.
+- work.js / tennis.js / knowledge.js / training-os.js:
+  * индекс удаляемой записи определяется заново после await snapshot.
+- training-os.js:
+  * один planner Apply за раз;
+  * после snapshot выполняется повторная проверка уже существующих событий.
+
+Новые тесты:
+- stabilization-13.7-data-safety.test.js
+- stabilization-13.7-data-safety.e2e.test.js
+
+Важно:
+APP_VERSION и package version в этом этапе намеренно не меняются. Рассинхронизация версий — отдельный пункт A11 и будет закрыта на этапе системной консистентности.

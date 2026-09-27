@@ -1,0 +1,23 @@
+Загрузить ВСЕ файлы из архива в корень репозитория Life-rpg.
+
+Заменить:
+- state.js
+- personal-import-os.js
+- import-hub.js
+- gpt-exchange-feedback-13.6.js
+- work.js
+- tennis.js
+- knowledge.js
+- training-os.js
+- package.json
+- playwright.config.mjs
+
+Добавить:
+- stabilization-13.7-data-safety.test.js
+- stabilization-13.7-data-safety.e2e.test.js
+- CHANGELOG-13.7-STAGE1-DATA-SAFETY.txt
+- UPLOAD-13.7-STAGE1-DATA-SAFETY.txt
+
+После загрузки ничего вручную в приложении не править.
+Напиши в ChatGPT: «Залил».
+После этого нужно проверить GitHub Actions целиком, включая новый cross-tab mobile E2E.
