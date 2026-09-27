@@ -231,7 +231,7 @@ async function writeStateSnapshot(snapshot,makeBackup,expectedRevision=storageKn
       localStorage.setItem("lifeRpg4",JSON.stringify(snapshot));localSaved=true
     }catch(e){if(e?.code==="LIFE_RPG_STORAGE_CONFLICT")throw e}
   }
-  if(!databaseSaved&&!localSaved){storageMessage("НЕ СОХРАНЕНО: оба хранилища недоступны. Экспортируй резервную копию.");throw dbError||new Error("Не удалось сохранить данные")}
+  if(!databaseSaved&&!localSaved){storageMessage("НЕ СОХРАНЕНО: оба хранилища недоступны. Экспортируй резервную копию.");const error=new Error("Не удалось сохранить данные ни в IndexedDB, ни в резервном localStorage");if(dbError)error.cause=dbError;throw error}
   storageMessage(databaseSaved?"Данные сохранены в IndexedDB"+(localSaved?" и резервной копии.":" • резервное хранилище недоступно."):"Данные сохранены только в резервном localStorage.");
   if(databaseSaved){try{const day=localDateKey(),last=localStorage.getItem("lifeRpgBackupDay");if(makeBackup||day!==last){await dbPut("backups",{ts:Date.now(),day,state:deepClone(snapshot)});await cleanupBackups(30);localStorage.setItem("lifeRpgBackupDay",day)}}catch(e){storageMessage("Данные сохранены • не удалось создать дополнительный снимок.")}}
 }
