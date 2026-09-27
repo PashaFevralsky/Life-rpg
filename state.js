@@ -205,19 +205,20 @@ async function loadState(){
 function persist(makeBackup=false){
   if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));
   if(storageConflictBlocked)return Promise.reject(storage137ConflictError(storageKnownRevision+1));
-  const task=persistenceQueue.catch(()=>{}).then(()=>storage137WithLock(()=>persist137Current(makeBackup)));persistenceQueue=task;return task
-}
-async function persist137Current(makeBackup=false){
-  if(storageConflictBlocked)throw storage137ConflictError(storageKnownRevision+1);
   if(typeof syncAutoDailyQuests==="function")syncAutoDailyQuests();checkAchievements();S.version=STATE_VERSION;
-  const expectedRevision=storageKnownRevision,nextRevision=expectedRevision+1,prevMeta=deepClone(storage137Meta(S));
-  S.settings=S.settings||{};S.settings[STORAGE137_META_KEY]={revision:nextRevision,parentRevision:expectedRevision,writerId:STORAGE137_WRITER_ID,updatedAt:new Date().toISOString()};
-  S.updated=new Date(Math.max(Date.now(),stateTimestamp(S)+1)).toISOString();const snapshot=deepClone(S);
-  try{
-    await writeStateSnapshot(snapshot,makeBackup,expectedRevision);storageKnownRevision=nextRevision;storageKnownUpdated=snapshot.updated;storageConflictBlocked=false;storage137Signal(snapshot);return snapshot
-  }catch(e){
-    S.settings[STORAGE137_META_KEY]=prevMeta;throw e
-  }
+  const captured=deepClone(S);
+  const task=persistenceQueue.catch(()=>{}).then(()=>storage137WithLock(()=>persist137Current(captured,makeBackup)));persistenceQueue=task;return task
+}
+async function persist137Current(captured,makeBackup=false){
+  if(storageConflictBlocked)throw storage137ConflictError(storageKnownRevision+1);
+  const expectedRevision=storageKnownRevision,nextRevision=expectedRevision+1,snapshot=deepClone(captured);
+  snapshot.settings=snapshot.settings||{};snapshot.settings[STORAGE137_META_KEY]={revision:nextRevision,parentRevision:expectedRevision,writerId:STORAGE137_WRITER_ID,updatedAt:new Date().toISOString()};
+  const knownTs=Date.parse(storageKnownUpdated||"");
+  snapshot.updated=new Date(Math.max(Date.now(),stateTimestamp(snapshot)+1,Number.isFinite(knownTs)?knownTs+1:0)).toISOString();
+  await writeStateSnapshot(snapshot,makeBackup,expectedRevision);
+  storageKnownRevision=nextRevision;storageKnownUpdated=snapshot.updated;storageConflictBlocked=false;
+  S.settings=S.settings||{};S.settings[STORAGE137_META_KEY]=deepClone(snapshot.settings[STORAGE137_META_KEY]);if(stateTimestamp(S)<stateTimestamp(snapshot))S.updated=snapshot.updated;
+  storage137Signal(snapshot);return snapshot
 }
 async function writeStateSnapshot(snapshot,makeBackup,expectedRevision=storageKnownRevision){
   let localSaved=false,databaseSaved=false,dbError=null;
