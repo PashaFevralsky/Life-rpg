@@ -23,7 +23,7 @@ function calendarSemanticId(parts){return"cal:"+parts.map(x=>String(x??"").repla
 function calendarNormalizeManual(x){
   return {
     id:String(x.id||uid()),seriesId:String(x.seriesId||""),title:String(x.title||"Событие"),type:String(x.type||"Другое"),
-    area:String(x.area||calendarTypeArea(x.type)),dateKey:String(x.dateKey||""),minutes:clamp(Math.round(+x.minutes||0),0,720),
+    area:String(x.area||calendarTypeArea(x.type)),dateKey:validDateKey(String(x.dateKey||""))?String(x.dateKey):"",minutes:clamp(Math.round(+x.minutes||0),0,720),
     priority:clamp(Math.round(+x.priority||2),1,3),note:String(x.note||""),status:["planned","done","cancelled"].includes(x.status)?x.status:"planned",
     createdAt:String(x.createdAt||new Date().toISOString()),updatedAt:String(x.updatedAt||x.createdAt||new Date().toISOString()),manual:true
   }

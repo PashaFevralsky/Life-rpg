@@ -7,15 +7,16 @@ function projectStore(){if(!S.entities||typeof S.entities!=="object")S.entities=
 function projectEl(id){return document.getElementById(id)}
 function projectPriorityLabel(p){return +p===1?"Высокий":+p===2?"Средний":"Низкий"}
 function projectAreaStat(area){return area==="Финансы"?"Финансы":area==="Работа"?"Карьера":area==="Теннис"?"Теннис":area==="Знания"?"Разум":"Дисциплина"}
+function projectDateKey(v){const s=String(v||"");return validDateKey(s)?s:""}
 function projectDaysTo(dateKey){
   if(!validDateKey(dateKey))return null;
-  return Math.round((parseLocal(dateKey)-parseLocal(localDateKey()))/86400000)
+  return dateKeyDiff(localDateKey(),dateKey)
 }
 function projectActive(){return projectStore().filter(x=>x.status==="active")}
 function projectCompletedThisMonth(){return projectStore().filter(x=>x.status==="done"&&String(x.completedAt||"").slice(0,7)===localMonthKey()).length}
 function projectHealth(p){
-  const today=localDateKey(),deadlineDays=projectDaysTo(p.deadline),nextDays=projectDaysTo(p.nextDate),updated=Date.parse(p.updatedAt||p.createdAt||""),staleDays=Number.isFinite(updated)?Math.floor((Date.now()-updated)/86400000):null;
-  const overdueNext=!!p.nextDate&&p.nextDate<today,overdueDeadline=!!p.deadline&&p.deadline<today,pct=clamp(+p.progress||0,0,100);
+  const today=localDateKey(),deadlineDays=projectDaysTo(p.deadline),nextDays=projectDaysTo(p.nextDate),updated=Date.parse(p.updatedAt||p.createdAt||""),updatedKey=Number.isFinite(updated)?localDateKey(new Date(updated)):"",staleDays=updatedKey?dateKeyDiff(updatedKey,today):null;
+  const overdueNext=validDateKey(p.nextDate)&&p.nextDate<today,overdueDeadline=validDateKey(p.deadline)&&p.deadline<today,pct=clamp(+p.progress||0,0,100);
   let state="ok",label="В работе";
   if(overdueDeadline){state="bad";label="Дедлайн просрочен"}
   else if(overdueNext){state="bad";label="Следующий шаг просрочен"}
@@ -96,9 +97,9 @@ async function saveProject(){
   const id=String(projectEl("projectEditId")?.value||""),arr=projectStore(),old=id?arr.find(x=>x.id===id):null,now=new Date().toISOString();
   const p={
     id:old?.id||uid(),title,area:String(projectEl("projectArea")?.value||"Личное"),priority:clamp(Math.round(+projectEl("projectPriority")?.value||2),1,3),
-    deadline:String(projectEl("projectDeadline")?.value||""),outcome:String(projectEl("projectOutcome")?.value||"").trim(),
+    deadline:projectDateKey(projectEl("projectDeadline")?.value),outcome:String(projectEl("projectOutcome")?.value||"").trim(),
     progress:clamp(Math.round(+projectEl("projectProgress")?.value||0),0,100),nextStep:String(projectEl("projectNextStep")?.value||"").trim(),
-    nextDate:String(projectEl("projectNextDate")?.value||""),status:old?.status||"active",createdAt:old?.createdAt||now,updatedAt:now,
+    nextDate:projectDateKey(projectEl("projectNextDate")?.value),status:old?.status||"active",createdAt:old?.createdAt||now,updatedAt:now,
     completedAt:old?.completedAt||"",xpAwarded:old?.xpAwarded||0
   };
   if(old)Object.assign(old,p);else arr.push(p);
