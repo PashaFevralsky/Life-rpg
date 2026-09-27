@@ -336,7 +336,11 @@ jobs:
                       write("package-lock.json",JSON.stringify(lock,null,2)+"\n")
                     }
           
-                    patch("static-check.js",s=>once(s,`const RELEASE="13.2.2",SHELL_ANCHOR="13.2.2";`,`const RELEASE="${TARGET}",SHELL_ANCHOR="${TARGET}";`,"static release"));
+                    patch("static-check.js",s=>{
+                      s=once(s,`const RELEASE="13.2.2",SHELL_ANCHOR="13.2.2";`,`const RELEASE="${TARGET}",SHELL_ANCHOR="${TARGET}";`,"static release");
+                      s=once(s,`const lock=JSON.parse(read("package-lock.json"));assert.equal(lock.version,"12.0.3");assert.equal(lock.packages?.[""]?.version,"12.0.3");`,`const lock=JSON.parse(read("package-lock.json"));assert.equal(lock.version,RELEASE);assert.equal(lock.packages?.[""]?.version,RELEASE);`,"static lock release");
+                      return s
+                    });
                     patch("architecture.test.js",s=>{
                       s=once(s,`const RELEASE="13.2.2",`,`const RELEASE="${TARGET}",`,"architecture release");
                       s=once(s,`assert.equal(pkg.version,RELEASE);assert.equal(lock.version,"12.0.3");assert.equal(lock.packages?.[""]?.version,"12.0.3");`,`assert.equal(pkg.version,RELEASE);assert.equal(lock.version,RELEASE);assert.equal(lock.packages?.[""]?.version,RELEASE);`,"architecture lock release");
