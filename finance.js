@@ -130,7 +130,7 @@ function plannedIncomeToDate(d=new Date()){const today=d.getDate();return (S.set
 
 function plannedIncomeReceived(ev,y,m){const mk=`${y}-${String(m+1).padStart(2,"0")}`,day=String(Math.min(ev.day,new Date(y,m+1,0).getDate())).padStart(2,"0"),dateKey=`${mk}-${day}`;return S.incomeLogs.filter(x=>{const xmk=x.plannedMonth||String(x.dateKey||"").slice(0,7);if(xmk!==mk)return false;if(x.plannedEventId)return x.plannedEventId===ev.id;if(x.dateKey===dateKey&&String(x.source||"")===String(ev.label||""))return true;const link=matchPlannedIncome(x.dateKey,+x.amount||0,`${x.source||""} ${x.note||""}`);return link?.eventId===ev.id&&link?.monthKey===mk}).reduce((a,x)=>a+(+x.amount||0),0)}
 
-function plannedIncomeForecastAmount(ev,y,m,asOf=new Date()){const planned=Math.max(0,+ev.amount||0);if(!planned)return 0;const last=new Date(y,m+1,0).getDate(),due=new Date(y,m,Math.min(+ev.day||1,last),0,0,0),today=new Date(asOf.getFullYear(),asOf.getMonth(),asOf.getDate(),0,0,0),received=Math.max(0,plannedIncomeReceived(ev,y,m));if(due<today)return 0;return Math.max(0,planned-received)}
+function plannedIncomeForecastAmount(ev,y,m,asOf=new Date()){const planned=Math.max(0,+ev.amount||0);if(!planned)return 0;const last=new Date(y,m+1,0).getDate(),due=new Date(y,m,Math.min(+ev.day||1,last),0,0,0),today=new Date(asOf.getFullYear(),asOf.getMonth(),asOf.getDate(),0,0,0),received=plannedIncomeReceived(ev,y,m);if(received>0)return 0;if(due<today)return 0;return planned}
 
 function planGap(){return (+S.settings.monthlyDebtGoal||0)-(+S.settings.monthlyIncome||0)}
 

@@ -26,9 +26,9 @@ run(`S.payments=[];S.debts[0].nextPaymentDate="2026-01-31";S.debts[0].nextPaymen
 const dates=run(`debtEventsBetween(new Date(2026,0,1),new Date(2026,3,30,23,59,59)).map(x=>x.dateKey)`);
 assert.deepEqual(Array.from(dates),["2026-01-31","2026-02-28","2026-03-31","2026-04-30"]);
 
-// Partial planned income must leave only the unpaid remainder in forecast before due date.
+// A matched actual income replaces the planned estimate for that event, even when the actual amount differs.
 run(`S=deepClone(DEFAULT_STATE);S.settings.incomeEvents=[{id:"salary",day:15,label:"Salary",amount:50000}];S.incomeLogs=[{id:"i1",dateKey:"2026-09-10",date:"2026-09-10T12:00:00",amount:30000,plannedEventId:"salary",plannedMonth:"2026-09",source:"Salary"}]`);
-assert.equal(run(`plannedIncomeForecastAmount(S.settings.incomeEvents[0],2026,8,new Date(2026,8,14,12))`),20000);
+assert.equal(run(`plannedIncomeForecastAmount(S.settings.incomeEvents[0],2026,8,new Date(2026,8,14,12))`),0);
 assert.equal(run(`plannedIncomeForecastAmount(S.settings.incomeEvents[0],2026,8,new Date(2026,8,16,12))`),0);
 
 // Immediate-payment scenarios must target the highest EFFECTIVE rate, not the raw headline rate.
@@ -39,4 +39,4 @@ run(`S=deepClone(DEFAULT_STATE);S.settings.monthlyDebtGoal=50000;S.debts=[
 assert.equal(run(`highestRateDebtIndex()`),0);
 assert.equal(run(`simulateWithImmediatePayment(10000).debt.id`),"parts");
 
-console.log("OK — Stage 2.3 finance correctness: fixed due-day schedule, partial income, effective-rate priority");
+console.log("OK — Stage 2.3 finance correctness: fixed due-day schedule, matched-income closure, effective-rate priority");
