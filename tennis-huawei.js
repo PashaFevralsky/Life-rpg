@@ -210,6 +210,7 @@ function tennisHuaweiLoadSelected(){
 }
 function tennisHuaweiValidate(data){
   if(!data.dateKey)return"Укажи дату";
+  if(typeof validActivityDate==="function"&&!validActivityDate(data.dateKey))return"Дата Huawei должна быть сегодня или в прошлом";
   if(data.durationSec<=0)return"Укажи длительность";
   if(data.avgHr!=null&&data.maxHr!=null&&data.avgHr>data.maxHr)return"Средний пульс не может быть выше максимального";
   if(data.activeCalories!=null&&data.totalCalories!=null&&data.activeCalories>data.totalCalories)return"Активные ккал не могут быть выше общих";
@@ -218,6 +219,7 @@ function tennisHuaweiValidate(data){
 async function tennisHuaweiSaveForSession(sessionId,data){
   const s=tennisHuaweiSession(sessionId);if(!s){toast("Сессия не найдена");return null}
   const err=tennisHuaweiValidate(data);if(err){toast(err);return null}
+  if(String(data.dateKey||"")!==String(s.dateKey||"")){toast("Дата Huawei не совпадает с датой выбранной теннисной сессии");return null}
   const store=tennisHuaweiStore(),old=store.find(x=>String(x.sessionId)===String(sessionId));
   const row={id:old?.id||uid(),sessionId:String(sessionId),...data,updatedAt:new Date().toISOString(),createdAt:old?.createdAt||new Date().toISOString()};
   if(old)Object.assign(old,row);else store.unshift(row);

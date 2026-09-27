@@ -10,8 +10,10 @@ const TENNIS_WEEKLY=[
   {id:"foot45",title:"45 минут работы ног",stat:"Теннис",xp:100,condition:()=>tennisWeek().foot>=45}
 ];
 
-function tennisWeek(){const [a,b]=weekBounds(),arr=S.tennis.filter(x=>inRange(x.dateKey,a,b));return {sessions:arr.length,tournaments:arr.filter(x=>x.type==="Турнир").length,serve:arr.reduce((n,x)=>n+(+x.serveMin||0),0),foot:arr.reduce((n,x)=>n+(+x.footMin||0),0)}}
+function tennisRecordedSessions(){return (S.tennis||[]).filter(x=>validActivityDate(String(x.dateKey||""))&&Math.max(0,+x.min||0)>0)}
+function tennisWeek(){const [a,b]=weekBounds(),arr=tennisRecordedSessions().filter(x=>inRange(x.dateKey,a,b));return {sessions:arr.length,tournaments:arr.filter(x=>x.type==="Турнир").length,serve:arr.reduce((n,x)=>n+(+x.serveMin||0),0),foot:arr.reduce((n,x)=>n+(+x.footMin||0),0)}}
 function tennisSessionsDesc(){return (S.tennis||[]).slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||""))||String(b.createdAt||"").localeCompare(String(a.createdAt||""))||String(b.id||"").localeCompare(String(a.id||"")))}
+function tennisRecordedSessionsDesc(){return tennisRecordedSessions().slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||""))||String(b.createdAt||"").localeCompare(String(a.createdAt||""))||String(b.id||"").localeCompare(String(a.id||"")))}
 function eloExpected(r,opp){return 1/(1+Math.pow(10,(opp-r)/400))}
 function eloAfterSession(r,opp,w,l,k=24){let cur=r;for(let i=0;i<w;i++)cur+=k*(1-eloExpected(cur,opp));for(let i=0;i<l;i++)cur+=k*(0-eloExpected(cur,opp));return Math.round(cur)}
 
@@ -20,9 +22,9 @@ function parseTennisMatches(text){return String(text||"").split(/\n+/).map((line
 function sessionMatches(x){if(Array.isArray(x?.matches)&&x.matches.length)return x.matches.map((m,i)=>({id:m.id||`${x.id||"s"}-m${i+1}`,opponent:String(m.opponent||""),opponentRating:Math.max(0,+m.opponentRating||0),result:normalizeMatchResult(m.result),score:String(m.score||""),note:String(m.note||"")}));return []}
 function tennisMatchText(x){const m=sessionMatches(x);return m.map(z=>[z.opponent,z.opponentRating||"",z.result,z.score,z.note].join(" | ")).join("\n")}
 function sessionWinLoss(x){const m=sessionMatches(x);if(m.length)return {w:m.filter(z=>z.result==="W").length,l:m.filter(z=>z.result==="L").length};return {w:Math.max(0,+x.w||0),l:Math.max(0,+x.l||0)}}
-function tennisAllMatches(){const out=[];for(const s of S.tennis||[]){const ms=sessionMatches(s);if(ms.length)for(const m of ms)out.push({...m,sessionId:s.id,dateKey:s.dateKey,type:s.type});else if((+s.w||0)+(+s.l||0)>0){for(let i=0;i<+s.w||0;i++)out.push({id:`${s.id}-lw${i}`,sessionId:s.id,dateKey:s.dateKey,type:s.type,opponent:s.opponent||"",opponentRating:+s.opponentRating||0,result:"W",score:s.score||"",legacy:true});for(let i=0;i<+s.l||0;i++)out.push({id:`${s.id}-ll${i}`,sessionId:s.id,dateKey:s.dateKey,type:s.type,opponent:s.opponent||"",opponentRating:+s.opponentRating||0,result:"L",score:s.score||"",legacy:true})}}return out}
+function tennisAllMatches(){const out=[];for(const s of tennisRecordedSessions()){const ms=sessionMatches(s);if(ms.length)for(const m of ms)out.push({...m,sessionId:s.id,dateKey:s.dateKey,type:s.type});else if((+s.w||0)+(+s.l||0)>0){for(let i=0;i<+s.w||0;i++)out.push({id:`${s.id}-lw${i}`,sessionId:s.id,dateKey:s.dateKey,type:s.type,opponent:s.opponent||"",opponentRating:+s.opponentRating||0,result:"W",score:s.score||"",legacy:true});for(let i=0;i<+s.l||0;i++)out.push({id:`${s.id}-ll${i}`,sessionId:s.id,dateKey:s.dateKey,type:s.type,opponent:s.opponent||"",opponentRating:+s.opponentRating||0,result:"L",score:s.score||"",legacy:true})}}return out}
 
-function computeTennisElo(){let r=Math.max(0,finiteNumberOr(S.settings.tennisBaseElo,1000)),history=[],ratedMatches=0;const rows=tennisSessionsDesc().slice().reverse();for(const x of rows){const before=r,ms=sessionMatches(x);if(ms.length){for(const m of ms){const opp=+m.opponentRating||0;if(opp<=0||!["W","L"].includes(m.result))continue;r=eloAfterSession(r,opp,m.result==="W"?1:0,m.result==="L"?1:0);ratedMatches++}}else{const opp=+x.opponentRating||0;if(opp>0){r=eloAfterSession(r,opp,Math.max(0,+x.w||0),Math.max(0,+x.l||0));ratedMatches+=(+x.w||0)+(+x.l||0)}}history.push({id:x.id,before,after:r})}return {rating:r,history,ratedMatches}}
+function computeTennisElo(){let r=Math.max(0,finiteNumberOr(S.settings.tennisBaseElo,1000)),history=[],ratedMatches=0;const rows=tennisRecordedSessionsDesc().slice().reverse();for(const x of rows){const before=r,ms=sessionMatches(x);if(ms.length){for(const m of ms){const opp=+m.opponentRating||0;if(opp<=0||!["W","L"].includes(m.result))continue;r=eloAfterSession(r,opp,m.result==="W"?1:0,m.result==="L"?1:0);ratedMatches++}}else{const opp=+x.opponentRating||0;if(opp>0){r=eloAfterSession(r,opp,Math.max(0,+x.w||0),Math.max(0,+x.l||0));ratedMatches+=(+x.w||0)+(+x.l||0)}}history.push({id:x.id,before,after:r})}return {rating:r,history,ratedMatches}}
 function recomputeTennisElo(){const calc=computeTennisElo(),by=new Map(calc.history.map(x=>[x.id,x]));for(const x of S.tennis||[]){const h=by.get(x.id);if(h){x.eloBefore=h.before;x.eloAfter=h.after}}S.settings.tennisElo=calc.rating;return calc.rating}
 
 function tennisXpFor(x){const wl=sessionWinLoss(x);return Math.min(60,Math.floor((+x.min||0)/30)*15)+(x.type==="Турнир"?50:0)+Math.min(25,wl.w*5)+((+x.serveMin||0)>=20?15:0)+((+x.footMin||0)>=15?10:0)}
@@ -31,8 +33,8 @@ async function deleteTennis(id){const before=S.tennis.find(x=>x.id===id);if(!bef
 function editTennis(id){const x=S.tennis.find(z=>z.id===id);if(!x)return;const vals={ttEditId:x.id,ttDate:x.dateKey,ttMinutes:x.min,ttLoad:x.load,ttServe:x.serveMin||0,ttFoot:x.footMin||0,ttW:x.w||0,ttL:x.l||0,ttOpponent:x.opponent||"",ttOpponentRating:x.opponentRating||"",ttScore:x.score||"",ttNote:x.note||"",ttMatches:tennisMatchText(x)};for(const [id,v] of Object.entries(vals))if($(id))$(id).value=v??"";if($("ttType"))$("ttType").value=x.type||"Тренировка";if($("ttFocus"))$("ttFocus").value=x.focus||"Смешанная";if($("ttSaveBtn"))$("ttSaveBtn").textContent="Обновить сессию";if($("ttCancelEdit"))$("ttCancelEdit").hidden=false;$("ttDate")?.scrollIntoView({behavior:"smooth",block:"center"})}
 function cancelTennisEdit(){for(const id of ["ttW","ttL","ttServe","ttFoot"])if($(id))$(id).value=0;if($("ttMinutes"))$("ttMinutes").value=90;if($("ttLoad"))$("ttLoad").value=7;for(const id of ["ttOpponent","ttOpponentRating","ttScore","ttNote","ttMatches","ttEditId"])if($(id))$(id).value="";if($("ttDate"))$("ttDate").value=localDateKey();if($("ttSaveBtn"))$("ttSaveBtn").textContent="Сохранить сессию";if($("ttCancelEdit"))$("ttCancelEdit").hidden=true}
 
-function tennisLoad7(){const start=addDays(new Date(),-6);return S.tennis.filter(x=>parseLocal(x.dateKey)>=new Date(start.getFullYear(),start.getMonth(),start.getDate())).reduce((a,x)=>a+(+x.min||0)*(+x.load||0),0)}
-function tennisExposure(days=14){const start=localDateKey(addDays(new Date(),-(days-1))),exp={FH:0,BH:0,"Подача":0,"Приём":0,"Ноги":0,"Тактика":0};for(const x of S.tennis.filter(s=>s.dateKey>=start)){const min=Math.max(0,+x.min||0);if(x.focus==="Смешанная")for(const k of Object.keys(exp))exp[k]+=min/6;else if(exp[x.focus]!=null)exp[x.focus]+=min;exp["Подача"]+=Math.max(0,+x.serveMin||0);exp["Ноги"]+=Math.max(0,+x.footMin||0)}return exp}
+function tennisLoad7(){const start=localDateKey(addDays(new Date(),-6));return tennisRecordedSessions().filter(x=>x.dateKey>=start).reduce((a,x)=>a+(+x.min||0)*clamp(+x.load||0,0,10),0)}
+function tennisExposure(days=14){const start=localDateKey(addDays(new Date(),-(days-1))),exp={FH:0,BH:0,"Подача":0,"Приём":0,"Ноги":0,"Тактика":0};for(const x of tennisRecordedSessions().filter(s=>s.dateKey>=start)){const min=Math.max(0,+x.min||0);if(x.focus==="Смешанная")for(const k of Object.keys(exp))exp[k]+=min/6;else if(exp[x.focus]!=null)exp[x.focus]+=min;exp["Подача"]+=Math.max(0,+x.serveMin||0);exp["Ноги"]+=Math.max(0,+x.footMin||0)}return exp}
 function tennisFocusRecommendation(){const exp=tennisExposure(14),total=Object.values(exp).reduce((a,b)=>a+b,0);if(!total)return"нет данных";return Object.entries(exp).sort((a,b)=>a[1]-b[1]||a[0].localeCompare(b[0],"ru"))[0][0]}
 function tennisRecommendation(){const focus=tennisFocusRecommendation(),week=tennisWeek(),load=tennisLoad7();if(week.sessions<3)return `Сначала добери регулярность: ${week.sessions}/3 сессий на неделе. Фокус следующей тренировки — ${focus}.`;if(load>4500)return `Нагрузка за 7 дней высокая (${Math.round(load)} мин×RPE). Следующую сессию сделай легче, с техникой ${focus}.`;return `Следующий технический приоритет — ${focus}: за последние 14 дней на него пришлось меньше всего целевой работы.`}
 
@@ -55,7 +57,7 @@ function tennisDateStart(days){
   const d=addDays(new Date(),-(days-1));
   return localDateKey(new Date(d.getFullYear(),d.getMonth(),d.getDate(),12))
 }
-function tennisSessionsInDays(days){const start=tennisDateStart(days);return (S.tennis||[]).filter(x=>String(x.dateKey||"")>=start)}
+function tennisSessionsInDays(days){const start=tennisDateStart(days);return tennisRecordedSessions().filter(x=>x.dateKey>=start)}
 function tennisLoadInDays(days){return tennisSessionsInDays(days).reduce((s,x)=>s+Math.max(0,+x.min||0)*clamp(+x.load||0,0,10),0)}
 function tennisLoadProfile(){
   const acute=tennisLoadInDays(7),load28=tennisLoadInDays(28),baseline=load28/4,sessions28=tennisSessionsInDays(28).length,ratio=baseline>0?acute/baseline:null;
@@ -64,7 +66,7 @@ function tennisLoadProfile(){
 }
 function tennisExposureDeep(days=14){
   const start=tennisDateStart(days),exp={FH:0,BH:0,"Подача":0,"Приём":0,"Ноги":0,"Тактика":0};
-  for(const x of (S.tennis||[]).filter(s=>String(s.dateKey||"")>=start)){
+  for(const x of tennisRecordedSessions().filter(s=>s.dateKey>=start)){
     const total=Math.max(0,+x.min||0),serve=Math.min(total,Math.max(0,+x.serveMin||0)),foot=Math.min(Math.max(0,total-serve),Math.max(0,+x.footMin||0)),remaining=Math.max(0,total-serve-foot);
     exp["Подача"]+=serve/2;exp["Приём"]+=serve/2;exp["Ноги"]+=foot;
     const focus=String(x.focus||"Смешанная");
@@ -79,7 +81,7 @@ tennisFocusRecommendation=function(){const exp=tennisExposureDeep(14),total=Obje
 
 function tennisMatchTimeline(){
   let rating=Math.max(0,finiteNumberOr(S.settings.tennisBaseElo,1000)),out=[];
-  const sessions=tennisSessionsDesc().slice().reverse();
+  const sessions=tennisRecordedSessionsDesc().slice().reverse();
   for(const s of sessions){
     let ms=sessionMatches(s);
     if(!ms.length&&((+s.w||0)+(+s.l||0)>0)){
@@ -113,11 +115,11 @@ function tennisFormData(){
   return {last10,prev10,lastWr:wr(last10),prevWr:wr(prev10),elo30,strongestWin}
 }
 function tennisDaysSinceLast(){
-  const s=tennisSessionsDesc()[0];if(!s?.dateKey)return null;
-  return Math.max(0,Math.floor((parseLocal(localDateKey())-parseLocal(s.dateKey))/86400000))
+  const s=tennisRecordedSessionsDesc()[0];if(!s?.dateKey)return null;
+  return Math.max(0,dateKeyDiff(s.dateKey,localDateKey())??0)
 }
 function tennisMonthStats(){
-  const month=localMonthKey(),sessions=(S.tennis||[]).filter(x=>String(x.dateKey||"").startsWith(month)),matches=tennisAllMatches().filter(x=>String(x.dateKey||"").startsWith(month));
+  const month=localMonthKey(),sessions=tennisRecordedSessions().filter(x=>x.dateKey.startsWith(month)),matches=tennisAllMatches().filter(x=>String(x.dateKey||"").startsWith(month));
   return {sessions:sessions.length,tournaments:sessions.filter(x=>x.type==="Турнир").length,matches:matches.length,wins:matches.filter(x=>x.result==="W").length,losses:matches.filter(x=>x.result==="L").length}
 }
 function tennisPlanFact(){

@@ -27,15 +27,15 @@ function training129Decode(note=""){
 }
 function training129OutdoorSessions(days=365){
   training129EnsureTracker();const start=localDateKey(addDays(new Date(),-(Math.max(1,days)-1)));
-  return (typeof growthExplicitEvents==="function"?growthExplicitEvents():[]).filter(x=>x.trackerId===TRAINING129_TRACKER_ID&&growthEventDate(x)>=start).map(x=>{
+  return (typeof growthExplicitEvents==="function"?growthExplicitEvents():[]).filter(x=>x.trackerId===TRAINING129_TRACKER_ID&&validActivityDate(String(growthEventDate(x)||""))&&growthEventDate(x)>=start).map(x=>{
     const m=training129Decode(x.note)||{},rpe=clamp(+x.value||0,1,10),minutes=Math.max(0,+x.durationMin||0);
     return {id:x.id,dateKey:growthEventDate(x),minutes,rpe,load:minutes*rpe,type:m.type||"easy",distanceKm:+m.distanceKm||0,avgHr:+m.avgHr||0,maxHr:+m.maxHr||0,aerobicEffect:m.aerobicEffect,recoveryHours:m.recoveryHours,source:m.source||"manual",note:m.note||"",raw:x,domain:"outdoor",hard:(m.type==="interval"&&rpe>=6)||rpe>=8}
   }).sort((a,b)=>String(b.dateKey).localeCompare(String(a.dateKey)))
 }
 function training129TennisSessions(days=365){
-  const start=localDateKey(addDays(new Date(),-(Math.max(1,days)-1)));
-  return (S.tennis||[]).filter(x=>String(x.dateKey||"")>=start).map(x=>{
-    const w=typeof tennisHuaweiDetail==="function"?tennisHuaweiDetail(x.id):null,minutes=Math.max(0,+x.min||0),rpe=clamp(+x.load||0,1,10);
+  const start=localDateKey(addDays(new Date(),-(Math.max(1,days)-1))),source=typeof tennisRecordedSessions==="function"?tennisRecordedSessions():(S.tennis||[]).filter(x=>validActivityDate(String(x.dateKey||""))&&Math.max(0,+x.min||0)>0);
+  return source.filter(x=>x.dateKey>=start).map(x=>{
+    const rawWearable=typeof tennisHuaweiDetail==="function"?tennisHuaweiDetail(x.id):null,w=rawWearable&&String(rawWearable.dateKey||"")===String(x.dateKey||"")?rawWearable:null,minutes=Math.max(0,+x.min||0),rawRpe=Number(x.load),rpe=Number.isFinite(rawRpe)&&rawRpe>=1&&rawRpe<=10?rawRpe:0;
     return {id:x.id,dateKey:x.dateKey,minutes,rpe,load:minutes*rpe,type:"tennis",distanceKm:0,avgHr:+w?.avgHr||0,maxHr:+w?.maxHr||0,aerobicEffect:w?.aerobicEffect??null,recoveryHours:w?.recoveryHours??null,source:w?"Huawei Health":"tennis",note:x.note||"",raw:x,wearable:w,domain:"tennis",hard:x.type==="Турнир"||rpe>=8}
   }).sort((a,b)=>String(b.dateKey).localeCompare(String(a.dateKey)))
 }
@@ -45,7 +45,7 @@ function training129Range(days=7,offset=0){
   return {a,b,rows,minutes:rows.reduce((s,x)=>s+x.minutes,0),load:rows.reduce((s,x)=>s+x.load,0),tennis:rows.filter(x=>x.domain==="tennis").length,outdoor:rows.filter(x=>x.domain==="outdoor").length,hard:rows.filter(x=>x.hard).length}
 }
 function training129LoadProfile(){
-  const acute=training129Range(7,0),baseRows=training129AllSessions(42).filter(x=>{const age=Math.round((parseLocal(localDateKey())-parseLocal(x.dateKey))/86400000);return age>=7&&age<35}),weeklyBase=baseRows.reduce((s,x)=>s+x.load,0)/4,ratio=baseRows.length>=4&&weeklyBase>=250?acute.load/weeklyBase:null;
+  const today=localDateKey(),acute=training129Range(7,0),baseRows=training129AllSessions(42).filter(x=>{const age=dateKeyDiff(x.dateKey,today);return age!=null&&age>=7&&age<35}),weeklyBase=baseRows.reduce((s,x)=>s+x.load,0)/4,ratio=baseRows.length>=4&&weeklyBase>=250?acute.load/weeklyBase:null;
   return {acute,weeklyBase,ratio,interpretable:ratio!=null,baseSessions:baseRows.length}
 }
 function training129Readiness(){
@@ -53,7 +53,7 @@ function training129Readiness(){
   return {body,latestRecovery:latest?.recoveryHours??null,latestDate:latest?.dateKey||""}
 }
 function training129WeightTrend(){
-  if(typeof bodyDailySeries!=="function")return null;const rows=bodyDailySeries("tracker-weight",30);if(rows.length<2)return null;const first=rows[0],last=rows.at(-1);return {n:rows.length,first:first.value,last:last.value,delta:last.value-first.value,days:Math.max(1,Math.round((parseLocal(last.dateKey)-parseLocal(first.dateKey))/86400000))}
+  if(typeof bodyDailySeries!=="function")return null;const rows=bodyDailySeries("tracker-weight",30);if(rows.length<2)return null;const first=rows[0],last=rows.at(-1),days=dateKeyDiff(first.dateKey,last.dateKey);return {n:rows.length,first:first.value,last:last.value,delta:last.value-first.value,days:Math.max(1,days??1)}
 }
 function training129AerobicTrend(){
   const rows=training129OutdoorSessions(90).filter(x=>x.type==="easy"&&x.distanceKm>0&&x.avgHr>0&&x.minutes>0).sort((a,b)=>String(a.dateKey).localeCompare(String(b.dateKey)));
@@ -90,7 +90,7 @@ function training129SuggestedWeek(){
   if(!low&&!newBase&&easy28>=6&&(!load.interpretable||load.ratio<=1.2)&&(ready.body==null||ready.body>=60))kinds=["easy","strength","interval"];
   const start=new Date(),dates=[];for(let i=0;i<7;i++)dates.push(localDateKey(addDays(start,i)));
   const planned=(typeof calendarEvents==="function"?calendarEvents(7,0):[]),sports=new Set(planned.filter(x=>x&&x.dateKey>=dates[0]&&x.dateKey<=dates.at(-1)&&(/тренир|теннис|турнир|спорт/i.test(`${x.title||""} ${x.type||""} ${x.area||""}`))).map(x=>x.dateKey));for(const x of training129AllSessions(7))if(x.dateKey>=dates[0]&&x.dateKey<=dates.at(-1))sports.add(x.dateKey);
-  const used=new Set(),rows=[];for(const kind of kinds){let candidates=dates.filter(d=>!sports.has(d)&&!used.has(d));if(rows.length)candidates=candidates.filter(d=>Math.abs((parseLocal(d)-parseLocal(rows.at(-1).dateKey))/86400000)>=2);if(!candidates.length)candidates=dates.filter(d=>!used.has(d));candidates.sort((a,b)=>{const la=typeof calendarDayLoad==="function"?calendarDayLoad(a).minutes:0,lb=typeof calendarDayLoad==="function"?calendarDayLoad(b).minutes:0;return la-lb||a.localeCompare(b)});const dateKey=candidates[0];if(!dateKey)break;used.add(dateKey);const p=training129Prescription(kind);rows.push({...p,dateKey})}
+  const used=new Set(),rows=[];for(const kind of kinds){const free=dates.filter(d=>!sports.has(d)&&!used.has(d));let candidates=rows.length?free.filter(d=>Math.abs(dateKeyDiff(rows.at(-1).dateKey,d)??0)>=2):free;if(!candidates.length)candidates=free;if(!candidates.length)break;candidates.sort((a,b)=>{const la=typeof calendarDayLoad==="function"?calendarDayLoad(a).minutes:0,lb=typeof calendarDayLoad==="function"?calendarDayLoad(b).minutes:0;return la-lb||a.localeCompare(b)});const dateKey=candidates[0];if(!dateKey)break;used.add(dateKey);const p=training129Prescription(kind);rows.push({...p,dateKey})}
   return rows.sort((a,b)=>a.dateKey.localeCompare(b.dateKey))
 }
 async function training129PlanWeek(){
