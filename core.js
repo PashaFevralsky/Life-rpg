@@ -21,7 +21,8 @@ function localMonthKey(d=new Date()){return `${d.getFullYear()}-${String(d.getMo
 function isoWeekKey(d=new Date()){const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=x.getUTCDay()||7;x.setUTCDate(x.getUTCDate()+4-day);const y0=new Date(Date.UTC(x.getUTCFullYear(),0,1));const w=Math.ceil((((x-y0)/86400000)+1)/7);return `${x.getUTCFullYear()}-W${String(w).padStart(2,"0")}`}
 function parseLocal(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d,12)}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
-function daysBetween(a,b){return Math.floor((new Date(b.getFullYear(),b.getMonth(),b.getDate())-new Date(a.getFullYear(),a.getMonth(),a.getDate()))/86400000)}
+function localDayOrdinal(d){return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000)}
+function daysBetween(a,b){return localDayOrdinal(b)-localDayOrdinal(a)}
 function rub(n){return Math.round(Number(n)||0).toLocaleString("ru-RU")+" ₽"}
 function compactRub(n){return new Intl.NumberFormat("ru-RU",{notation:"compact",maximumFractionDigits:1}).format(Number(n)||0)+" ₽"}
 function pct(n,d=0){return `${(Number(n)||0).toFixed(d)}%`}
@@ -35,7 +36,8 @@ function daysInMonth(d=new Date()){return new Date(d.getFullYear(),d.getMonth()+
 function weekBounds(){const d=new Date(),day=(d.getDay()+6)%7,start=addDays(d,-day),end=addDays(start,6);return [localDateKey(start),localDateKey(end)]}
 function inRange(dateKey,a,b){return dateKey>=a&&dateKey<=b}
 function lastNDaysRange(n){const b=new Date(),a=addDays(b,-(n-1));return [localDateKey(a),localDateKey(b)]}
-function validDateKey(s){return /^\d{4}-\d{2}-\d{2}$/.test(String(s||""))}
+function validDateKey(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||""));if(!m)return false;const y=+m[1],mo=+m[2],d=+m[3];if(y<1||y>9999||mo<1||mo>12||d<1)return false;const leap=y%4===0&&(y%100!==0||y%400===0),dim=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][mo-1];return d<=dim}
+function dateKeyDiff(a,b){if(!validDateKey(a)||!validDateKey(b))return null;const pa=String(a).split("-").map(Number),pb=String(b).split("-").map(Number);return Math.round((Date.UTC(pb[0],pb[1]-1,pb[2])-Date.UTC(pa[0],pa[1]-1,pa[2]))/86400000)}
 function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
 function finiteNumberOr(v,fallback=0){if(v==null||String(v).trim()==="")return fallback;const n=Number(v);return Number.isFinite(n)?n:fallback}
 function moneyCents(v){const n=finiteNumberOr(v,0);if(!Number.isFinite(n))return 0;return Math.round((n+(n>=0?Number.EPSILON:-Number.EPSILON))*100)}
