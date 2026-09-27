@@ -8,11 +8,11 @@
 <script>document.documentElement.classList.add("life-rpg-booting");setTimeout(()=>document.documentElement.classList.remove("life-rpg-booting"),4000)</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="./assets/manifest-CZYwK8QJ.webmanifest?v=13.2.2">
-<link rel="icon" href="./assets/icon-192-DLpteqor.png">
+<link rel="manifest" href="./manifest.webmanifest?v=13.2.2">
+<link rel="icon" href="./icon-192.png">
 <title>Life RPG 13.2.2</title>
-  <script type="module" crossorigin src="./assets/index-Cyy7kK3P.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-oY452lqk.css">
+<link rel="stylesheet" href="./styles.css?v=13.2.2">
+<link rel="stylesheet" href="./mobile-layout.css?v=13.2.2">
 </head>
 <body>
 <div class="shell">
@@ -172,6 +172,7 @@
 <div class="modal" id="encryptedBackupModal"><div class="modal-card"><div class="modal-head"><div class="title">Зашифрованная резервная копия</div><button class="close" onclick="closeModal('encryptedBackupModal')">×</button></div><div class="field"><label>Пароль</label><input id="backupPassword" type="password" autocomplete="new-password"></div><div class="notice" style="margin-top:10px">Пароль нигде не сохраняется. Без него восстановить зашифрованный файл нельзя.</div><button class="btn" style="margin-top:12px" onclick="exportBackup(true)">Создать .lrpg</button></div></div>
 <script>window.__LIFE_RPG_HTML_VERSION__="13.2.2";</script>
 <script src="./platform.js?v=13.2.2"></script>
+<script type="module" src="./platform.vite.mjs"></script>
 <script src="./core.js?v=13.2.2"></script>
 <script src="./state.js?v=13.2.2"></script>
 <script src="./finance.js?v=13.2.2"></script>
