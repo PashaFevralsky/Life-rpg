@@ -352,6 +352,37 @@ jobs:
                       s=once(s,`cacheId:"life-rpg-13.2.2"`,`cacheId:"life-rpg-${TARGET}"`,"recovery test cache");
                       return s
                     });
+                    patch("mobile-share-13.1.test.js",s=>{
+                      s=once(s,`APP_VERSION="13.2.2"`,`APP_VERSION="${TARGET}"`,"mobile share app version");
+                      s=once(s,`cacheId:"life-rpg-13.2.2"`,`cacheId:"life-rpg-${TARGET}"`,"mobile share cache");
+                      return s
+                    });
+                    patch("android-acceptance-13.1.1.test.js",s=>{
+                      s=once(s,`APP_VERSION="13.2.2"`,`APP_VERSION="${TARGET}"`,"android acceptance app version");
+                      s=once(s,`cacheId:"life-rpg-13.2.2"`,`cacheId:"life-rpg-${TARGET}"`,"android acceptance cache");
+                      s=once(s,`manifest.name.includes("13.2.2")`,`manifest.name.includes("${TARGET}")`,"android acceptance manifest");
+                      return s
+                    });
+                    patch("decision-intelligence-13.2.test.js",s=>{
+                      s=once(s,`APP_VERSION="13.2.2"`,`APP_VERSION="${TARGET}"`,"decision intelligence app version");
+                      s=once(s,`manifest.includes("Life RPG 13.2.2")`,`manifest.includes("Life RPG ${TARGET}")`,"decision intelligence manifest");
+                      s=once(s,`cacheId:"life-rpg-13.2.2"`,`cacheId:"life-rpg-${TARGET}"`,"decision intelligence cache");
+                      return s
+                    });
+                    patch("intelligence-calibration-13.2.1.test.js",s=>{
+                      s=once(s,`APP_VERSION="13.2.2"`,`APP_VERSION="${TARGET}"`,"intelligence calibration app version");
+                      s=once(s,`manifest.includes("Life RPG 13.2.2")`,`manifest.includes("Life RPG ${TARGET}")`,"intelligence calibration manifest");
+                      s=once(s,`cacheId:"life-rpg-13.2.2"`,`cacheId:"life-rpg-${TARGET}"`,"intelligence calibration cache");
+                      return s
+                    });
+                    patch("predictive-trends-13.2.2.test.js",s=>{
+                      s=once(s,`assert.ok(core.includes('APP_VERSION="13.2.2"'));assert.ok(core.includes("STATE_VERSION=18"));assert.ok(manifest.includes("Life RPG 13.2.2"));assert.ok(vite.includes('cacheId:"life-rpg-13.2.2"'));`,
+                        `assert.ok(core.includes('APP_VERSION="${TARGET}"'));assert.ok(core.includes("STATE_VERSION=18"));assert.ok(manifest.includes("Life RPG ${TARGET}"));assert.ok(vite.includes('cacheId:"life-rpg-${TARGET}"'));`,
+                        "predictive release assertions");
+                      return s
+                    });
+                    patch("gpt-exchange-13.5.test.js",s=>once(s,`APP_VERSION:"13.2.2"`,`APP_VERSION:"${TARGET}"`,"gpt exchange app version"));
+
                     patch("dist-audit.test.js",s=>{
                       s=once(s,`sw.includes("life-rpg-13.2.2")`,`sw.includes("life-rpg-${TARGET}")`,"dist cache");
                       s=once(s,`the 13.2.2 cache namespace`,`the ${TARGET} cache namespace`,"dist cache message");
