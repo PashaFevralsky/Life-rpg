@@ -33,8 +33,8 @@ function work121LargeDealGaps(d){
   const checks=[
     ["База: объект, город, потенциал",!!(d.name&&d.city&&+d.potential>0)],
     ["Минимум 2 участника / контакта",crmParticipantsCount(d)>=2],
-    ["Следующий шаг + дата",!!(d.nextStep&&d.nextDate)],
-    ["Дата решения / тендера / закрытия",!!(d.decisionDate||d.tenderDate||d.closeDate)],
+    ["Следующий шаг + дата",!!(d.nextStep&&validDateKey(d.nextDate))],
+    ["Дата решения / тендера / закрытия",[d.decisionDate,d.tenderDate,d.closeDate].some(validDateKey)],
     ["Заложенные производители",!!d.manufacturers],
     ["Конкурент",!!d.competitor],
     ["Проект / П / Р / спецификация / ВОР",!!d.projectDocs],
@@ -47,12 +47,13 @@ function work121DealHealth(d){
   const today=localDateKey(),staleDays=Math.round(workOsNumber("workStaleDays",14,1,365)),reasons=[];
   let score=100;
   const penalize=(points,label)=>{score-=points;reasons.push(label)};
-  if(!String(d.nextStep||"").trim()||!d.nextDate)penalize(30,"нет следующего шага или даты");
-  if(d.nextDate&&d.nextDate<today)penalize(25,"следующий шаг просрочен");
-  if(!d.closeDate)penalize(15,"нет даты закрытия");
+  const nextOk=validDateKey(d.nextDate),closeOk=validDateKey(d.closeDate);
+  if(!String(d.nextStep||"").trim()||!nextOk)penalize(30,"нет следующего шага или даты");
+  if(nextOk&&d.nextDate<today)penalize(25,"следующий шаг просрочен");
+  if(!closeOk)penalize(15,"нет даты закрытия");
   else if(d.closeDate<today)penalize(20,"дата закрытия в прошлом");
-  const ts=Date.parse(d.updatedAt||d.createdAt||"");
-  if(Number.isFinite(ts)&&Date.now()-ts>staleDays*86400000)penalize(15,`нет обновлений >${staleDays} дней`);
+  const age=typeof crmAgeDays==="function"?crmAgeDays(d,today):null;
+  if(age!=null&&age>staleDays)penalize(15,`нет обновлений >${staleDays} дней`);
   const missing=work121LargeDealGaps(d);
   if(missing.length)penalize(Math.min(20,missing.length*4),`карточка ≥500k: не заполнено ${missing.length}`);
   score=clamp(Math.round(score),0,100);
