@@ -8,7 +8,7 @@ const legacyAllow=new Set([
   "data-os.js:dataIntegrityIssues",
   "work.js:renderWork",
   "tennis.js:tennisExposure","tennis.js:tennisFocusRecommendation","tennis.js:tennisRecommendation","tennis.js:renderTennis",
-  "knowledge.js:knowledgeReviewQueue","knowledge.js:markKnowledgeReviewed","knowledge.js:renderReadingDashboard",
+  "knowledge.js:markKnowledgeReviewed","knowledge.js:renderReadingDashboard",
   "routines-os.js:activeDay",
   "inbox-os.js:renderKnowledgeBase",
   "life-os.js:lifeScore","life-os.js:dailyEngineItems","life-os.js:renderPriorities","life-os.js:renderToday",
