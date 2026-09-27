@@ -195,7 +195,7 @@ async function loadState(){
   candidates.sort((a,b)=>stateTimestamp(b.raw)-stateTimestamp(a.raw)||(b.source==="IndexedDB")-(a.source==="IndexedDB"));
   try{
     if(newerVersion){storageLoadBlocked=true;throw new Error("Найдены данные более новой версии. Обнови приложение; сохранение остановлено.")}
-    if(candidates.length){S=normalizeState(candidates[0].raw);storage137MarkLoaded(candidates[0].raw);storageLoadBlocked=false;storageMessage(`Загружена свежая копия: ${candidates[0].source}${damaged?" • другая копия повреждена":""}`)}
+    if(candidates.length){const chosen=candidates[0],maxRevision=Math.max(0,...candidates.map(x=>storage137Revision(x.raw)));S=normalizeState(chosen.raw);storage137MarkLoaded(chosen.raw);storageKnownRevision=Math.max(storageKnownRevision,maxRevision);storageLoadBlocked=false;storageMessage(`Загружена свежая копия: ${chosen.source}${damaged?" • другая копия повреждена":""}`)}
     else if(damaged){storageLoadBlocked=true;throw new Error("Копии данных повреждены или требуют новой версии. Автосохранение остановлено; восстанови резервную копию.")}
     else if(!hasDatabase){storageLoadBlocked=true;throw new Error("Не удалось проверить основную базу. Перезапусти приложение; запись отключена для защиты данных.")}
     else await persist(true);
