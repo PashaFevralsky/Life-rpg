@@ -98,7 +98,7 @@ function normalizeState(raw){
 }
 
 // Persistence chooses the newest valid copy and acknowledges transaction commit.
-let persistenceQueue=Promise.resolve(),storageLoadBlocked=false,storageConflictBlocked=false,storageKnownRevision=0,storageKnownUpdated="";
+let persistenceQueue=Promise.resolve(),storageLoadBlocked=false,storageConflictBlocked=false,storageKnownRevision=0,storageKnownUpdated="",storage137BootSettling=false;
 const STORAGE137_META_KEY="storageSync137",STORAGE137_WRITER_ID=`tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 let storage137Channel=null;
 function storageMessage(message){const el=$("storageStatus");if(el)el.textContent=message}
@@ -206,6 +206,7 @@ function persist(makeBackup=false){
   if(storageLoadBlocked)return Promise.reject(new Error("Сохранение остановлено: сначала восстанови данные или перезапусти приложение"));
   if(storageConflictBlocked)return Promise.reject(storage137ConflictError(storageKnownRevision+1));
   if(typeof syncAutoDailyQuests==="function")syncAutoDailyQuests();checkAchievements();S.version=STATE_VERSION;
+  if(storage137BootSettling&&!makeBackup)return Promise.resolve(deepClone(S));
   const captured=deepClone(S);
   const task=persistenceQueue.catch(()=>{}).then(()=>storage137WithLock(()=>persist137Current(captured,makeBackup)));persistenceQueue=task;return task
 }

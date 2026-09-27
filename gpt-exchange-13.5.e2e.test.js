@@ -44,6 +44,7 @@ test("GPT Exchange 13.6 binds package, tracks outcomes and exports feedback delt
   await expect(page.locator("#gpt135Preview")).toContainText("packageId подтверждён");
   page.once("dialog",d=>d.accept());
   await page.locator("#gpt135ApplyBtn").click();
+  await expect.poll(()=>page.evaluate(()=>gpt136Store().receipts.length)).toBeGreaterThan(0);
 
   const receipt=await page.evaluate(()=>gpt136Store().receipts[0]);
   expect(receipt.packageId).toBe(ctx1.packageId);
