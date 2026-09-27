@@ -23,7 +23,11 @@ function intelligence132Now(){return new Date().toISOString()}
 function intelligence132Finite(v,f=0){const n=Number(v);return Number.isFinite(n)?n:f}
 function intelligence132Clamp(v,a=0,b=100){return clamp(intelligence132Finite(v,0),a,b)}
 function intelligence132DateOf(x){return String(x?.dateKey||x?.date||x?.updatedAt||x?.createdAt||x?.at||x?.ts||"")}
-function intelligence132DaysSince(v){if(!v)return null;let d;if(validDateKey(String(v).slice(0,10)))d=parseLocal(String(v).slice(0,10));else d=new Date(v);if(!Number.isFinite(d?.getTime?.()))return null;return Math.max(0,Math.floor((Date.now()-d.getTime())/86400000))}
+function intelligence132DateKey(v){if(!v)return"";const raw=String(v),head=raw.slice(0,10);if(validDateKey(head))return head;const d=new Date(v);return Number.isFinite(d.getTime())?localDateKey(d):""}
+function intelligence132ActivityDate(v){const k=intelligence132DateKey(v);return k&&k<=localDateKey()?k:""}
+function intelligence132DayDiff(a,b){if(typeof dateKeyDiff==="function")return dateKeyDiff(a,b);if(!validDateKey(a)||!validDateKey(b))return null;const A=a.split("-").map(Number),B=b.split("-").map(Number);return Math.round((Date.UTC(B[0],B[1]-1,B[2])-Date.UTC(A[0],A[1]-1,A[2]))/86400000)}
+function intelligence132DaysSince(v){const k=intelligence132ActivityDate(v);if(!k)return null;return Math.max(0,intelligence132DayDiff(k,localDateKey())??0)}
+function intelligence132LatestActivity(values){let best="";for(const v of values||[]){const k=intelligence132ActivityDate(v);if(k&&k>best)best=k}return best}
 function intelligence132Median(a){const x=(a||[]).map(Number).filter(Number.isFinite).sort((m,n)=>m-n);if(!x.length)return null;const i=Math.floor(x.length/2);return x.length%2?x[i]:(x[i-1]+x[i])/2}
 function intelligence132Sum(a,fn=x=>+x||0){return (a||[]).reduce((s,x)=>s+intelligence132Finite(fn(x),0),0)}
 function intelligence132ConfidenceLabel(n){n=intelligence132Clamp(n);return n>=85?"high":n>=65?"medium":"low"}
@@ -34,15 +38,12 @@ function intelligence132AreaKey(area){return ({"Финансы":"finance","Ра�
 function intelligence132Signature(x){return `${intelligence132AreaKey(x.area)}|${String(x.kind||"action").replace(/\d+/g,"#")}`}
 
 function intelligence132CandidateDate(x){
-  if(x.taskId&&typeof taskAll==="function"){const t=taskAll().find(t=>String(t.id)===String(x.taskId));return t?.updatedAt||t?.dueDate||t?.createdAt||""}
-  if(String(x.id||"").startsWith("work:")&&Array.isArray(S.crmDeals)){const id=String(x.id).slice(5),d=S.crmDeals.find(z=>String(z.id)===id);return d?.updatedAt||d?.lastContactAt||d?.nextDate||d?.createdAt||""}
-  if(x.area==="Финансы"){
-    const rows=[...(S.accounts||[]),...(S.expenses||[]),...(S.incomeLogs||[]),...(S.payments||[])];let best="";
-    for(const r of rows){const d=intelligence132DateOf(r);if(d&&String(d)>String(best))best=d}return best
-  }
-  if(x.area==="Теннис"||x.area==="Тело"){const rows=[...(S.tennis||[]),...(S.entities?.trackingEvents||[])];let best="";for(const r of rows){const d=intelligence132DateOf(r);if(d&&String(d)>String(best))best=d}return best}
-  if(x.area==="Знания"){let best="";for(const r of S.readingLogs||[]){const d=intelligence132DateOf(r);if(d&&String(d)>String(best))best=d}return best}
-  return x.updatedAt||x.dateKey||""
+  if(x.taskId&&typeof taskAll==="function"){const t=taskAll().find(t=>String(t.id)===String(x.taskId));return intelligence132LatestActivity([t?.updatedAt,t?.dueDate,t?.createdAt])}
+  if(String(x.id||"").startsWith("work:")&&Array.isArray(S.crmDeals)){const id=String(x.id).slice(5),d=S.crmDeals.find(z=>String(z.id)===id);return intelligence132LatestActivity([d?.updatedAt,d?.lastContactAt,d?.nextDate,d?.createdAt])}
+  if(x.area==="Финансы")return intelligence132LatestActivity([...(S.accounts||[]),...(S.expenses||[]),...(S.incomeLogs||[]),...(S.payments||[])].map(intelligence132DateOf));
+  if(x.area==="Теннис"||x.area==="Тело")return intelligence132LatestActivity([...(S.tennis||[]),...(S.entities?.trackingEvents||[])].map(intelligence132DateOf));
+  if(x.area==="Знания")return intelligence132LatestActivity((S.readingLogs||[]).map(intelligence132DateOf));
+  return intelligence132LatestActivity([x.updatedAt,x.dateKey])
 }
 function intelligence132Freshness(x){
   const days=intelligence132DaysSince(intelligence132CandidateDate(x));
@@ -51,10 +52,11 @@ function intelligence132Freshness(x){
   return {score,days,label:days===0?"сегодня":days===1?"1 день назад":`${days} дн. назад`}
 }
 function intelligence132Observations(x){
-  if(x.area==="Работа")return (S.workLogs||[]).filter(r=>validDateKey(r.date)&&r.date>=localDateKey(addDays(new Date(),-42))).length;
-  if(x.area==="Финансы")return (S.expenses||[]).filter(r=>validDateKey(String(r.dateKey||r.date||"").slice(0,10))&&String(r.dateKey||r.date).slice(0,10)>=localDateKey(addDays(new Date(),-30))).length+(S.incomeLogs||[]).filter(r=>validDateKey(String(r.dateKey||r.date||"").slice(0,10))).length;
-  if(x.area==="Теннис"||x.area==="Тело")return typeof training129Quality==="function"?training129Quality().sessions:(S.tennis||[]).length;
-  if(x.area==="Знания")return (S.readingLogs||[]).filter(r=>r.dateKey>=localDateKey(addDays(new Date(),-42))).length;
+  const today=localDateKey(),inWindow=(v,start)=>{const k=intelligence132ActivityDate(v);return !!k&&k>=start&&k<=today};
+  if(x.area==="Работа"){const start=localDateKey(addDays(new Date(),-42));return (S.workLogs||[]).filter(r=>inWindow(r.date,start)).length}
+  if(x.area==="Финансы"){const start=localDateKey(addDays(new Date(),-30));return (S.expenses||[]).filter(r=>inWindow(r.dateKey||r.date,start)).length+(S.incomeLogs||[]).filter(r=>inWindow(r.dateKey||r.date,start)).length}
+  if(x.area==="Теннис"||x.area==="Тело")return typeof training129Quality==="function"?training129Quality().sessions:(S.tennis||[]).filter(r=>intelligence132ActivityDate(r.dateKey)).length;
+  if(x.area==="Знания"){const start=localDateKey(addDays(new Date(),-42));return (S.readingLogs||[]).filter(r=>inWindow(r.dateKey,start)).length}
   if(x.taskId&&typeof taskAll==="function")return taskAll().length;
   return 1
 }

@@ -2,7 +2,9 @@
 
 /* Life RPG 10.0.2 — Knowledge OS */
 
-function readingDaysThisWeek(){const wk=isoWeekKey();return new Set(S.readingLogs.filter(x=>isoWeekKey(parseLocal(x.dateKey))===wk).map(x=>x.dateKey)).size}
+function knowledgeActivityDateKey(v){const s=String(v||"");return validDateKey(s)&&s<=localDateKey()?s:""}
+function knowledgeFactualReadingLogs(){return (S.readingLogs||[]).filter(x=>knowledgeActivityDateKey(x?.dateKey))}
+function readingDaysThisWeek(){const wk=isoWeekKey();return new Set(knowledgeFactualReadingLogs().filter(x=>isoWeekKey(parseLocal(x.dateKey))===wk).map(x=>x.dateKey)).size}
 function currentBook(){return S.books.find(b=>b.status==="reading")||null}
 function readingQueueSorted(){return (S.books||[]).filter(b=>b.status==="queued").slice().sort((a,b)=>(+a.readingOrder||999999)-(+b.readingOrder||999999)||String(a.created||"").localeCompare(String(b.created||""))||String(a.title||"").localeCompare(String(b.title||""),"ru"))}
 function nextQueuedBook(){return readingQueueSorted()[0]||null}
@@ -41,12 +43,12 @@ function cancelReadingEdit(){for(const id of ["readEditId","readChapter","readTa
 async function deleteReading(id){const before=S.readingLogs.find(x=>x.id===id);if(!before)return;if(!confirm("Удалить эту сессию чтения? Её можно будет восстановить из корзины."))return;await createPreActionSnapshot("Перед удалением сессии чтения");const i=S.readingLogs.findIndex(x=>x.id===id);if(i<0){toast("Сессия уже удалена");return}const x=S.readingLogs[i];trashPush("reading",x);S.readingLogs.splice(i,1);removeXp(x.xpAward||0,"Разум","Удалена сессия чтения",`read:${id}`,x.dateKey);recomputeBookProgress(x.bookId);reconcileReadingAwards();syncAutoDailyQuests(x.dateKey);await save("Сессия чтения удалена • прогресс пересчитан")}
 async function deleteBook(id){const b=S.books.find(x=>x.id===id);if(!b)return;if(!confirm(`Архивировать книгу «${b.title}»? История чтения сохранится.`))return;b.status="archived";b.archivedAt=new Date().toISOString();audit("Книга архивирована","knowledge",b.title);await save("Книга перемещена в архив")}
 
-function readingPaceData(){const b=currentBook();if(!b||!b.totalPages)return null;const since=localDateKey(addDays(new Date(),-13)),logs=S.readingLogs.filter(x=>x.bookId===b.id&&x.dateKey>=since),pages=logs.reduce((s,x)=>s+(+x.pages||0),0),days=new Set(logs.map(x=>x.dateKey)).size,pace=days?pages/days:0,remaining=Math.max(0,b.totalPages-b.currentPage),readingDays=pace>0?Math.ceil(remaining/pace):null;return {book:b,pages,days,pace,remaining,readingDays}}
+function readingPaceData(){const b=currentBook();if(!b||!b.totalPages)return null;const since=localDateKey(addDays(new Date(),-13)),logs=knowledgeFactualReadingLogs().filter(x=>x.bookId===b.id&&x.dateKey>=since),pages=logs.reduce((s,x)=>s+(+x.pages||0),0),days=new Set(logs.map(x=>x.dateKey)).size,pace=days?pages/days:0,remaining=Math.max(0,b.totalPages-b.currentPage),readingDays=pace>0?Math.ceil(remaining/pace):null;return {book:b,pages,days,pace,remaining,readingDays}}
 function knowledgeReviewQueue(){const days=Math.max(1,+S.settings.readingReviewDays||7),cut=Date.now()-days*86400000;return (S.readingLogs||[]).filter(x=>x.note||x.application).filter(x=>!x.reviewedAt||Date.parse(x.reviewedAt)<cut).slice().sort((a,b)=>String(a.reviewedAt||a.dateKey).localeCompare(String(b.reviewedAt||b.dateKey))).slice(0,8)}
 async function markKnowledgeReviewed(id){const x=S.readingLogs.find(z=>z.id===id);if(!x)return;x.reviewedAt=new Date().toISOString();audit("Повторение знания","knowledge",x.note||x.application||id);await save("Тезис отмечен повторённым")}
 
 function renderKnowledgeBase(){const box=$("knowledgeBase");if(!box)return;const q=String($("knowledgeSearch")?.value||"").toLowerCase(),notes=S.readingLogs.filter(x=>x.note||x.application||x.chapter||(x.tags||[]).length).filter(x=>{const b=S.books.find(z=>z.id===x.bookId);return !q||`${x.note||""} ${x.application||""} ${x.chapter||""} ${(x.tags||[]).join(" ")} ${b?.title||""} ${b?.author||""}`.toLowerCase().includes(q)}).slice(0,80);box.innerHTML=notes.length?notes.map(x=>{const b=S.books.find(z=>z.id===x.bookId);return `<div class="log-item"><div class="qtitle">${escapeHtml(b?.title||"Книга")} • ${fmtDate(parseLocal(x.dateKey))}${x.chapter?` • ${escapeHtml(x.chapter)}`:""}</div>${x.tags?.length?`<div class="qmeta">${x.tags.map(t=>`#${escapeHtml(t)}`).join(" ")}</div>`:""}${x.note?`<div class="qmeta">Тезис: ${escapeHtml(x.note)}</div>`:""}${x.application?`<div class="qmeta">Применение: ${escapeHtml(x.application)}</div>`:""}</div>`}).join(""):'<div class="empty">Заметки не найдены.</div>'}
-function renderReadingDashboard(){const month=S.readingLogs.filter(x=>x.dateKey?.startsWith(localMonthKey())),mins=month.reduce((a,x)=>a+(+x.minutes||0),0),pages=month.reduce((a,x)=>a+(+x.pages||0),0),completed=S.books.filter(b=>b.status==="done"&&String(b.completed||"").startsWith(localMonthKey())).length,pace=readingPaceData(),review=knowledgeReviewQueue(),recent=S.readingLogs.slice(0,8);$("readingDashboard").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Минуты месяца</div><b>${mins}</b></div><div class="report-item"><div class="smallcaps">Страницы</div><b>${pages}</b></div><div class="report-item"><div class="smallcaps">Книг завершено</div><b>${completed}</b></div><div class="report-item"><div class="smallcaps">На повторение</div><b>${review.length}</b></div></div>${pace?`<div class="notice" style="margin-top:10px"><b>${escapeHtml(pace.book.title)}</b>: ${pace.remaining} стр. осталось • темп ${pace.pace.toFixed(1)} стр./день чтения${pace.readingDays!=null?` • примерно ${pace.readingDays} дней чтения до конца`:""}.</div>`:""}<div class="title" style="margin-top:14px">Повторить знания</div>${review.length?review.slice(0,4).map(x=>{const b=S.books.find(q=>q.id===x.bookId);return `<div class="log-item"><div class="qtitle">${escapeHtml(b?.title||"Книга")}</div><div class="qmeta">${escapeHtml(x.note||x.application||"")}</div><button class="btn ghost small" style="margin-top:7px" onclick="markKnowledgeReviewed('${x.id}')">Повторил</button></div>`}).join(""):`<div class="empty">Очередь повторения пуста.</div>`}<div class="title" style="margin-top:14px">Последние сессии</div>${recent.length?recent.map(x=>{const b=S.books.find(q=>q.id===x.bookId);return `<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(x.dateKey))} • ${escapeHtml(b?.title||"Архивная книга")} • ${x.minutes} мин</div><div class="qmeta">${x.pages||0} стр. • +${x.xpAward||0} XP${x.chapter?` • ${escapeHtml(x.chapter)}`:""}</div><div class="split" style="margin-top:7px"><button class="btn ghost small" onclick="editReading('${x.id}')">Изменить</button><button class="btn ghost small" onclick="deleteReading('${x.id}')">Удалить</button></div></div>`}).join(""):`<div class="empty">Сессий пока нет.</div>`}`}
+function renderReadingDashboard(){const factual=knowledgeFactualReadingLogs(),month=factual.filter(x=>x.dateKey.startsWith(localMonthKey())),mins=month.reduce((a,x)=>a+(+x.minutes||0),0),pages=month.reduce((a,x)=>a+(+x.pages||0),0),completed=S.books.filter(b=>b.status==="done"&&String(b.completed||"").startsWith(localMonthKey())).length,pace=readingPaceData(),review=knowledgeReviewQueue(),recent=factual.slice().sort((a,b)=>String(b.dateKey).localeCompare(String(a.dateKey))).slice(0,8);$("readingDashboard").innerHTML=`<div class="report-grid"><div class="report-item"><div class="smallcaps">Минуты месяца</div><b>${mins}</b></div><div class="report-item"><div class="smallcaps">Страницы</div><b>${pages}</b></div><div class="report-item"><div class="smallcaps">Книг завершено</div><b>${completed}</b></div><div class="report-item"><div class="smallcaps">На повторение</div><b>${review.length}</b></div></div>${pace?`<div class="notice" style="margin-top:10px"><b>${escapeHtml(pace.book.title)}</b>: ${pace.remaining} стр. осталось • темп ${pace.pace.toFixed(1)} стр./день чтения${pace.readingDays!=null?` • примерно ${pace.readingDays} дней чтения до конца`:""}.</div>`:""}<div class="title" style="margin-top:14px">Повторить знания</div>${review.length?review.slice(0,4).map(x=>{const b=S.books.find(q=>q.id===x.bookId);return `<div class="log-item"><div class="qtitle">${escapeHtml(b?.title||"Книга")}</div><div class="qmeta">${escapeHtml(x.note||x.application||"")}</div><button class="btn ghost small" style="margin-top:7px" onclick="markKnowledgeReviewed('${x.id}')">Повторил</button></div>`}).join(""):`<div class="empty">Очередь повторения пуста.</div>`}<div class="title" style="margin-top:14px">Последние сессии</div>${recent.length?recent.map(x=>{const b=S.books.find(q=>q.id===x.bookId);return `<div class="log-item"><div class="qtitle">${fmtDate(parseLocal(x.dateKey))} • ${escapeHtml(b?.title||"Архивная книга")} • ${x.minutes} мин</div><div class="qmeta">${x.pages||0} стр. • +${x.xpAward||0} XP${x.chapter?` • ${escapeHtml(x.chapter)}`:""}</div><div class="split" style="margin-top:7px"><button class="btn ghost small" onclick="editReading('${x.id}')">Изменить</button><button class="btn ghost small" onclick="deleteReading('${x.id}')">Удалить</button></div></div>`}).join(""):`<div class="empty">Сессий пока нет.</div>`}`}
 function renderBooks(){const reading=(S.books||[]).filter(b=>b.status==="reading"),queued=readingQueueSorted(),paused=(S.books||[]).filter(b=>b.status==="paused"),done=(S.books||[]).filter(b=>b.status==="done").slice().sort((a,b)=>String(b.completed||"").localeCompare(String(a.completed||""))),dropped=(S.books||[]).filter(b=>b.status==="dropped"),ordered=[...reading,...queued,...paused,...done,...dropped];$("readBook").innerHTML=reading.length?reading.map(b=>`<option value="${b.id}">${escapeHtml(b.title)}</option>`).join(""):'<option value="">Сначала начни книгу из очереди</option>';$("bookList").innerHTML=ordered.length?ordered.map(b=>{const isDone=b.status==="done",isQueued=b.status==="queued",isPaused=b.status==="paused",pages=Math.max(0,+b.totalPages||0),current=Math.max(0,+b.currentPage||0),p=pages>0?clamp(current/pages*100,0,100):0,tag=isDone?"прочитано":isQueued?`№${+b.readingOrder||"—"} в очереди`:isPaused?"пауза":b.status==="dropped"?"отложено":`читаю • ${current}/${pages}`;return `<div class="book"><div class="book-head"><div><b>${escapeHtml(b.title)}</b><div class="sub">${escapeHtml(b.author||"")}</div></div><span class="tag ${isDone?"good":""}">${tag}</span></div>${isQueued?`<div class="sub" style="margin-top:9px">${pages?`${pages} стр.`:"Количество страниц укажешь при старте книги."}</div>`:`<div class="progress" style="margin-top:9px"><i style="width:${p}%"></i></div>`}<div class="split" style="margin-top:9px">${isQueued?`<button class="btn secondary small" onclick="startQueuedBook('${b.id}')">Начать</button><button class="btn ghost small" onclick="moveBookQueue('${b.id}',-1)">↑</button><button class="btn ghost small" onclick="moveBookQueue('${b.id}',1)">↓</button>`:isPaused?`<button class="btn secondary small" onclick="startQueuedBook('${b.id}')">Продолжить</button>`:!isDone&&b.status==="reading"?`<button class="btn ghost small" onclick="openReadingFor('${b.id}')">+ Читать</button><button class="btn ghost small" onclick="setBookStatus('${b.id}','paused')">Пауза</button>`:""}${!isDone?`<button class="btn ghost small" onclick="setBookStatus('${b.id}','dropped')">Отложить</button>`:""}<button class="btn ghost small" onclick="deleteBook('${b.id}')">Архив</button></div></div>`}).join(""):'<div class="empty">Добавь книгу или импортируй список чтения.</div>'}
 function openReadingFor(id){const b=S.books.find(x=>x.id===id);if(!b||b.status!=="reading"){toast("Эта книга сейчас не активна");return}openModal("readingModal");if($("readBook"))$("readBook").value=id}
 
@@ -65,16 +67,14 @@ function knowledgeReviewIntervals(){
 }
 function knowledgeReviewState(x){
   const intervals=knowledgeReviewIntervals(),legacyReviewed=!!x.reviewedAt&&x.reviewCount==null,count=Math.max(0,Math.round(legacyReviewed?1:(+x.reviewCount||0)));
-  const nextIndex=x.reviewedAt?Math.max(0,count-1):0,interval=intervals[Math.min(nextIndex,intervals.length-1)];
-  let anchor;
-  if(x.reviewedAt)anchor=new Date(x.reviewedAt);
-  else anchor=parseLocal(x.dateKey||localDateKey());
-  if(Number.isNaN(anchor.getTime()))anchor=new Date();
-  const dueAt=x.reviewedAt?new Date(anchor.getTime()+interval*86400000):anchor;
-  return {count,interval,dueAt,due:!x.reviewedAt||Date.now()>=dueAt.getTime(),complete:false}
+  const nextIndex=x.reviewedAt?Math.max(0,count-1):0,interval=intervals[Math.min(nextIndex,intervals.length-1)],today=localDateKey();
+  let anchorKey=knowledgeActivityDateKey(x.dateKey)||today;
+  if(x.reviewedAt){const d=new Date(x.reviewedAt);if(Number.isFinite(d.getTime()))anchorKey=localDateKey(d)}
+  const dueKey=x.reviewedAt?localDateKey(addDays(parseLocal(anchorKey),interval)):anchorKey,dueAt=parseLocal(dueKey);
+  return {count,interval,dueKey,dueAt,due:dueKey<=today,complete:false}
 }
 knowledgeReviewQueue=function(){
-  return (S.readingLogs||[])
+  return knowledgeFactualReadingLogs()
     .filter(x=>x.note||x.application)
     .map(x=>({x,s:knowledgeReviewState(x)}))
     .filter(z=>z.s.due)
@@ -91,11 +91,11 @@ markKnowledgeReviewed=async function(id){
 
 function readingWindowLogs(days=28,bookId=""){
   const start=localDateKey(addDays(new Date(),-(days-1)));
-  return (S.readingLogs||[]).filter(x=>String(x.dateKey||"")>=start&&(!bookId||x.bookId===bookId))
+  return knowledgeFactualReadingLogs().filter(x=>x.dateKey>=start&&(!bookId||x.bookId===bookId))
 }
 function readingTodayMinutes(){
   const today=localDateKey();
-  return (S.readingLogs||[]).filter(x=>x.dateKey===today).reduce((s,x)=>s+Math.max(0,+x.minutes||0),0)
+  return knowledgeFactualReadingLogs().filter(x=>x.dateKey===today).reduce((s,x)=>s+Math.max(0,+x.minutes||0),0)
 }
 function readingConsistencyData(days=28){
   const logs=readingWindowLogs(days),byDay=new Map();
@@ -120,7 +120,7 @@ function knowledgeCaptureData(days=28){
   return {sessions:logs.length,withKnowledge:withKnowledge.length,withApplication:withApplication.length,tagged:tagged.length,captureRate:logs.length?withKnowledge.length/logs.length*100:0,applicationRate:logs.length?withApplication.length/logs.length*100:0}
 }
 function knowledgeReviewStats(){
-  const all=(S.readingLogs||[]).filter(x=>x.note||x.application),due=knowledgeReviewQueue(),reviewed=all.filter(x=>x.reviewedAt),rounds=all.reduce((s,x)=>s+Math.max(0,+x.reviewCount||0),0);
+  const all=knowledgeFactualReadingLogs().filter(x=>x.note||x.application),due=knowledgeReviewQueue(),reviewed=all.filter(x=>x.reviewedAt),rounds=all.reduce((s,x)=>s+Math.max(0,+x.reviewCount||0),0);
   return {items:all.length,due:due.length,reviewed:reviewed.length,rounds,intervals:knowledgeReviewIntervals()}
 }
 function readingQueueHorizon(){
@@ -131,7 +131,7 @@ function readingQueueHorizon(){
   return {books:books.length,known:known.length,unknown,pages,hours,weeks,next:nextQueuedBook()}
 }
 function knowledgeMonthData(){
-  const month=localMonthKey(),logs=(S.readingLogs||[]).filter(x=>String(x.dateKey||"").startsWith(month)),mins=logs.reduce((s,x)=>s+Math.max(0,+x.minutes||0),0),pages=logs.reduce((s,x)=>s+Math.max(0,+x.pages||0),0),days=new Set(logs.map(x=>x.dateKey)).size,done=(S.books||[]).filter(b=>b.status==="done"&&String(b.completed||"").startsWith(month)).length;
+  const month=localMonthKey(),logs=knowledgeFactualReadingLogs().filter(x=>x.dateKey.startsWith(month)),mins=logs.reduce((s,x)=>s+Math.max(0,+x.minutes||0),0),pages=logs.reduce((s,x)=>s+Math.max(0,+x.pages||0),0),days=new Set(logs.map(x=>x.dateKey)).size,done=(S.books||[]).filter(b=>b.status==="done"&&String(b.completed||"").startsWith(month)).length;
   const now=new Date(),elapsed=now.getDate(),target=Math.max(1,knowledgeOsNumber("readingDailyMin",30,1,1440)),weeklyDays=Math.max(1,knowledgeOsNumber("readingWeeklyDaysTarget",7,1,7)),planned=Math.round(elapsed*target*weeklyDays/7);
   return {mins,pages,days,done,planned,pace:planned>0?mins/planned*100:0}
 }

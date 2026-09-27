@@ -50,7 +50,10 @@ async function knowledge124Review(token){
   if(source==="growth"&&typeof knowledgeGrowthReview==="function")return knowledgeGrowthReview(id)
 }
 function knowledge124DaysOverdue(dateKey){
-  if(!validDateKey(dateKey))return 0;return Math.max(0,Math.floor((parseLocal(localDateKey())-parseLocal(dateKey))/86400000))
+  if(!validDateKey(dateKey))return 0;
+  if(typeof dateKeyDiff==="function"){const n=dateKeyDiff(dateKey,localDateKey());return Math.max(0,n??0)}
+  const a=String(dateKey).split("-").map(Number),b=localDateKey().split("-").map(Number);
+  return Math.max(0,Math.round((Date.UTC(b[0],b[1]-1,b[2])-Date.UTC(a[0],a[1]-1,a[2]))/86400000))
 }
 function knowledge124ApplicationStore(){
   if(!S.settings.knowledge124ApplicationResults||typeof S.settings.knowledge124ApplicationResults!=="object"||Array.isArray(S.settings.knowledge124ApplicationResults))S.settings.knowledge124ApplicationResults={};
@@ -58,7 +61,7 @@ function knowledge124ApplicationStore(){
 }
 function knowledge124Applications(){
   const rows=[];
-  for(const x of S.readingLogs||[])if(String(x.application||"").trim()){
+  for(const x of (typeof knowledgeFactualReadingLogs==="function"?knowledgeFactualReadingLogs():(S.readingLogs||[]).filter(x=>validDateKey(String(x.dateKey||""))&&String(x.dateKey)<=localDateKey())))if(String(x.application||"").trim()){
     const b=(S.books||[]).find(z=>z.id===x.bookId);rows.push({token:`read:${x.id}`,book:b?.title||"Книга",text:String(x.application).trim(),thesis:String(x.note||"").trim(),dateKey:x.dateKey||""})
   }
   if(typeof knowledgeGrowthNotes==="function")for(const x of knowledgeGrowthNotes())if(x.type==="application"&&String(x.text||"").trim()){
