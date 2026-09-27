@@ -122,3 +122,26 @@ body.ui82{overflow-x:clip}
   .ui82 #today .quick-card .quick button{flex-basis:98px}
   .ui82 .work-hero .kpi,.ui82 .tennis-hero .kpi{flex-basis:128px}
 }
+
+/* Stage 2.10 — mobile modal accessibility / dynamic viewport hardening */
+html.modal-open,body.modal-open{overflow:hidden;overscroll-behavior:none}
+.ui82 .modal-card{
+  max-height:88vh;
+  max-height:calc(100dvh - env(safe-area-inset-top) - 8px);
+  overscroll-behavior:contain;
+  scroll-padding-bottom:calc(24px + env(safe-area-inset-bottom));
+}
+.ui82 .close{
+  width:44px;
+  min-width:44px;
+  height:44px;
+  min-height:44px;
+  flex:0 0 44px;
+}
+@media(max-width:850px){
+  .ui82 .modal-card{
+    max-height:88vh;
+    max-height:calc(100dvh - env(safe-area-inset-top) - 8px);
+  }
+}
+

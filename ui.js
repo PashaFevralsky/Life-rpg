@@ -5,10 +5,14 @@
 function toast(t){const x=$("toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),1800)}
 
 let lastModalFocus=null;
+const MODAL_FOCUSABLE_SELECTOR='button:not([disabled]),[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-function openModal(id){const m=$(id);if(!m)return;lastModalFocus=document.activeElement;m.classList.add("open");m.setAttribute("aria-hidden","false");setTimeout(()=>m.querySelector("input:not([type=hidden]),select,textarea,button")?.focus(),0)}
-
-function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open");m.setAttribute("aria-hidden","true");lastModalFocus?.focus?.()}
+function modalTop(){return [...document.querySelectorAll(".modal.open")].at(-1)||null}
+function modalFocusables(m){return m?[...m.querySelectorAll(MODAL_FOCUSABLE_SELECTOR)].filter(el=>!el.hidden&&el.getAttribute("aria-hidden")!=="true"&&(!el.getClientRects||el.getClientRects().length>0)):[]}
+function syncModalDocumentState(){const open=!!modalTop();document.documentElement?.classList.toggle("modal-open",open);document.body?.classList.toggle("modal-open",open)}
+function openModal(id){const m=$(id);if(!m)return;lastModalFocus=document.activeElement;m.classList.add("open");m.setAttribute("aria-hidden","false");syncModalDocumentState();setTimeout(()=>modalFocusables(m)[0]?.focus(),0)}
+function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open");m.setAttribute("aria-hidden","true");syncModalDocumentState();const top=modalTop();if(top){modalFocusables(top)[0]?.focus();return}lastModalFocus?.focus?.()}
+function handleModalKeydown(e){const m=modalTop();if(!m)return;if(e.key==="Escape"){e.preventDefault();closeModal(m.id);return}if(e.key!=="Tab")return;const a=modalFocusables(m);if(!a.length){e.preventDefault();return}const first=a[0],last=a[a.length-1],active=document.activeElement;if(e.shiftKey&&(active===first||!m.contains(active))){e.preventDefault();last.focus()}else if(!e.shiftKey&&(active===last||!m.contains(active))){e.preventDefault();first.focus()}}
 
 const UX7_NAVIGATION_LISTENERS=new Map();
 function ux7RegisterNavigationListener(id,fn){if(!id||typeof fn!=="function")return()=>{};UX7_NAVIGATION_LISTENERS.set(String(id),fn);return()=>UX7_NAVIGATION_LISTENERS.delete(String(id))}
@@ -31,7 +35,7 @@ function initUi(){if(window.__LIFE_RPG_HTML_VERSION__&&window.__LIFE_RPG_HTML_VE
   $("bankOperationsScreenshotInput")?.addEventListener("change",async e=>{const fs=e.target.files;if(!fs?.length)return;try{await recognizeBankSyncOperations(fs)}catch(err){$("screenshotImportStatus").innerHTML=`<span class="csv-bad">${escapeHtml(err.message||String(err))}</span>`}e.target.value=""});
   $("smartInboxInput")?.addEventListener("change",async e=>{const fs=e.target.files;if(fs?.length)await recognizeSmartInbox(fs);e.target.value=""});
   $("aiImportInput")?.addEventListener("change",async e=>{const f=e.target.files?.[0];if(f)await handleAiImportFile(f);e.target.value=""});
-  document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));document.addEventListener("keydown",e=>{if(e.key==="Escape"){const m=[...document.querySelectorAll(".modal.open")].at(-1);if(m)closeModal(m.id)}});$("importFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBackupFile(f)}catch(err){alert("Не удалось импортировать файл: "+err.message)}e.target.value=""});setupPwa()
+  document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));document.addEventListener("keydown",handleModalKeydown);$("importFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBackupFile(f)}catch(err){alert("Не удалось импортировать файл: "+err.message)}e.target.value=""});setupPwa()
 }
 
 const UX7_STORAGE_KEY="life-rpg-ux7";
@@ -241,7 +245,7 @@ function ux7RefreshHeaders(){for(const [id,meta] of Object.entries(UX7_META)){co
 
 function ux7UpdateActiveNavLabel(sectionId){const labels={today:"Сегодня",finance:"Деньги",work:"Работа",tennis:"Теннис",more:"Ещё"};document.querySelectorAll('.navbtn').forEach(b=>{if(b.dataset.tab===sectionId){const strong=b.querySelector('b');const icon=strong?.outerHTML||'';b.innerHTML=icon+labels[sectionId]}})}
 
-function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m=>{m.setAttribute("role","dialog");m.setAttribute("aria-modal","true")});document.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});document.querySelectorAll(".iconbtn").forEach((b,i)=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label",b.title||b.textContent.trim()||`Действие ${i+1}`)})}
+function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m=>{m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-hidden",m.classList.contains("open")?"false":"true")});document.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});document.querySelectorAll(".iconbtn").forEach((b,i)=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label",b.title||b.textContent.trim()||`Действие ${i+1}`)})}
 
 function ux7InstallShell(){
   document.body.classList.add("ux7","ui82");ux7LoadPrefs();ux7LoadClarity();
