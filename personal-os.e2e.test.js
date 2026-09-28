@@ -5,8 +5,8 @@ async function boot(page){
   page.on("pageerror",e=>errors.push(String(e)));
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
-  await expect(page.locator("#versionStatus")).toContainText("13.7.4");
-  expect(await page.evaluate(()=>APP_VERSION)).toBe("13.7.4");
+  await expect(page.locator("#versionStatus")).toContainText("13.7.5");
+  expect(await page.evaluate(()=>APP_VERSION)).toBe("13.7.5");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
   return errors
 }

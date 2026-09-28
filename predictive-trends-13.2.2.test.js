@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("fs"),path=require("path"),vm=require("vm"),assert=require("assert"),root=__dirname,read=n=>fs.readFileSync(path.join(root,n),"utf8");
 const predictive=read("predictive-trends-13.2.2.js"),core=read("core.js"),boot=read("bootstrap.js"),vite=read("vite.config.mjs"),pkg=JSON.parse(read("package.json")),play=read("playwright.config.mjs"),manifest=read("manifest.webmanifest");
-assert.ok(core.includes('APP_VERSION="13.7.4"'));assert.ok(core.includes("STATE_VERSION=18"));assert.ok(manifest.includes("Life RPG 13.7.4"));assert.ok(vite.includes('cacheId:"life-rpg-13.7.4"'));
+assert.ok(core.includes('APP_VERSION="13.7.5"'));assert.ok(core.includes("STATE_VERSION=18"));assert.ok(manifest.includes("Life RPG 13.7.5"));assert.ok(vite.includes('cacheId:"life-rpg-13.7.5"'));
 assert.ok(boot.includes('"predictive-trends-13.2.2.js"'));assert.ok(boot.includes('["ensurePredictive1322Ui","renderPredictive1322"]'));assert.ok(vite.includes('"predictive-trends-13.2.2.js"'));
 for(const name of ["predictive1322Forecasts","predictive1322EarlyWarnings","predictive1322Verification","predictive1322CaptureDaily","predictive1322Candidates","predictive1322Top3Coverage","predictive1322Top3Scenario","predictive1322RiskMap","predictive1322Reliability"])assert.ok(predictive.includes(`function ${name}`),`${name} missing`);
 assert.ok(!/fetch\(["'`]https?:/i.test(predictive),"Predictive Trends must remain local-first");assert.ok(pkg.scripts.test.includes("predictive-trends-13.2.2.test.js"));assert.ok(play.includes("predictive-trends-13.2.2.e2e.test.js"));

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 test("Stage 3.3 Safe Mode is read-only across lazy stores and render", async ({page})=>{
   const errors=[];page.on("pageerror",e=>errors.push(String(e)));
-  await page.goto("/",{waitUntil:"domcontentloaded"});await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);await expect(page.locator("#versionStatus")).toContainText("13.7.4");
+  await page.goto("/",{waitUntil:"domcontentloaded"});await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);await expect(page.locator("#versionStatus")).toContainText("13.7.5");
   const result=await page.evaluate(async()=>{
     const original=deepClone(S);localStorage.setItem("lifeRpgRecovery133SafeMode","1");recovery133ApplySafeModeUi();
     delete S.settings.personalOS;delete S.settings.growthOS;delete S.settings.intelligence132;delete S.settings.gptExchange135;delete S.settings.aiBridge134;delete S.settings.shareHub131;delete S.settings.decisionPreferences;delete S.settings.ruleToggles;delete S.settings.knowledgeNotes;

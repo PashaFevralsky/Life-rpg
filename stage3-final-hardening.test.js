@@ -31,5 +31,5 @@ assert(mobile.includes("100dvh"));
 assert(mobile.includes("orientation:landscape"));
 
 assert(!fs.existsSync(".github/workflows/stage3-2-hardening.yml"),"stale duplicate Stage 3.3 workflow must be removed");
-assert(String(pkg.version)==="13.7.4");
+assert(String(pkg.version)==="13.7.5");
 console.log("OK — Stage 3.5 final hardening: restore races, Share durability, Recovery quota, PWA resume and mobile viewport");
