@@ -1,10 +1,10 @@
-name: Fix report-start boot race 13.7.5
+name: Repair reportStart race 13.7.5
 
 on:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/fix-report-start-race-13.7.5.yml"
+      - ".github/workflows/release-hotfix-13.7.5.yml"
   workflow_dispatch:
 
 permissions:
@@ -14,10 +14,10 @@ permissions:
 
 concurrency:
   group: life-rpg-pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  fix-and-build:
+  repair:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fix reportStart finalization race
+      - name: Patch reportStart boot finalization
         shell: bash
         run: |
           python - <<'PY'
@@ -39,35 +39,37 @@ jobs:
           if start < 0 or end <= start:
               raise SystemExit("report-start-hotfix.js: activation block not found")
 
-          replacement = """  let REPORT_START_FINALIZED=false;
-
-            async function lifeReportStartFinalize(){
-              try{
-                installWrappers();
-                if(REPORT_START_FINALIZED)return false;
-                if(typeof storage137BootSettling!==\\"undefined\\"&&storage137BootSettling)return false;
-                if(!stateReady())return false;
-
-                REPORT_START_FINALIZED=true;
-                const changed=rebuildCampaignGamification();
-
-                if(changed&&typeof persist===\\"function\\"){
-                  try{await persist()}catch(e){console.warn(\\"reportStart cleanup persist failed\\",e)}
-                }
-                if(changed&&typeof render===\\"function\\"){
-                  try{render()}catch{}
-                }
-                return changed
-              }catch(e){
-                console.error(\\"reportStart hotfix failed\\",e);
-                return false
-              }
-            }
-
-            window.lifeReportStartFinalize=lifeReportStartFinalize;
-            installWrappers();
-
-          """
+          lines = [
+              "  let REPORT_START_FINALIZED=false;",
+              "",
+              "  async function lifeReportStartFinalize(){",
+              "    try{",
+              "      installWrappers();",
+              "      if(REPORT_START_FINALIZED)return false;",
+              '      if(typeof storage137BootSettling!=="undefined"&&storage137BootSettling)return false;',
+              "      if(!stateReady())return false;",
+              "",
+              "      REPORT_START_FINALIZED=true;",
+              "      const changed=rebuildCampaignGamification();",
+              "",
+              '      if(changed&&typeof persist==="function"){',
+              '        try{await persist()}catch(e){console.warn("reportStart cleanup persist failed",e)}',
+              "      }",
+              '      if(changed&&typeof render==="function"){',
+              "        try{render()}catch{}",
+              "      }",
+              "      return changed",
+              "    }catch(e){",
+              '      console.error("reportStart hotfix failed",e);',
+              "      return false",
+              "    }",
+              "  }",
+              "",
+              "  window.lifeReportStartFinalize=lifeReportStartFinalize;",
+              "  installWrappers();",
+              "",
+          ]
+          replacement = "\n".join(lines) + "\n"
           hotfix.write_text(src[:start] + replacement + src[end:], encoding="utf-8")
 
           bootstrap = Path("bootstrap.js")
@@ -76,17 +78,23 @@ jobs:
           new = 'if(typeof storage137BootSettling!=="undefined")storage137BootSettling=false;if(typeof globalThis.lifeReportStartFinalize==="function")await globalThis.lifeReportStartFinalize();requestAnimationFrame(()=>document.documentElement?.classList?.remove("life-rpg-booting"))'
           if old not in b:
               raise SystemExit("bootstrap.js: boot-finalization anchor not found")
-          bootstrap.write_text(b.replace(old,new,1),encoding="utf-8")
+          bootstrap.write_text(b.replace(old, new, 1), encoding="utf-8")
 
           h = hotfix.read_text(encoding="utf-8")
-          if 'setTimeout(()=>{void activate()}' in h or 'async function activate(){' in h:
+          if "async function activate(){" in h:
+              raise SystemExit("Old activate() remains")
+          if "setTimeout(()=>{void activate()}" in h:
               raise SystemExit("Old delayed activation remains")
-          if 'window.lifeReportStartFinalize=lifeReportStartFinalize' not in h:
+          if "window.lifeReportStartFinalize=lifeReportStartFinalize" not in h:
               raise SystemExit("Finalize hook missing")
-          if 'await globalThis.lifeReportStartFinalize()' not in bootstrap.read_text(encoding="utf-8"):
+          if "await globalThis.lifeReportStartFinalize()" not in bootstrap.read_text(encoding="utf-8"):
               raise SystemExit("Bootstrap finalize hook missing")
 
-          print("Patched report-start-hotfix.js and bootstrap.js")
+          broken = Path(".github/workflows/fix-report-start-race-13.7.5.yml")
+          if broken.exists():
+              broken.unlink()
+
+          print("Patched reportStart boot race and removed obsolete broken workflow.")
           PY
 
       - name: Setup Node
@@ -113,16 +121,17 @@ jobs:
       - name: Run mobile E2E
         run: npm run test:e2e
 
-      - name: Commit verified fix
+      - name: Commit verified repair
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add report-start-hotfix.js bootstrap.js
+          git add bootstrap.js report-start-hotfix.js
+          git add -u .github/workflows
           if git diff --cached --quiet; then
-            echo "No code changes to commit."
+            echo "No changes to commit."
           else
-            git commit -m "Fix reportStart boot render race"
+            git commit -m "Fix reportStart boot race"
             git push
           fi
 
@@ -135,8 +144,8 @@ jobs:
           path: ./dist
 
   deploy:
-    needs: fix-and-build
-    if: needs.fix-and-build.result == 'success'
+    needs: repair
+    if: needs.repair.result == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
