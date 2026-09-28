@@ -59,14 +59,65 @@
     wrap("financialEvents",orig=>function(){return filterRows(orig(),x=>x?.dateKey||x?.date)});
     wrap("debtScheduleIssues",orig=>function(){const s=startKey();return (orig()||[]).filter(d=>!s||!validKey(d?.nextPaymentDate)||d.nextPaymentDate>=s)});
     wrap("projectionLivingPerDay",orig=>function(d){return allowed(d)?orig(d):0});
-    wrap("plannedIncomeForMonth",orig=>function(d=new Date()){
-      const mk=d instanceof Date?localMonthKey(d):String(d||localMonthKey());
-      return reportMonthAllowed(mk)?orig(d):0
-    });
     wrap("plannedIncomeToDate",orig=>function(d=new Date()){return beforeStart(d)?0:orig(d)});
+    wrap("plannedIncomeOnDate",orig=>function(d){return allowed(d)?orig(d):0});
+    wrap("nextPlannedIncomeDate",orig=>function(from=new Date()){return orig(effectiveDate(from))});
     wrap("monthlyLivingBudget",orig=>function(d=new Date()){return beforeStart(d)?0:orig(d)});
     wrap("remainingLivingBudget",orig=>function(d=new Date()){return beforeStart(d)?0:orig(d)});
     wrap("dynamicDailyBudget",orig=>function(d=new Date()){return beforeStart(d)?0:orig(d)});
+    wrap("remainingMinimumsThisMonth",orig=>function(){
+      const s=startKey();if(!s)return orig();
+      const now=new Date(),monthEnd=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59),from=effectiveDate(new Date(now.getFullYear(),now.getMonth(),1,0));
+      if(from>monthEnd)return 0;
+      const mk=localMonthKey(now);
+      return moneySum(debtEventsBetween(from,monthEnd).filter(x=>localMonthKey(x.date)===mk).map(x=>x.amount))
+    });
+    wrap("plannedExtraDebtOnDate",orig=>function(d){return allowed(d)?orig(d):0});
+    wrap("debtTargetOverDays",orig=>function(days){
+      const s=startKey();if(!s)return orig(days);
+      const now=new Date(),goal=+S.settings.monthlyDebtGoal||0,n=Math.max(0,Math.round(+days||0)),groups=new Map();
+      for(let i=0;i<n;i++){
+        const d=addDays(new Date(now.getFullYear(),now.getMonth(),now.getDate(),12),i),key=localDateKey(d);
+        if(key<s)continue;
+        const mk=localMonthKey(d);groups.set(mk,(groups.get(mk)||0)+1)
+      }
+      let total=0;
+      for(const [mk,count] of groups){
+        const [y,m]=mk.split("-").map(Number),dim=new Date(y,m,0).getDate();
+        if(mk===localMonthKey(now)&&localDateKey(now)>=s){
+          const remaining=Math.max(0,goal-monthPayments(mk)),left=daysLeftInMonth(now);total+=remaining*Math.min(1,count/left)
+        }else total+=goal*Math.min(1,count/dim)
+      }
+      return moneyFromCents(moneyCents(total))
+    });
+    wrap("financeMonthMetrics",orig=>function(month=localMonthKey()){
+      const x=orig(month);if(reportMonthAllowed(month))return x;
+      return {...x,incomePlan:0,debtGoal:0,livingBudget:0}
+    });
+    wrap("financialPhase",orig=>function(){
+      if(!beforeStart(localDateKey()))return orig();
+      return {id:"scheduled",name:`Старт ${fmtDate(parseLocal(startKey()))}`,detail:"До старта кампании автоматические распределения и досрочные рекомендации отключены."}
+    });
+    wrap("cashAdvice",orig=>function(){
+      const x=orig();if(!beforeStart(localDateKey()))return x;
+      return {...x,living:0,mandatory:[],mandatorySum:0,reserve:0,safe:Math.max(0,+x.cash||0),unpaidMins:0,extraNeeded:0,recommended:0}
+    });
+    wrap("autopilotPlan",orig=>function(options={}){
+      const x=orig(options);if(!beforeStart(localDateKey()))return x;
+      const available=Math.max(0,+x.available||0),next=x.next||null;
+      return {...x,days:0,daily:0,mandatory:[],mandatoryNeed:0,mandatoryReserve:0,livingNeed:0,livingReserve:0,emergencyNeed:0,emergencyTopUp:0,best:typeof bestDebt==="function"?bestDebt():x.best,debtExtra:0,unallocated:available,shortage:0,phase:financialPhase(),next}
+    });
+    wrap("decisionEngineData",orig=>function(){
+      const x=orig();if(!beforeStart(localDateKey()))return x;
+      const title=`Старт кампании ${fmtDate(parseLocal(startKey()))}`,meta="До старта рекомендации по досрочным платежам и новым расходам отключены.";
+      const actions=(x.actions||[]).filter(a=>!String(a?.title||"").startsWith("Свободно "));
+      return {...x,safe:0,actions:[{level:"warn",title,meta},...actions].slice(0,4)}
+    });
+    wrap("runReminderCheck",orig=>function(force=false){
+      if(!beforeStart(localDateKey()))return orig(force);
+      const goal=S.settings.monthlyDebtGoal;S.settings.monthlyDebtGoal=0;
+      try{return orig(force)}finally{S.settings.monthlyDebtGoal=goal}
+    });
 
     wrap("monthPayments",orig=>function(month=localMonthKey()){
       if(!reportMonthAllowed(month))return 0;
@@ -134,6 +185,18 @@
       let next=null;try{next=ux7NextMoneyEvent()}catch{}
       const free=typeof freeCashBalance==="function"?freeCashBalance():0;
       box.innerHTML=`<div class="ux7-today-line"><div><div class="smallcaps">Финансовый статус</div><b class="ux7-status-good">Старт ${fmtDate(parseLocal(s))}</b></div><div><div class="smallcaps">Свободно</div><b>${rub(free)}</b></div><div><div class="smallcaps">Следующий платёж</div><b>${next?rub(next.amount):"—"}</b><small>${next?`${fmtDate(next.date)} • ${escapeHtml(next.label)}`:"нет данных"}</small></div><button class="btn secondary small" onclick="ux7Go('finance','overview')">Открыть деньги</button></div>`
+    });
+    wrap("renderFinance",orig=>function(){
+      const out=orig();if(!beforeStart(localDateKey()))return out;
+      const label=`Старт ${fmtDate(parseLocal(startKey()))}`;
+      const need=$("finNeed");if(need)need.textContent=label;
+      const rec=$("payoffRecommendation");if(rec){
+        for(const row of rec.querySelectorAll(".goal-top")){
+          const span=row.querySelector("span"),b=row.querySelector("b");
+          if(span&&/месячной цели/i.test(span.textContent||"")){span.textContent="Месячная цель";if(b)b.textContent=label}
+        }
+      }
+      return out
     });
 
     wrap("currentMonthReport",orig=>function(){
