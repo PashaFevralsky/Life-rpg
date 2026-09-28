@@ -21,7 +21,7 @@ const context={
   Blob:globalThis.Blob,
   File:globalThis.File||class File extends Blob{constructor(parts,name,opts){super(parts,opts);this.name=name}},
   confirm:()=>true,prompt:()=>"pw",toast(){},render(){},audit(){},
-  APP_VERSION:"13.7.3",STATE_VERSION:18,
+  APP_VERSION:"13.7.4",STATE_VERSION:18,
   S:{version:18,settings:{},entities:{projects:[],tasks:[],goals:[],routines:[],routineLogs:[],reviews:[],inbox:[],calendarEvents:[]}},
   db:{},
   uid:()=>"id-1",localDateKey:()=>"2026-09-25",bytesToBase64:bytes=>Buffer.from(bytes).toString("base64"),base64ToBytes:s=>new Uint8Array(Buffer.from(s,"base64")),
@@ -89,7 +89,7 @@ vm.runInContext(source,context,{filename:"recovery-center-13.3.js"});
   assert.ok(source.includes('Life RPG 13.3.0 — Backup, Recovery, Integrity & Safe Mode'));
   assert.equal(fs.readFileSync("bootstrap.js","utf8").includes('"recovery-center-13.3.js"'),true);
   assert.equal(fs.readFileSync("bootstrap.js","utf8").includes('["ensureRecovery133Ui","renderRecovery133"]'),true);
-  assert.equal(fs.readFileSync("vite.config.mjs","utf8").includes('cacheId:"life-rpg-13.7.3"'),true);
+  assert.equal(fs.readFileSync("vite.config.mjs","utf8").includes('cacheId:"life-rpg-13.7.4"'),true);
   assert.ok(JSON.parse(fs.readFileSync("package.json","utf8")).scripts.test.includes("recovery-13.3.test.js"));
 
   console.log("Recovery 13.3 tests: OK");

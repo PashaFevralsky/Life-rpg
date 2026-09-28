@@ -1,0 +1,257 @@
+"use strict";
+
+/* Life RPG 8.0.3 — UI rendering and UX shell */
+
+function toast(t){const x=$("toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),1800)}
+
+let lastModalFocus=null;
+const MODAL_FOCUSABLE_SELECTOR='button:not([disabled]),[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function modalTop(){return [...document.querySelectorAll(".modal.open")].at(-1)||null}
+function modalFocusables(m){return m?[...m.querySelectorAll(MODAL_FOCUSABLE_SELECTOR)].filter(el=>!el.hidden&&el.getAttribute("aria-hidden")!=="true"&&(!el.getClientRects||el.getClientRects().length>0)):[]}
+function syncModalDocumentState(){const open=!!modalTop();document.documentElement?.classList.toggle("modal-open",open);document.body?.classList.toggle("modal-open",open)}
+function openModal(id){const m=$(id);if(!m)return;lastModalFocus=document.activeElement;m.classList.add("open");m.setAttribute("aria-hidden","false");syncModalDocumentState();setTimeout(()=>modalFocusables(m)[0]?.focus(),0)}
+function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open");m.setAttribute("aria-hidden","true");syncModalDocumentState();const top=modalTop();if(top){modalFocusables(top)[0]?.focus();return}lastModalFocus?.focus?.()}
+function handleModalKeydown(e){const m=modalTop();if(!m)return;if(e.key==="Escape"){e.preventDefault();closeModal(m.id);return}if(e.key!=="Tab")return;const a=modalFocusables(m);if(!a.length){e.preventDefault();return}const first=a[0],last=a[a.length-1],active=document.activeElement;if(e.shiftKey&&(active===first||!m.contains(active))){e.preventDefault();last.focus()}else if(!e.shiftKey&&(active===last||!m.contains(active))){e.preventDefault();first.focus()}}
+
+const UX7_NAVIGATION_LISTENERS=new Map();
+function ux7RegisterNavigationListener(id,fn){if(!id||typeof fn!=="function")return()=>{};UX7_NAVIGATION_LISTENERS.set(String(id),fn);return()=>UX7_NAVIGATION_LISTENERS.delete(String(id))}
+function ux7NotifyNavigation(event){for(const [id,fn] of UX7_NAVIGATION_LISTENERS){try{fn(event)}catch(e){console.error(`Navigation listener ${id} failed`,e)}}}
+function ux7NavigationStatus(){return {listeners:[...UX7_NAVIGATION_LISTENERS.keys()]}}
+function switchTab(id){const from=document.querySelector(".section.active")?.id||"";ux7NotifyNavigation({type:"section:before",from,section:id});document.querySelectorAll(".navbtn").forEach(x=>x.classList.toggle("active",x.dataset.tab===id));document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===id));window.scrollTo({top:0,behavior:"smooth"});ux7NotifyNavigation({type:"section:after",from,section:id})}
+
+function quickAction(type){if(type==="income"){switchTab("finance");openIncomeModal()}if(type==="payment"){switchTab("finance");openModal("paymentModal")}if(type==="expense"){openModal("expenseModal")}if(type==="work"){ux7Go("work","log");setTimeout(()=>$("workContacts")?.focus(),40)}if(type==="tennis"){ux7Go("tennis","training");setTimeout(()=>$("ttMinutes")?.focus(),40)}if(type==="reading"){switchTab("more");openModal("readingModal")}}
+
+function render(){const safe=typeof storageSafeModeActive==="function"&&storageSafeModeActive(),before=safe?deepClone(S):null;try{$("headerName").textContent=S.profile.name||"Павел";$("avatar").textContent=(S.profile.name||"P").trim().charAt(0).toUpperCase()||"P";renderToday();renderFinance();renderWork();renderTennis();renderMore();renderAccountSelects()}finally{if(safe)S=before}}
+
+function renderMore(){renderBooks();renderReadingDashboard();renderSkillTree();renderRewards();renderAchievements();renderSeasonHistory();renderMonthlyLifeReport();renderIncomeScheduleEditor();renderSnapshots();renderEmergencyFund();renderPersonalAnalytics();renderWeeklyReview();renderXpBreakdown();renderKnowledgeBase();renderAudit();renderSystemDiagnostics();$("profileName").value=S.profile.name||"";$("profileGoal").value=S.profile.goal||"";$("settingWorkPlan").value=S.settings.workMonthlyPlan;$("settingIncome").value=plannedIncomeForMonth();$("settingDebtGoal").value=S.settings.monthlyDebtGoal;$("settingDailySpend").value=S.settings.dailySpendLimit;if($("settingCashFloor"))$("settingCashFloor").value=S.settings.minimumCashFloor||0;if($("settingLiquidityDays"))$("settingLiquidityDays").value=S.settings.liquidityTargetDays||14;if($("settingTennisTarget"))$("settingTennisTarget").value=S.settings.tennisMonthlyTarget||12;if($("settingReadingMin"))$("settingReadingMin").value=S.settings.readingDailyMin||30;if($("settingReadingReviewDays"))$("settingReadingReviewDays").value=S.settings.readingReviewDays||7;if($("settingTennisBaseElo"))$("settingTennisBaseElo").value=finiteNumberOr(S.settings.tennisBaseElo,1000);if($("settingTennisOfficialRating"))$("settingTennisOfficialRating").value=Math.max(0,+S.settings.tennisOfficialRating||0);if($("trashStatus"))$("trashStatus").textContent=(S.trash||[]).length?`В корзине: ${S.trash.length}`:"Корзина пуста";for(const [k,id,f] of [["contacts","settingWorkContacts",20],["followups","settingWorkFollowups",10],["lpr","settingWorkLpr",3],["meetings","settingWorkMeetings",3],["proposals","settingWorkProposals",3]])if($(id))$(id).value=workTarget(k,f);if($("learnImportRules"))$("learnImportRules").checked=S.settings.learnImportRules!==false;if($("autoReserveAfterImport"))$("autoReserveAfterImport").checked=S.settings.autoReserveAfterImport!==false;$("notificationStatus").textContent=`Разрешение: ${("Notification" in window)?Notification.permission:"не поддерживается"}`;$("versionStatus").textContent=`Life RPG ${APP_VERSION} • схема данных v${S.version} • ${window.LifePlatform?.status?.()||"platform fallback"} • обновлено ${new Date(S.updated).toLocaleString("ru-RU")}`}
+
+async function saveSettings(){S.profile.name=$("profileName").value.trim()||"Павел";S.profile.goal=$("profileGoal").value.trim();S.settings.workMonthlyPlan=Math.max(0,+$("settingWorkPlan").value||0);S.settings.monthlyIncome=plannedIncomeForMonth();S.settings.monthlyDebtGoal=Math.max(0,+$("settingDebtGoal").value||0);S.settings.dailySpendLimit=Math.max(0,+$("settingDailySpend").value||0);S.settings.minimumCashFloor=Math.max(0,+$("settingCashFloor")?.value||0);S.settings.liquidityTargetDays=clamp(Math.round(+$("settingLiquidityDays")?.value||14),1,180);S.settings.tennisMonthlyTarget=Math.max(1,+$("settingTennisTarget")?.value||12);S.settings.readingDailyMin=Math.max(1,+$("settingReadingMin")?.value||30);S.settings.readingReviewDays=clamp(Math.round(+$("settingReadingReviewDays")?.value||7),1,90);S.settings.tennisBaseElo=Math.max(0,finiteNumberOr($("settingTennisBaseElo")?.value,1000));S.settings.tennisOfficialRating=Math.max(0,finiteNumberOr($("settingTennisOfficialRating")?.value,0));for(const [k,id,f] of [["contacts","settingWorkContacts",20],["followups","settingWorkFollowups",10],["lpr","settingWorkLpr",3],["meetings","settingWorkMeetings",3],["proposals","settingWorkProposals",3]]){S.workTargets[k]=Math.max(0,finiteNumberOr($(id)?.value,f))}recomputeTennisElo();audit("Настройки сохранены","settings","");await save("Настройки сохранены")}
+
+function initUi(){if(window.__LIFE_RPG_HTML_VERSION__&&window.__LIFE_RPG_HTML_VERSION__!==APP_VERSION){window.__LIFE_RPG_VERSION_MISMATCH__=true;console.warn(`Life RPG shell ${window.__LIFE_RPG_HTML_VERSION__} / runtime ${APP_VERSION}: waiting for a clean restart instead of forcing reload`)}for(const id of ["workDate","ttDate","readDate","incomeDate"]){if(!$(id))continue;$(id).max=localDateKey();if(!$(id).value)$(id).value=localDateKey()}if($("crmNextDate")&&!$("crmNextDate").value)$("crmNextDate").value="";
+  $("whatIfMonthly")?.addEventListener("input",e=>e.target.dataset.touched="1");document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
+  $("bankCsvInput")?.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBankCsv(f)}catch(err){$("bankImportStatus").innerHTML=`<span class="csv-bad">${escapeHtml(err.message)}</span>`}e.target.value=""});
+  $("bankBalanceScreenshotInput")?.addEventListener("change",async e=>{const f=e.target.files?.[0];if(f)await recognizeBankBalanceScreenshot(f);e.target.value=""});
+  $("bankOperationsScreenshotInput")?.addEventListener("change",async e=>{const fs=e.target.files;if(!fs?.length)return;try{await recognizeBankSyncOperations(fs)}catch(err){$("screenshotImportStatus").innerHTML=`<span class="csv-bad">${escapeHtml(err.message||String(err))}</span>`}e.target.value=""});
+  $("smartInboxInput")?.addEventListener("change",async e=>{const fs=e.target.files;if(fs?.length)await recognizeSmartInbox(fs);e.target.value=""});
+  $("aiImportInput")?.addEventListener("change",async e=>{const f=e.target.files?.[0];if(f)await handleAiImportFile(f);e.target.value=""});
+  document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));document.addEventListener("keydown",handleModalKeydown);$("importFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBackupFile(f)}catch(err){alert("Не удалось импортировать файл: "+err.message)}e.target.value=""});setupPwa()
+}
+
+const UX7_STORAGE_KEY="life-rpg-ux7";
+const UX7_CLARITY_KEY="life-rpg-ux7-clarity";
+const UX7_CLARITY_SECTIONS=["finance","work","tennis","more"];
+
+const UX7_DEFAULTS={today:"focus",finance:"overview",work:"overview",tennis:"overview",more:"overview",advanced:false};
+const UX7_CLARITY_DEFAULTS={finance:false,work:false,tennis:false,more:false};
+
+let UX7_PREFS={...UX7_DEFAULTS};
+let UX7_CLARITY={...UX7_CLARITY_DEFAULTS};
+
+function ux7LoadPrefs(){try{UX7_PREFS={...UX7_DEFAULTS,...JSON.parse(localStorage.getItem(UX7_STORAGE_KEY)||"{}")}}catch{UX7_PREFS={...UX7_DEFAULTS}}}
+function ux7LoadClarity(){try{UX7_CLARITY={...UX7_CLARITY_DEFAULTS,...JSON.parse(localStorage.getItem(UX7_CLARITY_KEY)||"{}")}}catch{UX7_CLARITY={...UX7_CLARITY_DEFAULTS}}}
+
+function ux7SavePrefs(){try{localStorage.setItem(UX7_STORAGE_KEY,JSON.stringify(UX7_PREFS))}catch{}}
+function ux7SaveClarity(){try{localStorage.setItem(UX7_CLARITY_KEY,JSON.stringify(UX7_CLARITY))}catch{}}
+
+function ux7NormalizeText(v){return String(v||"").toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim()}
+
+function ux7CardText(card){return ux7NormalizeText(card?.textContent||"")}
+
+function ux7DateTitle(){return new Intl.DateTimeFormat("ru-RU",{weekday:"long",day:"numeric",month:"long"}).format(new Date()).replace(/^./,m=>m.toUpperCase())}
+
+const UX7_META={
+  today:{title:"Сегодня",desc:()=>ux7DateTitle(),tabs:[["focus","Главное"],["progress","Прогресс"]]},
+  finance:{title:"Деньги",desc:()=>"Что есть → что делать → почему",tabs:[["overview","Сейчас"],["operations","Операции"],["bank","Банк"],["debts","Долги"],["analysis","Прогноз"],["more","Ещё"]]},
+  work:{title:"Работа",desc:()=>"Sales OS: прогноз, сделки и следующие действия",tabs:[["overview","Обзор"],["crm","CRM"],["log","День"]]},
+  tennis:{title:"Теннис",desc:()=>"Tennis OS: нагрузка, техника и матчи",tabs:[["overview","Обзор"],["training","Тренировки"],["analytics","Аналитика"]]},
+  more:{title:"Ещё",desc:()=>"Knowledge OS, прогресс и настройки",tabs:[["overview","Обзор"],["knowledge","Знания"],["rewards","Прогресс"],["settings","Настройки"]]}
+};
+
+
+const UX7_SECTION_SHORTCUTS={
+  finance:[["expense","Расход"],["bank","Сверить банк"],["payment","Платёж"]],
+  work:[["crm","CRM"],["worklog","Записать день"],["worknext","Следующие шаги"]],
+  tennis:[["tennisnew","Новая сессия"],["huawei","Huawei"],["tennisanalytics","Аналитика"]],
+  more:[["reading","Чтение"],["knowledge","Знания"],["settings","Настройки"]]
+};
+
+function ux7RunSectionShortcut(action){
+  if(action==="expense")return openModal("expenseModal");
+  if(action==="bank")return ux7Go("finance","bank");
+  if(action==="payment")return openModal("paymentModal");
+  if(action==="crm")return ux7Go("work","crm");
+  if(action==="worklog"){ux7Go("work","log");return setTimeout(()=>$(`workContacts`)?.focus(),90)}
+  if(action==="worknext"){ux7Go("work","crm");return setTimeout(()=>$(`crmDealList`)?.scrollIntoView({behavior:"smooth",block:"start"}),120)}
+  if(action==="tennisnew"){ux7Go("tennis","training");return setTimeout(()=>{const card=$("ttMinutes")?.closest(".card");ux7ToggleEditor(card,true);$("ttMinutes")?.focus()},90)}
+  if(action==="huawei"){ux7Go("tennis","training");return setTimeout(()=>$(`tennisHuaweiCard`)?.scrollIntoView({behavior:"smooth",block:"start"}),140)}
+  if(action==="tennisanalytics")return ux7Go("tennis","analytics");
+  if(action==="reading")return openModal("readingModal");
+  if(action==="knowledge")return ux7Go("more","knowledge");
+  if(action==="settings")return ux7Go("more","settings")
+}
+
+function ux7SetupSectionShortcuts(){
+  for(const [sectionId,items] of Object.entries(UX7_SECTION_SHORTCUTS)){
+    const section=$(sectionId),head=section?.querySelector(":scope > .ux7-section-head");if(!section||!head||section.querySelector(":scope > .ux7-section-shortcuts"))continue;
+    const bar=document.createElement("div");bar.className="ux7-section-shortcuts";bar.setAttribute("aria-label","Быстрые переходы");
+    for(const [action,label] of items){const b=document.createElement("button");b.type="button";b.className="btn ghost small ux7-shortcut";b.dataset.action=action;b.textContent=label;b.addEventListener("click",()=>ux7RunSectionShortcut(action));bar.appendChild(b)}
+    head.after(bar)
+  }
+}
+
+function ux7UpdateSectionShortcuts(sectionId,view){const bar=$(sectionId)?.querySelector(":scope > .ux7-section-shortcuts");if(bar)bar.hidden=view!=="overview"}
+
+function ux7ViewsForCard(sectionId,card,index){if(card?.dataset?.ux7View)return card.dataset.ux7View;const t=ux7CardText(card);if(sectionId==="today"){if(/быстрые действия|daily engine|план дня|главные цели месяца|что сделать сегодня/.test(t))return "focus";return "progress"}if(sectionId==="finance"){if(/финансовый центр|обновить данные из банка|счета и реальные остатки|правила авторазбора|пакеты импорта|импорт банковской выписки/.test(t))return "bank";if(/кампания против долгов|состояние финансов|что делать сейчас|реальный денежный баланс|как распределить деньги сейчас|money engine|можно потратить/.test(t))return "overview";if(/денежный поток|расходы месяца|регулярные обязательные платежи|добавить регулярный платеж|единый журнал операций|transaction engine/.test(t))return "operations";if(/долги-боссы|следующее действие|история платежей|debt engine|сценарии погашения|долг → ноль|проценты|avalanche vs snowball/.test(t))return "debts";if(/прогноз|calendar center|финансовый календарь|динамический бюджет|конверты расходов|cash-flow по дням|ключевые даты|отдельный резерв|лаборатория «что если|smart budget|рекомендованный бюджет|financial health|decision engine/.test(t))return "analysis";return "more"}if(sectionId==="work"){if(/work crm|карточка сделки|сделки и следующие шаги/.test(t))return "crm";if(/добавить рабочий день|последние записи/.test(t))return "log";return "overview"}if(sectionId==="tennis"){if(/добавить сессию|история тренировок/.test(t))return "training";if(/tennis analytics|соперники/.test(t))return "analytics";return "overview"}if(sectionId==="more"){if(/библиотека|навыки \/ skill tree|чтение и знания|база знаний/.test(t))return "knowledge";if(/магазин наград|xp: процесс|история сезонов|все достижения/.test(t))return "rewards";if(/уведомления|график ожидаемых доходов|локальные снимки|профиль и настройки|облако и android|данные, версия|опасная зона|журнал изменений/.test(t))return "settings";return "overview"}return "overview"}
+
+function ux7BuildSectionHeader(sectionId){
+  const section=$(sectionId),meta=UX7_META[sectionId];if(!section||!meta||section.querySelector(":scope > .ux7-section-head"))return;
+  const clarity=UX7_CLARITY_SECTIONS.includes(sectionId)?`<button type="button" class="ux7-clarity-toggle" data-section="${sectionId}" aria-expanded="false">Детали</button>`:"";
+  const head=document.createElement("div");head.className="ux7-section-head";head.innerHTML=`<div class="ux7-head-copy"><h1>${meta.title}</h1><div class="ux7-head-actions"><div class="ux7-head-desc" id="ux7-desc-${sectionId}"></div>${clarity}</div></div><div class="ux7-tabs" role="tablist" aria-label="${meta.title}">${meta.tabs.map(([id,label])=>`<button type="button" class="ux7-tab" data-section="${sectionId}" data-view="${id}" role="tab">${label}</button>`).join("")}</div>`;
+  section.insertBefore(head,section.firstChild);
+  head.querySelector(`#ux7-desc-${sectionId}`).textContent=meta.desc();
+  head.querySelectorAll(".ux7-tab").forEach(b=>b.addEventListener("click",()=>ux7SetView(sectionId,b.dataset.view,true)));
+  head.querySelector(".ux7-clarity-toggle")?.addEventListener("click",()=>ux7ToggleClarity(sectionId));
+}
+
+function ux7TagCards(sectionId){
+  const section=$(sectionId);if(!section)return;let i=0;
+  section.querySelectorAll(".card").forEach(card=>{if(card.closest(".modal"))return;card.dataset.ux7View=ux7ViewsForCard(sectionId,card,i++);card.classList.add("ux7-card")});
+}
+
+const UX7_CLARITY_PROVIDERS=new Map();
+function ux7RegisterClarityProvider(id,fn){if(!id||typeof fn!=="function")return()=>{};UX7_CLARITY_PROVIDERS.set(String(id),fn);return()=>UX7_CLARITY_PROVIDERS.delete(String(id))}
+function ux7ClaritySecondary(sectionId,card){
+  const t=ux7CardText(card);
+  if(sectionId==="finance"&&/кампания против долгов|состояние финансов/.test(t))return true;
+  if(sectionId==="work"&&/активность месяца|карьерные квесты/.test(t))return true;
+  if(sectionId==="tennis"&&/теннисный отчет месяца/.test(t))return true;
+  if(sectionId==="more"&&/книги, навыки, ачивки и настройки|текущий месяц против прошлого/.test(t))return true;
+  for(const [id,fn] of UX7_CLARITY_PROVIDERS){try{if(fn(sectionId,card,t))return true}catch(e){console.error(`Clarity provider ${id} failed`,e)}}
+  return false
+}
+
+function ux7ApplyClarity(sectionId,view=UX7_PREFS[sectionId]){
+  const section=$(sectionId);if(!section||!UX7_CLARITY_SECTIONS.includes(sectionId))return;
+  const expanded=UX7_CLARITY[sectionId]===true,overview=view==="overview";let count=0;
+  section.querySelectorAll(".ux7-card").forEach(card=>{
+    const views=(card.dataset.ux7View||"").split(/\s+/),secondary=views.includes("overview")&&ux7ClaritySecondary(sectionId,card);
+    card.classList.toggle("ux7-clarity-secondary",secondary);
+    card.classList.toggle("ux7-clarity-collapsed",overview&&secondary&&!expanded);
+    if(secondary)count++
+  });
+  const btn=section.querySelector(".ux7-clarity-toggle");if(btn){btn.hidden=!overview;btn.setAttribute("aria-expanded",expanded?"true":"false");btn.textContent=expanded?"Скрыть детали":`Детали · ${count}`}
+}
+
+function ux7ToggleClarity(sectionId){
+  if(!UX7_CLARITY_SECTIONS.includes(sectionId))return;UX7_CLARITY[sectionId]=!(UX7_CLARITY[sectionId]===true);ux7SaveClarity();ux7ApplyClarity(sectionId,UX7_PREFS[sectionId]);ux7UpdateSubViewMetrics(sectionId,UX7_PREFS[sectionId])
+}
+
+function ux7SetView(sectionId,view,scrollTop=false){
+  const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];const previous=UX7_PREFS[sectionId];ux7NotifyNavigation({type:"view:before",section:sectionId,view,previous});UX7_PREFS[sectionId]=view;if(previous!==view)ux7SavePrefs();
+  section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view));card.classList.add("ux7-view-ready")});
+  ux7ApplyClarity(sectionId,view);ux7UpdateSectionShortcuts(sectionId,view);
+  if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
+  ux7NotifyNavigation({type:"view:after",section:sectionId,view,previous});
+  requestAnimationFrame(()=>{ux7UpdateSubViewMetrics(sectionId,view);ui82SyncChrome(sectionId,view)});
+}
+
+
+function ui82SyncChrome(sectionId,view){
+  const active=document.querySelector?.(".section.active")?.id||sectionId;
+  if(sectionId!==active)return;
+  if(document.body?.dataset){document.body.dataset.section=sectionId;document.body.dataset.view=view}
+  const fab=$("ux7Fab"),hideFab=(sectionId==="today")||(sectionId==="more"&&view==="settings")||(sectionId==="finance"&&view==="analysis");
+  fab?.classList.toggle("ui82-fab-hidden",hideFab);
+  const tab=document.querySelector?.(`#${sectionId} .ux7-tab[data-view="${view}"]`);
+  try{tab?.scrollIntoView?.({block:"nearest",inline:"center",behavior:"smooth"})}catch{}
+}
+
+function ux7UpdateSubViewMetrics(sectionId,view){
+  const section=$(sectionId);if(!section)return;const visible=[...section.querySelectorAll(".ux7-card:not(.ux7-hidden):not(.ux7-clarity-collapsed)")];section.dataset.ux7VisibleCards=String(visible.length);
+}
+
+function ux7SetupFinancePulse(){
+  const section=$("finance");if(!section||$("ux7FinancePulse"))return;
+  const grid=section.querySelector(":scope > .grid");if(!grid)return;const card=document.createElement("div");card.id="ux7FinancePulse";card.className="card span-12 ux7-card ux7-pulse";card.dataset.ux7View="overview";grid.insertBefore(card,grid.firstChild);
+}
+
+function ux7NextMoneyEvent(){
+  try{const start=new Date(),end=addDays(start,90),events=[...debtEventsBetween(start,end),...regularEventsBetween(start,end)].filter(x=>(+x.amount||0)>0).sort((a,b)=>a.date-b.date);return events[0]||null}catch{return null}
+}
+
+function ux7SetupTodayPulse(){
+  const section=$("today");if(!section||$("ux7TodayPulse"))return;const grid=section.querySelector(":scope > .grid");if(!grid)return;const card=document.createElement("div");card.id="ux7TodayPulse";card.className="card span-12 ux7-card ux7-today-pulse";card.dataset.ux7View="focus";grid.insertBefore(card,grid.firstChild);
+}
+
+function renderUx7TodayPulse(){
+  const box=$("ux7TodayPulse");if(!box||!S)return;let next=null;try{next=ux7NextMoneyEvent()}catch{}const free=freeCashBalance(),over=overdueMinimums?.()||[];let status="Стабильно",cls="good";if(over.length){status="Есть просрочка",cls="bad"}else if(free<0){status="Кассовый разрыв",cls="bad"}else if(free<Math.max(3000,dynamicDailyBudget()*3)){status="Нужна осторожность",cls="warn"}
+  box.innerHTML=`<div class="ux7-today-line"><div><div class="smallcaps">Финансовый статус</div><b class="ux7-status-${cls}">${status}</b></div><div><div class="smallcaps">Свободно</div><b>${rub(free)}</b></div><div><div class="smallcaps">Следующий платёж</div><b>${next?rub(next.amount):"—"}</b><small>${next?`${fmtDate(next.date)} • ${escapeHtml(next.label)}`:"нет данных"}</small></div><button class="btn secondary small" onclick="ux7Go('finance','overview')">Открыть деньги</button></div>`;
+}
+
+function ui82Icon(name){const names={expense:"minus",income:"plus",payment:"credit-card",bank:"landmark",work:"briefcase",tennis:"trophy",reading:"book-open",spend:"search"},icon=names[name]||"activity";return `<b class="ui82-action-icon"><i data-lucide="${icon}"></i></b>`}
+
+function ux7CreateQuickSheet(){if($("ux7QuickSheet"))return;const m=document.createElement("div");m.className="modal ux7-sheet";m.id="ux7QuickSheet";m.innerHTML=`<div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Быстрое действие</div><div class="title">Что добавить?</div></div><button class="close" onclick="closeModal('ux7QuickSheet')">×</button></div><div class="ux7-action-grid"><button onclick="closeModal('ux7QuickSheet');openModal('expenseModal')">${ui82Icon("expense")}<span>Расход</span></button><button onclick="closeModal('ux7QuickSheet');openIncomeModal()">${ui82Icon("income")}<span>Доход</span></button><button onclick="closeModal('ux7QuickSheet');openModal('paymentModal')">${ui82Icon("payment")}<span>Платёж долга</span></button><button onclick="closeModal('ux7QuickSheet');ux7OpenInbox(true)">${ui82Icon("bank")}<span>Скрин банка</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('work','log');setTimeout(()=>document.getElementById('workContacts')?.focus(),250)">${ui82Icon("work")}<span>Рабочий день</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('tennis','training');setTimeout(()=>document.getElementById('ttMinutes')?.focus(),250)">${ui82Icon("tennis")}<span>Тренировка</span></button><button onclick="closeModal('ux7QuickSheet');openModal('readingModal')">${ui82Icon("reading")}<span>Чтение</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('finance','overview');setTimeout(()=>document.getElementById('decisionSpendAmount')?.focus(),250)">${ui82Icon("spend")}<span>Можно потратить?</span></button></div></div>`;document.body.appendChild(m);window.LifePlatform?.refreshIcons?.(m);m.addEventListener("click",e=>{if(e.target===m)closeModal("ux7QuickSheet")});
+  const fab=document.createElement("button");fab.id="ux7Fab";fab.className="ux7-fab";fab.type="button";fab.setAttribute("aria-label","Добавить");fab.textContent="＋";fab.onclick=()=>openModal("ux7QuickSheet");document.body.appendChild(fab)
+}
+
+function ux7OpenInbox(triggerFile=false){ux7Go("finance","bank");if(triggerFile)setTimeout(()=>$("smartInboxInput")?.click(),300)}
+
+function ux7Go(sectionId,view){switchTab(sectionId);setTimeout(()=>ux7SetView(sectionId,view,true),0)}
+
+function ux7SetupTodayQuests(){
+  const list=$("todayQuestList");if(!list||list.closest("details.ux7-quests-details"))return;const card=list.closest(".card"),titles=card?[...card.querySelectorAll(":scope > .title")]:[],secondary=titles.find(x=>/ежедневные квесты/i.test(x.textContent||""));if(!card||!secondary)return;
+  const d=document.createElement("details");d.className="ux7-quests-details";const sm=document.createElement("summary");sm.textContent="Ежедневные квесты";d.appendChild(sm);secondary.replaceWith(d);d.appendChild(list)
+}
+
+function ux7SetupDebtEditor(){
+  const card=$("debtEditorCard");if(!card||card.dataset.ux7Prepared==="1")return;card.dataset.ux7Prepared="1";
+  const list=$("debtEditorList"),title=card.querySelector(".title"),panel=document.createElement("div");panel.className="ux7-debt-editor-panel";
+  const movable=[...card.children].filter(el=>el!==list&&!el.classList.contains("eyebrow")&&!el.classList.contains("title"));movable.forEach(el=>panel.appendChild(el));
+  const controls=document.createElement("div");controls.className="split ux7-debt-controls";controls.innerHTML='<button type="button" class="btn secondary small" id="ux7NewDebtBtn">+ Новый долг</button><button type="button" class="btn ghost small" id="ux7ToggleDebtForm">Показать форму</button>';
+  title?.after(controls);controls.after(list);list.after(panel);card.classList.add("ux7-debt-form-hidden");
+  $("ux7NewDebtBtn").onclick=()=>{clearDebtForm();card.classList.remove("ux7-debt-form-hidden");$("ux7ToggleDebtForm").textContent="Скрыть форму";setTimeout(()=>$("debtName")?.focus(),50)};
+  $("ux7ToggleDebtForm").onclick=()=>{const hidden=card.classList.toggle("ux7-debt-form-hidden");$("ux7ToggleDebtForm").textContent=hidden?"Показать форму":"Скрыть форму"};
+}
+
+function ux7OpenDebtForm(){const card=$("debtEditorCard");if(!card)return;card.classList.remove("ux7-debt-form-hidden");if($("ux7ToggleDebtForm"))$("ux7ToggleDebtForm").textContent="Скрыть форму"}
+
+function ux7SetupFinanceEditors(){
+  const assetName=$("assetName"),assetList=$("assetList");if(assetName&&assetList&&!$("ux7AssetForm")){
+    const card=assetName.closest(".card"),form=assetName.closest(".formgrid"),toggle=card?.querySelector("#assetAvailable")?.closest("label"),button=[...card?.querySelectorAll("button")||[]].find(b=>/addAsset\(/.test(b.getAttribute("onclick")||"")),panel=document.createElement("div");panel.id="ux7AssetForm";panel.className="ux7-inline-editor ux7-inline-editor-hidden";if(form)panel.appendChild(form);if(toggle)panel.appendChild(toggle);if(button)panel.appendChild(button);const open=document.createElement("button");open.type="button";open.className="btn ghost small ux7-inline-toggle";open.textContent="+ Добавить / обновить актив";open.onclick=()=>{panel.classList.toggle("ux7-inline-editor-hidden");open.textContent=panel.classList.contains("ux7-inline-editor-hidden")?"+ Добавить / обновить актив":"Скрыть форму"};assetList.after(open,panel)
+  }
+  const accountName=$("accountName"),accountList=$("accountList");if(accountName&&accountList&&!$("ux7AccountForm")){
+    const card=accountName.closest(".card"),form=accountName.closest(".formgrid"),split=form?.nextElementSibling,panel=document.createElement("div");panel.id="ux7AccountForm";panel.className="ux7-inline-editor ux7-inline-editor-hidden";if(form)panel.appendChild(form);if(split&&split.classList.contains("split"))panel.appendChild(split);const open=document.createElement("button");open.type="button";open.className="btn ghost small ux7-inline-toggle";open.textContent="Управление счетами";open.onclick=()=>{panel.classList.toggle("ux7-inline-editor-hidden");open.textContent=panel.classList.contains("ux7-inline-editor-hidden")?"Управление счетами":"Скрыть управление"};accountList.after(open,panel)
+  }
+  const regular=[...$("finance")?.querySelectorAll(".card")||[]].find(c=>/добавить регулярный платеж/.test(ux7CardText(c)));if(regular&&!regular.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Открыть форму";btn.onclick=()=>ux7ToggleEditor(regular);regular.querySelector(".title")?.after(btn);regular.classList.add("ux7-editor-collapsed")}
+}
+
+function ux7SetupEditors(){
+  // CRM editor starts compact. Debt editor remains visible because its debt list lives inside the same card.
+  const crm=$("crmEditorCard");if(crm&&!crm.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Показать форму";btn.onclick=()=>ux7ToggleEditor(crm);const title=crm.querySelector(".title");title?.after(btn);crm.classList.add("ux7-editor-collapsed")}
+  const workCard=[...$("work")?.querySelectorAll(".card")||[]].find(c=>/добавить рабочий день/.test(ux7CardText(c)));if(workCard&&!workCard.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Открыть форму дня";btn.onclick=()=>ux7ToggleEditor(workCard);workCard.querySelector(".title")?.after(btn);workCard.classList.add("ux7-editor-collapsed")}
+  const ttCard=[...$("tennis")?.querySelectorAll(".card")||[]].find(c=>/добавить сессию/.test(ux7CardText(c)));if(ttCard&&!ttCard.querySelector(".ux7-editor-toggle")){const btn=document.createElement("button");btn.type="button";btn.className="btn ghost small ux7-editor-toggle";btn.textContent="Открыть форму тренировки";btn.onclick=()=>ux7ToggleEditor(ttCard);ttCard.querySelector(".title")?.after(btn);ttCard.classList.add("ux7-editor-collapsed")}
+}
+
+function ux7ToggleEditor(card,force){if(!card)return;const shouldOpen=force===true?true:force===false?false:card.classList.contains("ux7-editor-collapsed");card.classList.toggle("ux7-editor-collapsed",!shouldOpen);const btn=card.querySelector(".ux7-editor-toggle");if(btn)btn.textContent=shouldOpen?"Скрыть форму":"Показать форму"}
+
+function ux7PatchEditorActions(){
+  if(typeof editCrmDeal==="function"&&!editCrmDeal.__ux7){const base=editCrmDeal;const wrapped=function(id){ux7Go("work","crm");ux7ToggleEditor($("crmEditorCard"),true);return base(id)};wrapped.__ux7=true;editCrmDeal=wrapped}
+  if(typeof editDebt==="function"&&!editDebt.__ux7){const base=editDebt;const wrapped=function(id){ux7Go("finance","debts");ux7OpenDebtForm();return base(id)};wrapped.__ux7=true;editDebt=wrapped}
+}
+
+function ux7RefreshHeaders(){for(const [id,meta] of Object.entries(UX7_META)){const d=$(`ux7-desc-${id}`);if(d)d.textContent=meta.desc()}}
+
+function ux7UpdateActiveNavLabel(sectionId){const labels={today:"Сегодня",finance:"Деньги",work:"Работа",tennis:"Теннис",more:"Ещё"};document.querySelectorAll('.navbtn').forEach(b=>{if(b.dataset.tab===sectionId){const strong=b.querySelector('b');const icon=strong?.outerHTML||'';b.innerHTML=icon+labels[sectionId]}})}
+
+function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m=>{m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-hidden",m.classList.contains("open")?"false":"true")});document.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});document.querySelectorAll(".iconbtn").forEach((b,i)=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label",b.title||b.textContent.trim()||`Действие ${i+1}`)})}
+
+function ux7InstallShell(){
+  document.body.classList.add("ux7","ui82");ux7LoadPrefs();ux7LoadClarity();
+  for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
+  ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupSectionShortcuts();ux7SetupTodayQuests();ux7SetupDebtEditor();ux7SetupFinanceEditors();ux7SetupEditors();ux7PatchEditorActions();ux7EnhanceAccessibility();
+  for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);
+  const financeNav=document.querySelector('.navbtn[data-tab="finance"]');if(financeNav){const b=financeNav.querySelector('b')?.outerHTML||'<b>₽</b>';financeNav.innerHTML=b+'Деньги'}
+  renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();ui82SyncChrome("today",UX7_PREFS.today||UX7_DEFAULTS.today);
+}
