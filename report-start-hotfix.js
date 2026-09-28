@@ -98,6 +98,27 @@
       return moneySum((S.incomeLogs||[]).filter(x=>x.dateKey?.startsWith(month)&&allowed(x.dateKey)).map(x=>x.amount))
     });
 
+    // Expense envelopes follow the same reportStart boundary as the rest of the campaign.
+    wrap("monthCategorySpend",orig=>function(cat,month=localMonthKey()){
+      if(!reportMonthAllowed(month))return 0;
+      const s=startKey();if(!s||String(month)!==s.slice(0,7))return orig(cat,month);
+      return moneySum((S.expenses||[]).filter(x=>x.dateKey?.startsWith(month)&&x.category===cat&&!x.regularPaymentId&&allowed(x.dateKey)).map(x=>x.amount))
+    });
+    wrap("envelopeCarry",orig=>function(cat,month=localMonthKey()){
+      const s=startKey(),mk=String(month||localMonthKey());
+      if(s&&mk<=s.slice(0,7))return 0;
+      return orig(cat,month)
+    });
+    wrap("applyEnvelopeCarryover",orig=>function(month){
+      const s=startKey(),mk=String(month||"");
+      if(s&&mk&&mk<s.slice(0,7)){
+        const target=typeof nextMonthKey==="function"?nextMonthKey(mk):"";
+        if(target===s.slice(0,7)&&S.envelopeCarryovers?.[target])delete S.envelopeCarryovers[target];
+        return
+      }
+      return orig(month)
+    });
+
     wrap("ux7NextMoneyEvent",orig=>function(){
       try{
         const start=effectiveDate(new Date()),end=addDays(start,90),events=[...debtEventsBetween(start,end),...regularEventsBetween(start,end)]
@@ -189,6 +210,26 @@
     });
   }
 
+  function cleanupReportStartEnvelopes(){
+    if(!stateReady())return false;
+    const s=startKey();if(!s)return false;
+    const marker="13.7.5-envelope-1";
+    if(S.settings.reportStartEnvelopeFixVersion===marker)return false;
+    let changed=false;
+    const startMonth=s.slice(0,7);
+    if(S.envelopeCarryovers?.[startMonth]){delete S.envelopeCarryovers[startMonth];changed=true}
+
+    // Restore the agreed 49,000 ₽ monthly envelope scheme only when the
+    // surrounding limits still match that scheme and "Связь" is missing.
+    const limits=S.envelopeLimits||{};
+    const signature=[["Еда",17000],["Транспорт",10000],["Развлечения",1000],["Теннис",9000],["Покупки",2000],["Другое",8000]];
+    if(signature.every(([k,v])=>Math.abs((+limits[k]||0)-v)<.01)&&(+limits["Связь"]||0)===0){
+      limits["Связь"]=2000;changed=true
+    }
+    S.settings.reportStartEnvelopeFixVersion=marker;
+    return true
+  }
+
   function rebuildCampaignGamification(){
     if(!stateReady())return false;
     const s=startKey();if(!s)return false;
@@ -230,7 +271,7 @@
       if(!stateReady())return false;
 
       REPORT_START_FINALIZED=true;
-      const changed=rebuildCampaignGamification();
+      const changed=cleanupReportStartEnvelopes()||rebuildCampaignGamification();
 
       if(changed&&typeof persist==="function"){
         try{await persist()}catch(e){console.warn("reportStart cleanup persist failed",e)}
