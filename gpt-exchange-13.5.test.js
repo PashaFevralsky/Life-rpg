@@ -29,7 +29,7 @@ const context={
   clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),
   validDateKey:x=>/^\d{4}-\d{2}-\d{2}$/.test(x),
   localDateKey:()=> "2026-09-26",
-  APP_VERSION:"13.7.2",STATE_VERSION:18
+  APP_VERSION:"13.7.3",STATE_VERSION:18
 };
 context.globalThis=context;vm.createContext(context);
 vm.runInContext(base,context,{filename:"gpt-exchange-13.5.js"});

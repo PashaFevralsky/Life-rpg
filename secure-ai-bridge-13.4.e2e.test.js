@@ -4,7 +4,7 @@ async function boot(page){
   const errors=[];page.on("pageerror",e=>errors.push(String(e)));
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
-  await expect(page.locator("#versionStatus")).toContainText("13.7.2");
+  await expect(page.locator("#versionStatus")).toContainText("13.7.3");
   return errors
 }
 function corsHeaders(){return {"Access-Control-Allow-Origin":"http://127.0.0.1:4173","Access-Control-Allow-Headers":"Content-Type,X-Life-RPG-Token","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Content-Type":"application/json"}}
