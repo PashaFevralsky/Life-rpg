@@ -2,7 +2,7 @@
 
 /* Life RPG 13.2.2 — Core utilities and constants */
 
-const APP_VERSION="13.7.4";
+const APP_VERSION="13.7.5";
 
 const STATE_VERSION=18;
 
@@ -28,7 +28,7 @@ function compactRub(n){return new Intl.NumberFormat("ru-RU",{notation:"compact",
 function pct(n,d=0){return `${(Number(n)||0).toFixed(d)}%`}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
 function uid(){return `${Date.now()}-${Math.random().toString(36).slice(2,9)}`}
-function escapeHtml(v){return String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function escapeHtml(v){return String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;"}[c]))}
 function fmtDate(s){const d=typeof s==="string"?parseLocal(s):s;return d.toLocaleDateString("ru-RU",{day:"2-digit",month:"short"})}
 function monthDiff(a,b){return (b.getFullYear()-a.getFullYear())*12+b.getMonth()-a.getMonth()}
 function deepClone(x){return structuredClone(x)}
