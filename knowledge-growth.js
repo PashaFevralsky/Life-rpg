@@ -2,8 +2,8 @@
 
 /* Knowledge Growth — reading sessions -> ideas -> applications -> reviews. */
 function knowledgeGrowthNotes(){return growthData().knowledgeNotes.filter(x=>x&&x.archived!==true)}
-function knowledgeGrowthReadingLogs(){return typeof knowledgeFactualReadingLogs==="function"?knowledgeFactualReadingLogs():(S.readingLogs||[]).filter(x=>validDateKey(String(x.dateKey||""))&&String(x.dateKey)<=localDateKey())}
-function knowledgeGrowthFactualNotes(){return knowledgeGrowthNotes().filter(x=>validDateKey(String(x.dateKey||""))&&String(x.dateKey)<=localDateKey())}
+function knowledgeGrowthReadingLogs(){const rows=typeof knowledgeFactualReadingLogs==="function"?knowledgeFactualReadingLogs():(S.readingLogs||[]).filter(x=>validDateKey(String(x.dateKey||""))&&String(x.dateKey)<=localDateKey());return rows.filter(x=>reportingDateAllowed(x.dateKey))}
+function knowledgeGrowthFactualNotes(){return knowledgeGrowthNotes().filter(x=>validDateKey(String(x.dateKey||""))&&String(x.dateKey)<=localDateKey()&&reportingDateAllowed(x.dateKey))}
 function knowledgeGrowthBook(id){return (S.books||[]).find(x=>String(x.id)===String(id))||null}
 function knowledgeGrowthBookOptions(selected=""){const rows=(S.books||[]).slice().sort((a,b)=>{const w=x=>x.status==="reading"?0:x.status==="queued"?1:x.status==="paused"?2:3;return w(a)-w(b)||String(a.title||"").localeCompare(String(b.title||""),"ru")});return rows.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===selected?"selected":""}>${escapeHtml(b.title||"Книга")}</option>`).join("")}
 function knowledgeGrowthTypeLabel(t){return t==="application"?"Применение":t==="question"?"Вопрос":t==="quote"?"Цитата":"Идея"}

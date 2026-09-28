@@ -108,6 +108,12 @@ function ux128PatchQuickSheet(){
   );window.LifePlatform?.refreshIcons?.(grid)
 }
 
+function ux128FinanceModelNotes(){
+  const flow=document.getElementById("cashFlowSummary"),flowCard=flow?.closest(".card");if(flowCard&&!flowCard.querySelector(".ui-polish-model-note")){const note=document.createElement("div");note.className="ui-polish-model-note";note.innerHTML="<b>Расчётная модель.</b> Суммы ниже — прогноз сценариев, а не фактический остаток на счёте.";flow.insertAdjacentElement("beforebegin",note)}
+  const forecast=document.getElementById("financialForecast"),forecastCard=forecast?.closest(".card");if(forecastCard&&!forecastCard.querySelector(".ui-polish-model-note")){const note=document.createElement("div");note.className="ui-polish-model-note";note.innerHTML="<b>Прогноз.</b> Результат зависит от графика доходов, обязательств и заданных расходов.";forecast.insertAdjacentElement("beforebegin",note)}
+}
+function ux128CompactCashFlow(){const chart=document.querySelector("#finance .cashflow-chart"),events=document.getElementById("cashFlowEvents");if(!chart||!events||chart.closest(".ui-polish-chart-details"))return;const details=document.createElement("details");details.className="ui-polish-chart-details";const summary=document.createElement("summary");summary.textContent="График сценариев";chart.parentNode.insertBefore(details,chart);details.append(summary,chart);events.insertAdjacentElement("afterend",details)}
+
 function ux128Consolidate(){
   const hero=document.querySelector("#more .book-hero");if(hero)hero.hidden=true;
   const oldWeekly=document.getElementById("weeklyReview")?.closest(".card"),review=document.getElementById("reviewOsCommand");if(oldWeekly&&review)oldWeekly.hidden=true;
@@ -133,10 +139,10 @@ function ux128EnhanceA11y(){
   document.querySelectorAll(".ux7-tabs").forEach(el=>el.setAttribute("aria-orientation","horizontal"))
 }
 function ensureUx128Ui(){
-  ux128EnsureCss();ux128InstallNavigationMemory();ux128EnsureSearch();ux128EnsureRecent();ux128PatchQuickSheet();ux128InstallClarity();ux128Consolidate();ux128MarkStickyActions();ux128EnhanceA11y();
+  ux128EnsureCss();ux128InstallNavigationMemory();ux128EnsureSearch();ux128EnsureRecent();ux128PatchQuickSheet();ux128InstallClarity();ux128Consolidate();ux128FinanceModelNotes();ux128CompactCashFlow();ux128MarkStickyActions();ux128EnhanceA11y();
   if(!UX128_RESTORED)requestAnimationFrame(ux128RestoreNavigation)
 }
 function renderUx128(){
-  ux128Consolidate();ux128MarkStickyActions();ux128PatchQuickSheet();
+  ux128Consolidate();ux128FinanceModelNotes();ux128CompactCashFlow();ux128MarkStickyActions();ux128PatchQuickSheet();
   for(const section of UX7_CLARITY_SECTIONS||[])ux7ApplyClarity(section,UX7_PREFS[section])
 }

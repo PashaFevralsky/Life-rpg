@@ -15,9 +15,9 @@ function workingDaysLeft(d=new Date()){let n=0,x=new Date(d.getFullYear(),d.getM
 
 function workTarget(key,fallback=0){const v=Number(S.workTargets?.[key]);return Number.isFinite(v)&&v>=0?v:fallback}
 
-function workWeek(){const [a,b]=weekBounds();return aggregateWork(S.workLogs.filter(x=>inRange(x.date,a,b)))}
+function workWeek(){const [a,b]=weekBounds();return aggregateWork(S.workLogs.filter(x=>inRange(x.date,a,b)&&reportingDateAllowed(x.date)))}
 
-function workMonth(){return aggregateWork(S.workLogs.filter(x=>x.date.startsWith(localMonthKey())))}
+function workMonth(){const mk=localMonthKey();if(!reportMonthAllowed(mk))return aggregateWork([]);return aggregateWork(S.workLogs.filter(x=>x.date.startsWith(mk)&&reportingDateAllowed(x.date)))}
 
 function aggregateWork(arr){return arr.reduce((o,x)=>({sales:o.sales+(+x.sales||0),contacts:o.contacts+(+x.contacts||0),followups:o.followups+(+x.followups||0),lpr:o.lpr+(+x.lpr||0),meetings:o.meetings+(+x.meetings||0),proposals:o.proposals+(+x.proposals||0),wins:o.wins+(+x.wins||0),pipeline:o.pipeline+(+x.pipeline||0)}),{sales:0,contacts:0,followups:0,lpr:0,meetings:0,proposals:0,wins:0,pipeline:0})}
 

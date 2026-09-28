@@ -164,8 +164,8 @@ function ui82SyncChrome(sectionId,view){
   if(document.body?.dataset){document.body.dataset.section=sectionId;document.body.dataset.view=view}
   const fab=$("ux7Fab"),hideFab=(sectionId==="today")||(sectionId==="more"&&view==="settings")||(sectionId==="finance"&&view==="analysis");
   fab?.classList.toggle("ui82-fab-hidden",hideFab);
-  const tab=document.querySelector?.(`#${sectionId} .ux7-tab[data-view="${view}"]`);
-  try{tab?.scrollIntoView?.({block:"nearest",inline:"center",behavior:"smooth"})}catch{}
+  const tab=document.querySelector?.(`#${sectionId} .ux7-tab[data-view="${view}"]`),rail=tab?.closest?.(".ux7-tabs");
+  try{const css=rail?getComputedStyle(rail):null;if(tab&&rail&&css?.display!=="grid"&&css?.overflowX!=="visible"){const rr=rail.getBoundingClientRect(),tr=tab.getBoundingClientRect();if(tr.left<rr.left+1||tr.right>rr.right-1)tab.scrollIntoView({block:"nearest",inline:"nearest",behavior:"auto"})}}catch{}
 }
 
 function ux7UpdateSubViewMetrics(sectionId,view){
@@ -178,7 +178,7 @@ function ux7SetupFinancePulse(){
 }
 
 function ux7NextMoneyEvent(){
-  try{const start=new Date(),end=addDays(start,90),events=[...debtEventsBetween(start,end),...regularEventsBetween(start,end)].filter(x=>(+x.amount||0)>0).sort((a,b)=>a.date-b.date);return events[0]||null}catch{return null}
+  try{const start=reportingEffectiveDate(new Date()),end=addDays(start,90),events=[...debtEventsBetween(start,end),...regularEventsBetween(start,end)].filter(x=>(+x.amount||0)>0&&reportingDateAllowed(x.dateKey||x.date)).sort((a,b)=>a.date-b.date);return events[0]||null}catch{return null}
 }
 
 function ux7SetupTodayPulse(){
@@ -186,7 +186,7 @@ function ux7SetupTodayPulse(){
 }
 
 function renderUx7TodayPulse(){
-  const box=$("ux7TodayPulse");if(!box||!S)return;let next=null;try{next=ux7NextMoneyEvent()}catch{}const free=freeCashBalance(),over=overdueMinimums?.()||[];let status="Стабильно",cls="good";if(over.length){status="Есть просрочка",cls="bad"}else if(free<0){status="Кассовый разрыв",cls="bad"}else if(free<Math.max(3000,dynamicDailyBudget()*3)){status="Нужна осторожность",cls="warn"}
+  const box=$("ux7TodayPulse");if(!box||!S)return;let next=null;try{next=ux7NextMoneyEvent()}catch{}const free=freeCashBalance();if(reportingBeforeStart()){box.innerHTML=`<div class="ux7-today-line"><div><div class="smallcaps">Финансовый статус</div><b class="ux7-status-good">${reportStartLabel()}</b></div><div><div class="smallcaps">Свободно</div><b>${rub(free)}</b></div><div><div class="smallcaps">Следующий платёж</div><b>${next?rub(next.amount):"—"}</b><small>${next?`${fmtDate(next.date)} • ${escapeHtml(next.label)}`:"нет данных"}</small></div><button class="btn secondary small" onclick="ux7Go('finance','overview')">Открыть деньги</button></div>`;return}const over=overdueMinimums?.()||[];let status="Стабильно",cls="good";if(over.length){status="Есть просрочка",cls="bad"}else if(free<0){status="Кассовый разрыв",cls="bad"}else if(free<Math.max(3000,dynamicDailyBudget()*3)){status="Нужна осторожность",cls="warn"}
   box.innerHTML=`<div class="ux7-today-line"><div><div class="smallcaps">Финансовый статус</div><b class="ux7-status-${cls}">${status}</b></div><div><div class="smallcaps">Свободно</div><b>${rub(free)}</b></div><div><div class="smallcaps">Следующий платёж</div><b>${next?rub(next.amount):"—"}</b><small>${next?`${fmtDate(next.date)} • ${escapeHtml(next.label)}`:"нет данных"}</small></div><button class="btn secondary small" onclick="ux7Go('finance','overview')">Открыть деньги</button></div>`;
 }
 

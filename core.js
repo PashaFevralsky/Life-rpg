@@ -1,6 +1,6 @@
 "use strict";
 
-/* Life RPG 13.2.2 — Core utilities and constants */
+/* Life RPG 13.7.5 — Core utilities, money math and native reporting boundary */
 
 const APP_VERSION="13.7.5";
 
@@ -39,6 +39,24 @@ function lastNDaysRange(n){const b=new Date(),a=addDays(b,-(n-1));return [localD
 function validDateKey(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||""));if(!m)return false;const y=+m[1],mo=+m[2],d=+m[3];if(y<1||y>9999||mo<1||mo>12||d<1)return false;const leap=y%4===0&&(y%100!==0||y%400===0),dim=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][mo-1];return d<=dim}
 function dateKeyDiff(a,b){if(!validDateKey(a)||!validDateKey(b))return null;const pa=String(a).split("-").map(Number),pb=String(b).split("-").map(Number);return Math.round((Date.UTC(pb[0],pb[1]-1,pb[2])-Date.UTC(pa[0],pa[1]-1,pa[2]))/86400000)}
 function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
+
+/* Reporting boundary: factual history stays in storage, campaign analytics start here. */
+function reportStartKey(state){
+  const x=state||(typeof S!=="undefined"?S:null),raw=String(x?.settings?.reportStart||x?.settings?.campaignStart||"");
+  return validDateKey(raw)?raw:""
+}
+function reportingDateKey(v){
+  if(typeof v==="string"){if(validDateKey(v))return v;if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10)}
+  if(v instanceof Date&&!Number.isNaN(v.getTime()))return localDateKey(v);
+  return ""
+}
+function reportingDateAllowed(v,state){const s=reportStartKey(state),k=reportingDateKey(v);return !s||!k||k>=s}
+function reportingBeforeStart(v=new Date(),state){const s=reportStartKey(state),k=reportingDateKey(v);return !!s&&!!k&&k<s}
+function reportingEffectiveDate(v=new Date(),state){const d=v instanceof Date?new Date(v):new Date(v),s=reportStartKey(state);if(!s||Number.isNaN(d.getTime()))return d;const start=parseLocal(s);return d<start?start:d}
+function reportMonthAllowed(month=localMonthKey(),state){const s=reportStartKey(state);return !s||String(month||"")>=s.slice(0,7)}
+function reportFilterRows(rows,getKey,state){return (Array.isArray(rows)?rows:[]).filter(x=>reportingDateAllowed(getKey?getKey(x):x?.dateKey||x?.date||x?.localDate,state))}
+function campaignActive(v=new Date(),state){return !reportingBeforeStart(v,state)}
+function reportStartLabel(state){const s=reportStartKey(state);return s?`Старт ${fmtDate(parseLocal(s))}`:""}
 function finiteNumberOr(v,fallback=0){if(v==null||String(v).trim()==="")return fallback;const n=Number(v);return Number.isFinite(n)?n:fallback}
 function moneyCents(v){const n=finiteNumberOr(v,0);if(!Number.isFinite(n))return 0;return Math.round((n+(n>=0?Number.EPSILON:-Number.EPSILON))*100)}
 function moneyFromCents(c){const n=Number(c);return Number.isFinite(n)?Math.round(n)/100:0}

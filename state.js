@@ -5,7 +5,7 @@
 const DEFAULT_STATE={
   version:STATE_VERSION,
   profile:{name:"Павел",goal:"Закрыть долги и прокачать жизнь системно"},
-  settings:{primaryAccountId:"",monthlyIncome:0,monthlyDebtGoal:0,workMonthlyPlan:0,campaignStart:localDateKey(),campaignMonths:10,dailySpendLimit:0,emergencyFundTarget:0,emergencyFundBalance:0,miniBufferTarget:15000,highInterestThreshold:40,cashBalanceVerifiedAt:"",envelopeRollover:true,autoReserveAfterImport:true,learnImportRules:true,tennisElo:1000,tennisBaseElo:1000,tennisMonthlyTarget:12,tennisOfficialRating:0,readingDailyMin:30,readingReviewDays:7,incomeEvents:[],liquidityTargetDays:14,minimumCashFloor:0,forecastIncomeFactor:100},
+  settings:{primaryAccountId:"",monthlyIncome:0,monthlyDebtGoal:0,workMonthlyPlan:0,campaignStart:localDateKey(),reportStart:localDateKey(),campaignMonths:10,dailySpendLimit:0,emergencyFundTarget:0,emergencyFundBalance:0,miniBufferTarget:15000,highInterestThreshold:40,cashBalanceVerifiedAt:"",envelopeRollover:true,autoReserveAfterImport:true,learnImportRules:true,tennisElo:1000,tennisBaseElo:1000,tennisMonthlyTarget:12,tennisOfficialRating:0,readingDailyMin:30,readingReviewDays:7,incomeEvents:[],liquidityTargetDays:14,minimumCashFloor:0,forecastIncomeFactor:100},
   xpEarned:0,xpSpent:0,
   stats:{Финансы:0,Карьера:0,Разум:0,Теннис:0,Тело:0,Отношения:0,Дисциплина:0},
   xpEvents:[],
@@ -55,6 +55,27 @@ function normalizeLegacyStatementFingerprints(out){
   out.bankImportIds=[...bankIds];return changed
 }
 
+function normalizeReportStartDerived(out){
+  const s=reportStartKey(out);if(!s)return out;out.settings.reportStart=s;
+  const marker="report-boundary-core-v1";
+  if(out.settings.reportStartMigration===marker)return out;
+  const eventKey=x=>reportingDateKey(x?.date);
+  out.xpEvents=(out.xpEvents||[]).filter(x=>reportingDateAllowed(eventKey(x),out));
+  const statKeys=["Финансы","Карьера","Разум","Теннис","Тело","Отношения","Дисциплина"],stats=Object.fromEntries(statKeys.map(k=>[k,0]));
+  let earned=0;for(const x of out.xpEvents){const v=Number(x?.xp)||0;earned+=v;if(x?.stat&&stats[x.stat]!=null)stats[x.stat]+=v}
+  out.xpEarned=Math.max(0,Math.round(earned));for(const k of statKeys)stats[k]=Math.max(0,Math.round(stats[k]));out.stats={...out.stats,...stats};
+  out.rewardPurchases=(out.rewardPurchases||[]).filter(x=>reportingDateAllowed(x?.date,out));
+  out.xpSpent=Math.max(0,Math.round(out.rewardPurchases.reduce((sum,x)=>sum+(+x.cost||0),0)));
+  for(const [id,ts] of Object.entries(out.achievements||{}))if(!reportingDateAllowed(ts,out))delete out.achievements[id];
+  out.checks=Object.fromEntries(Object.entries(out.checks||{}).filter(([day])=>!validDateKey(day)||day>=s));
+  const startMonth=s.slice(0,7);if(out.envelopeCarryovers?.[startMonth])delete out.envelopeCarryovers[startMonth];
+  const limits=out.envelopeLimits||{},signature=[["Еда",17000],["Транспорт",10000],["Развлечения",1000],["Теннис",9000],["Покупки",2000],["Другое",8000]];
+  if(signature.every(([k,v])=>Math.abs((+limits[k]||0)-v)<.01)&&(+limits["Связь"]||0)===0)limits["Связь"]=2000;
+  if(localDateKey()<s){out.questDone={};out.xpEvents=[];out.xpEarned=0;out.xpSpent=0;out.achievements={};out.rewardPurchases=[];for(const k of statKeys)out.stats[k]=0}
+  out.settings.reportStartMigration=marker;out.settings.reportStartCleanupVersion="13.8.0-core";out.settings.reportStartEnvelopeFixVersion="13.8.0-core";
+  return out
+}
+
 function normalizeState(raw){
   validateStateShape(raw||{});raw=convertLegacyResetToFresh(deepClone(raw||{}));const out=deepClone(DEFAULT_STATE);
   out.version=STATE_VERSION;out.created=String(raw.created||out.created);out.updated=String(raw.updated||out.updated);out.profile={...out.profile,...(raw.profile||{})};out.settings={...out.settings,...(raw.settings||{})};
@@ -95,7 +116,7 @@ function normalizeState(raw){
   if(raw.settings?.tennisBaseElo==null){const first=out.tennis.filter(x=>validDateKey(String(x?.dateKey||""))).slice().sort((a,b)=>String(a.dateKey||"").localeCompare(String(b.dateKey||""))||String(a.createdAt||"").localeCompare(String(b.createdAt||""))||String(a.id||"").localeCompare(String(b.id||"")))[0];const base=first?.eloBefore??(!first?raw.settings?.tennisElo:undefined);if(Number.isFinite(Number(base))&&base!=null)out.settings.tennisBaseElo=Math.max(0,Number(base))}
   out.envelopeCarryovers=raw.envelopeCarryovers&&typeof raw.envelopeCarryovers==="object"?raw.envelopeCarryovers:{};out.envelopeLimits={...out.envelopeLimits,...(raw.envelopeLimits||{})};out.workTargets={...out.workTargets,...(raw.workTargets||{})};
   if(!out.xpEvents.length&&out.xpEarned>0)out.xpEvents.push({id:uid(),date:out.created||new Date().toISOString(),xp:out.xpEarned,stat:"Миграция",label:"Перенесённый XP",kind:"process"});
-  return out
+  return normalizeReportStartDerived(out)
 }
 
 // Persistence chooses the newest valid copy and acknowledges transaction commit.

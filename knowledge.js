@@ -4,7 +4,7 @@
 
 function knowledgeActivityDateKey(v){const s=String(v||"");return validDateKey(s)&&s<=localDateKey()?s:""}
 function knowledgeFactualReadingLogs(){return (S.readingLogs||[]).filter(x=>knowledgeActivityDateKey(x?.dateKey))}
-function readingDaysThisWeek(){const wk=isoWeekKey();return new Set(knowledgeFactualReadingLogs().filter(x=>isoWeekKey(parseLocal(x.dateKey))===wk).map(x=>x.dateKey)).size}
+function readingDaysThisWeek(){const wk=isoWeekKey();return new Set(knowledgeFactualReadingLogs().filter(x=>reportingDateAllowed(x.dateKey)&&isoWeekKey(parseLocal(x.dateKey))===wk).map(x=>x.dateKey)).size}
 function currentBook(){return S.books.find(b=>b.status==="reading")||null}
 function readingQueueSorted(){return (S.books||[]).filter(b=>b.status==="queued").slice().sort((a,b)=>(+a.readingOrder||999999)-(+b.readingOrder||999999)||String(a.created||"").localeCompare(String(b.created||""))||String(a.title||"").localeCompare(String(b.title||""),"ru"))}
 function nextQueuedBook(){return readingQueueSorted()[0]||null}
@@ -91,7 +91,7 @@ markKnowledgeReviewed=async function(id){
 
 function readingWindowLogs(days=28,bookId=""){
   const start=localDateKey(addDays(new Date(),-(days-1)));
-  return knowledgeFactualReadingLogs().filter(x=>x.dateKey>=start&&(!bookId||x.bookId===bookId))
+  return knowledgeFactualReadingLogs().filter(x=>x.dateKey>=start&&reportingDateAllowed(x.dateKey)&&(!bookId||x.bookId===bookId))
 }
 function readingTodayMinutes(){
   const today=localDateKey();

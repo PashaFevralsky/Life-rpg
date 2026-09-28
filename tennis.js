@@ -11,7 +11,7 @@ const TENNIS_WEEKLY=[
 ];
 
 function tennisRecordedSessions(){return (S.tennis||[]).filter(x=>validActivityDate(String(x.dateKey||""))&&Math.max(0,+x.min||0)>0)}
-function tennisWeek(){const [a,b]=weekBounds(),arr=tennisRecordedSessions().filter(x=>inRange(x.dateKey,a,b));return {sessions:arr.length,tournaments:arr.filter(x=>x.type==="Турнир").length,serve:arr.reduce((n,x)=>n+(+x.serveMin||0),0),foot:arr.reduce((n,x)=>n+(+x.footMin||0),0)}}
+function tennisWeek(){const [a,b]=weekBounds(),arr=tennisRecordedSessions().filter(x=>inRange(x.dateKey,a,b)&&reportingDateAllowed(x.dateKey));return {sessions:arr.length,tournaments:arr.filter(x=>x.type==="Турнир").length,serve:arr.reduce((n,x)=>n+(+x.serveMin||0),0),foot:arr.reduce((n,x)=>n+(+x.footMin||0),0)}}
 function tennisSessionsDesc(){return (S.tennis||[]).slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||""))||String(b.createdAt||"").localeCompare(String(a.createdAt||""))||String(b.id||"").localeCompare(String(a.id||"")))}
 function tennisRecordedSessionsDesc(){return tennisRecordedSessions().slice().sort((a,b)=>String(b.dateKey||"").localeCompare(String(a.dateKey||""))||String(b.createdAt||"").localeCompare(String(a.createdAt||""))||String(b.id||"").localeCompare(String(a.id||"")))}
 function eloExpected(r,opp){return 1/(1+Math.pow(10,(opp-r)/400))}
