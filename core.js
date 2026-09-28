@@ -46,7 +46,8 @@ function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
 function reportStartKey(state){
   const x=state||(typeof S!=="undefined"?S:null),report=String(x?.settings?.reportStart||"");
   if(!validDateKey(report))return "";
-  const configured=!!x?.settings?.reportStartMigration||!!x?.settings?.reportStartCleanupVersion||!!x?.settings?.reportStartEnvelopeFixVersion||report!==String(x?.settings?.campaignStart||"");
+  const defaultReport=typeof DEFAULT_STATE!=="undefined"?String(DEFAULT_STATE?.settings?.reportStart||""):"";
+  const configured=!!x?.settings?.reportStartMigration||!!x?.settings?.reportStartCleanupVersion||!!x?.settings?.reportStartEnvelopeFixVersion||report!==defaultReport;
   return configured?report:""
 }
 function reportingDateKey(v){
