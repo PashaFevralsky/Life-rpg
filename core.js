@@ -46,7 +46,6 @@ function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
 function reportStartKey(state){
   const x=state||(typeof S!=="undefined"?S:null),report=String(x?.settings?.reportStart||"");
   if(!validDateKey(report))return "";
-  if(state)return report;
   const configured=!!x?.settings?.reportStartMigration||!!x?.settings?.reportStartCleanupVersion||!!x?.settings?.reportStartEnvelopeFixVersion||report!==String(x?.settings?.campaignStart||"");
   return configured?report:""
 }
