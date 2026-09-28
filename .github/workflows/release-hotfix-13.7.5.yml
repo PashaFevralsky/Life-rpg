@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Align all tracked release references
+      - name: Align 13.7.5 release and runtime copy list
         shell: bash
         run: |
           python - <<'PY'
@@ -42,16 +42,30 @@ jobs:
                   text = p.read_text(encoding="utf-8")
               except (UnicodeDecodeError, OSError):
                   continue
-              if OLD not in text:
-                  continue
-              p.write_text(text.replace(OLD, NEW), encoding="utf-8")
-              changed.append(rel)
+              new_text = text.replace(OLD, NEW)
+              if new_text != text:
+                  p.write_text(new_text, encoding="utf-8")
+                  changed.append(rel)
 
-          print(f"Updated {len(changed)} tracked text files:")
-          for rel in changed:
-              print(f"  {rel}")
+          # report-start-hotfix.js is loaded dynamically by bootstrap,
+          # so Vite must also copy it into dist.
+          vite = Path("vite.config.mjs")
+          text = vite.read_text(encoding="utf-8")
+          if '"report-start-hotfix.js"' not in text:
+              anchor = '"bootstrap.js","app.js"'
+              if anchor not in text:
+                  raise SystemExit("vite.config.mjs: runtime copy anchor not found")
+              text = text.replace(anchor, '"report-start-hotfix.js","bootstrap.js","app.js"')
+              vite.write_text(text, encoding="utf-8")
+              if "vite.config.mjs" not in changed:
+                  changed.append("vite.config.mjs")
 
-          # Critical release files must now be aligned.
+          # Guard: bootstrap must actually register the hotfix.
+          bootstrap = Path("bootstrap.js").read_text(encoding="utf-8")
+          if '"report-start-hotfix.js"' not in bootstrap:
+              raise SystemExit("bootstrap.js: report-start-hotfix.js is not registered")
+
+          # Critical release files must be aligned.
           required = [
               "core.js",
               "bootstrap.js",
@@ -69,6 +83,10 @@ jobs:
               text = Path(rel).read_text(encoding="utf-8")
               if OLD in text:
                   raise SystemExit(f"{rel}: stale {OLD} remains")
+
+          print(f"Prepared {len(changed)} changed files:")
+          for rel in changed:
+              print(f"  {rel}")
           PY
 
       - name: Setup Node
