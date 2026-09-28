@@ -271,7 +271,9 @@
       if(!stateReady())return false;
 
       REPORT_START_FINALIZED=true;
-      const changed=cleanupReportStartEnvelopes()||rebuildCampaignGamification();
+      const envelopeChanged=cleanupReportStartEnvelopes();
+      const gamificationChanged=rebuildCampaignGamification();
+      const changed=envelopeChanged||gamificationChanged;
 
       if(changed&&typeof persist==="function"){
         try{await persist()}catch(e){console.warn("reportStart cleanup persist failed",e)}
