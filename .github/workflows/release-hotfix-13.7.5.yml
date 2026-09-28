@@ -1,17 +1,23 @@
-name: Release hotfix 13.7.5
+name: Fix report-start boot race 13.7.5
 
 on:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/release-hotfix-13.7.5.yml"
+      - ".github/workflows/fix-report-start-race-13.7.5.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: life-rpg-pages
+  cancel-in-progress: true
 
 jobs:
-  align-release:
+  fix-and-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,74 +25,68 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Align 13.7.5 release and runtime copy list
+      - name: Fix reportStart finalization race
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          import subprocess
 
-          OLD = "13.7.4"
-          NEW = "13.7.5"
-          SELF = ".github/workflows/release-hotfix-13.7.5.yml"
+          hotfix = Path("report-start-hotfix.js")
+          src = hotfix.read_text(encoding="utf-8")
 
-          raw = subprocess.check_output(["git", "ls-files", "-z"])
-          paths = [p.decode("utf-8") for p in raw.split(b"\0") if p]
+          start = src.find("  async function activate(){")
+          end = src.rfind("})();")
+          if start < 0 or end <= start:
+              raise SystemExit("report-start-hotfix.js: activation block not found")
 
-          changed = []
-          for rel in paths:
-              if rel == SELF:
-                  continue
-              p = Path(rel)
-              try:
-                  text = p.read_text(encoding="utf-8")
-              except (UnicodeDecodeError, OSError):
-                  continue
-              new_text = text.replace(OLD, NEW)
-              if new_text != text:
-                  p.write_text(new_text, encoding="utf-8")
-                  changed.append(rel)
+          replacement = """  let REPORT_START_FINALIZED=false;
 
-          # report-start-hotfix.js is loaded dynamically by bootstrap,
-          # so Vite must also copy it into dist.
-          vite = Path("vite.config.mjs")
-          text = vite.read_text(encoding="utf-8")
-          if '"report-start-hotfix.js"' not in text:
-              anchor = '"bootstrap.js","app.js"'
-              if anchor not in text:
-                  raise SystemExit("vite.config.mjs: runtime copy anchor not found")
-              text = text.replace(anchor, '"report-start-hotfix.js","bootstrap.js","app.js"')
-              vite.write_text(text, encoding="utf-8")
-              if "vite.config.mjs" not in changed:
-                  changed.append("vite.config.mjs")
+            async function lifeReportStartFinalize(){
+              try{
+                installWrappers();
+                if(REPORT_START_FINALIZED)return false;
+                if(typeof storage137BootSettling!==\\"undefined\\"&&storage137BootSettling)return false;
+                if(!stateReady())return false;
 
-          # Guard: bootstrap must actually register the hotfix.
-          bootstrap = Path("bootstrap.js").read_text(encoding="utf-8")
-          if '"report-start-hotfix.js"' not in bootstrap:
-              raise SystemExit("bootstrap.js: report-start-hotfix.js is not registered")
+                REPORT_START_FINALIZED=true;
+                const changed=rebuildCampaignGamification();
 
-          # Critical release files must be aligned.
-          required = [
-              "core.js",
-              "bootstrap.js",
-              "index.html",
-              "manifest.webmanifest",
-              "vite.config.mjs",
-              "package.json",
-              "package-lock.json",
-              "static-check.js",
-              "architecture.test.js",
-              "stage2-ci-release-integrity.test.js",
-              "dist-audit.test.js",
-          ]
-          for rel in required:
-              text = Path(rel).read_text(encoding="utf-8")
-              if OLD in text:
-                  raise SystemExit(f"{rel}: stale {OLD} remains")
+                if(changed&&typeof persist===\\"function\\"){
+                  try{await persist()}catch(e){console.warn(\\"reportStart cleanup persist failed\\",e)}
+                }
+                if(changed&&typeof render===\\"function\\"){
+                  try{render()}catch{}
+                }
+                return changed
+              }catch(e){
+                console.error(\\"reportStart hotfix failed\\",e);
+                return false
+              }
+            }
 
-          print(f"Prepared {len(changed)} changed files:")
-          for rel in changed:
-              print(f"  {rel}")
+            window.lifeReportStartFinalize=lifeReportStartFinalize;
+            installWrappers();
+
+          """
+          hotfix.write_text(src[:start] + replacement + src[end:], encoding="utf-8")
+
+          bootstrap = Path("bootstrap.js")
+          b = bootstrap.read_text(encoding="utf-8")
+          old = 'if(typeof storage137BootSettling!=="undefined")storage137BootSettling=false;requestAnimationFrame(()=>document.documentElement?.classList?.remove("life-rpg-booting"))'
+          new = 'if(typeof storage137BootSettling!=="undefined")storage137BootSettling=false;if(typeof globalThis.lifeReportStartFinalize==="function")await globalThis.lifeReportStartFinalize();requestAnimationFrame(()=>document.documentElement?.classList?.remove("life-rpg-booting"))'
+          if old not in b:
+              raise SystemExit("bootstrap.js: boot-finalization anchor not found")
+          bootstrap.write_text(b.replace(old,new,1),encoding="utf-8")
+
+          h = hotfix.read_text(encoding="utf-8")
+          if 'setTimeout(()=>{void activate()}' in h or 'async function activate(){' in h:
+              raise SystemExit("Old delayed activation remains")
+          if 'window.lifeReportStartFinalize=lifeReportStartFinalize' not in h:
+              raise SystemExit("Finalize hook missing")
+          if 'await globalThis.lifeReportStartFinalize()' not in bootstrap.read_text(encoding="utf-8"):
+              raise SystemExit("Bootstrap finalize hook missing")
+
+          print("Patched report-start-hotfix.js and bootstrap.js")
           PY
 
       - name: Setup Node
@@ -98,7 +98,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Run full unit/static suite
+      - name: Run unit and static tests
         run: npm test
 
       - name: Build production PWA
@@ -107,16 +107,41 @@ jobs:
       - name: Verify production service worker
         run: node dist-audit.test.js
 
-      - name: Commit aligned 13.7.5 release
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile E2E
+        run: npm run test:e2e
+
+      - name: Commit verified fix
         shell: bash
         run: |
-          if git diff --quiet; then
-            echo "No release references required updating."
-            exit 0
-          fi
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Align Life RPG release metadata to 13.7.5"
-          git push
+          git add report-start-hotfix.js bootstrap.js
+          if git diff --cached --quiet; then
+            echo "No code changes to commit."
+          else
+            git commit -m "Fix reportStart boot render race"
+            git push
+          fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./dist
+
+  deploy:
+    needs: fix-and-build
+    if: needs.fix-and-build.result == 'success'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
