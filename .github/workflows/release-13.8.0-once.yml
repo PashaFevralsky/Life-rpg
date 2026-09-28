@@ -37,6 +37,8 @@ jobs:
 
           replace_files=[
             "core.js",
+            "bootstrap.js",
+            "README.md",
             "package-lock.json",
             "manifest.webmanifest",
             "index.html",
@@ -74,6 +76,9 @@ jobs:
             if OLD not in text:
               raise SystemExit(f"Expected {OLD} marker missing in {name}; release script refuses to guess")
             p.write_text(text.replace(OLD,NEW),encoding="utf-8")
+
+          # Remove the obsolete root hotfix note; README.md is the canonical release documentation.
+          Path("README.txt").unlink(missing_ok=True)
 
           # package.json: version + permanent unit release gate.
           pkg_path=Path("package.json")
@@ -166,7 +171,7 @@ jobs:
             assert.ok(pkg.scripts.test.includes("release-13.8.0.test.js"));
             assert.ok(playwright.includes("release-13.8.0.e2e.test.js"));
             
-            for(const f of ["report-start-hotfix.js","ui-polish-13.7.5.js",
+            for(const f of ["report-start-hotfix.js","ui-polish-13.7.5.js","README.txt",
               ".github/workflows/fix-report-start-race-13.7.5.yml",
               ".github/workflows/release-hotfix-13.7.5- v3.yml"]){
               assert.ok(!fs.existsSync(path.join(root,f)),`${f} must be removed`);
