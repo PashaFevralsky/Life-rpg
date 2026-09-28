@@ -2,7 +2,7 @@
 
 /* Life RPG 11.1.0 — Tasks / Next Actions OS */
 
-function taskStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.tasks))S.entities.tasks=[];return S.entities.tasks}
+function taskStore(){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return deepClone(Array.isArray(S.entities?.tasks)?S.entities.tasks:[]);if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.tasks))S.entities.tasks=[];return S.entities.tasks}
 function taskAreaStat(area){return area==="Финансы"?"Финансы":area==="Работа"?"Карьера":area==="Теннис"?"Теннис":area==="Знания"?"Разум":"Дисциплина"}
 function taskDateKey(v){const s=String(v||"");return validDateKey(s)?s:""}
 function taskNormalize(x={}){const id=String(x.id||uid());return {id,title:String(x.title||"Задача").trim(),area:String(x.area||"Личное"),priority:clamp(Math.round(+x.priority||2),1,3),status:["active","done","cancelled"].includes(x.status)?x.status:"active",dueDate:taskDateKey(x.dueDate),plannedDate:taskDateKey(x.plannedDate),notBefore:taskDateKey(x.notBefore),blockedByIds:Array.isArray(x.blockedByIds)?[...new Set(x.blockedByIds.map(String).filter(v=>v&&v!==id))]:[],autoPlanLocked:!!x.autoPlanLocked,minutes:clamp(Math.round(+x.minutes||15),0,720),projectId:String(x.projectId||""),crmDealId:String(x.crmDealId||""),note:String(x.note||""),createdAt:String(x.createdAt||new Date().toISOString()),updatedAt:String(x.updatedAt||x.createdAt||new Date().toISOString()),completedAt:String(x.completedAt||""),timerStartedAt:String(x.timerStartedAt||""),actualMinutes:Math.max(0,Math.round(+x.actualMinutes||0)),timerCapped:!!x.timerCapped,rescheduleCount:Math.max(0,Math.round(+x.rescheduleCount||0)),xpAwarded:+x.xpAwarded||0}}

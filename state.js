@@ -108,6 +108,9 @@ function storageSafeModeError(){const e=new Error("Safe Mode: запись со�
 async function withStorageSafeWrite(fn){storageSafeWriteOverride++;try{return await fn()}finally{storageSafeWriteOverride--}}
 function storageRememberDurable(state){storageLastDurableState=state?deepClone(state):null}
 function storageRollbackMemory(){if(!storageLastDurableState)return false;S=normalizeState(deepClone(storageLastDurableState));return true}
+function storageComparableState(state){const x=deepClone(state||{});if(x.settings&&typeof x.settings==="object")delete x.settings[STORAGE137_META_KEY];delete x.updated;return JSON.stringify(x)}
+function storageStateMatches(a,b){try{return storageComparableState(a)===storageComparableState(b)}catch{return false}}
+function storageRollbackMemoryIfCurrent(attempted){if(attempted&&!storageStateMatches(S,attempted))return false;return storageRollbackMemory()}
 function storage137Meta(state){const x=state?.settings?.[STORAGE137_META_KEY];return x&&typeof x==="object"&&!Array.isArray(x)?x:{}}
 function storage137Revision(state){const n=Number(storage137Meta(state).revision);return Number.isInteger(n)&&n>=0?n:0}
 function storage137Writer(state){return String(storage137Meta(state).writerId||"")}
@@ -271,8 +274,8 @@ async function writeStateSnapshot(snapshot,makeBackup,expectedRevision=storageKn
   if(databaseSaved){try{const day=localDateKey(),last=localStorage.getItem("lifeRpgBackupDay");if(makeBackup||day!==last){await dbPut("backups",{ts:Date.now(),day,state:deepClone(snapshot)});await cleanupBackups(30);localStorage.setItem("lifeRpgBackupDay",day)}}catch(e){storageMessage("Данные сохранены • не удалось создать дополнительный снимок.")}}
 }
 
-async function commitStateAtomically(mutator,{makeBackup=false,allowSafeWrite=false}={}){const before=deepClone(S),beforeLoadBlocked=storageLoadBlocked;const run=async()=>{try{const result=await mutator();await persist(makeBackup);return result}catch(e){S=before;storageLoadBlocked=beforeLoadBlocked;throw e}};return allowSafeWrite?withStorageSafeWrite(run):run()}
-async function save(msg){try{await persist();render();if(msg)toast(msg);return true}catch(e){storageRollbackMemory();try{render()}catch{};storageMessage(e.message);toast(`Изменение не сохранено: ${e.message}`);throw e}}
+async function commitStateAtomically(mutator,{makeBackup=false,allowSafeWrite=false}={}){const before=deepClone(S),beforeLoadBlocked=storageLoadBlocked;let attempted=null;const run=async()=>{try{const result=await mutator();attempted=deepClone(S);await persist(makeBackup);return result}catch(e){if(!attempted||storageStateMatches(S,attempted)){S=before;storageLoadBlocked=beforeLoadBlocked}else storageMessage("Откат операции не применён: после неё есть более новые локальные изменения.");throw e}};return allowSafeWrite?withStorageSafeWrite(run):run()}
+async function save(msg){const attempted=deepClone(S);try{await persist();render();if(msg)toast(msg);return true}catch(e){const rolledBack=storageRollbackMemoryIfCurrent(attempted);try{render()}catch{};storageMessage(rolledBack?e.message:`${e.message} • более новые локальные изменения не откатывались`);toast(`Изменение не сохранено: ${e.message}`);throw e}}
 
 function audit(action,entity="",detail=""){S.auditLog=S.auditLog||[];S.auditLog.unshift({id:uid(),date:new Date().toISOString(),action,entity,detail:String(detail||"")});S.auditLog=S.auditLog.slice(0,300)}
 
@@ -333,7 +336,23 @@ function dataIntegrityIssues(){
   return issues
 }
 
-async function repairDomainIntegrity(){if(!confirm("Выполнить безопасный пересчёт производных данных? Перед этим будет создан снимок."))return;await createPreActionSnapshot("Перед безопасным ремонтом данных");for(const b of S.books||[])recomputeBookProgress(b.id);const q=(S.books||[]).filter(b=>b.status==="queued").slice().sort((a,b)=>(+a.readingOrder||999999)-(+b.readingOrder||999999)||String(a.created||"").localeCompare(String(b.created||"")));q.forEach((b,i)=>b.readingOrder=i+1);for(const d of S.crmDeals||[])d.probability=clamp(+d.probability||0,0,100);for(const t of S.tennis||[]){if(Array.isArray(t.matches)&&t.matches.length){t.w=t.matches.filter(m=>String(m.result||"").toUpperCase()==="W").length;t.l=t.matches.filter(m=>String(m.result||"").toUpperCase()==="L").length}}if(typeof recomputeTennisElo==="function")recomputeTennisElo();reconcileReadingAwards();audit("Безопасный ремонт данных","system","очередь книг • прогресс • CRM probability • Tennis Elo");await save("Производные данные пересчитаны")}
+async function repairDomainIntegrity(){
+  if(!confirm("Выполнить безопасный пересчёт производных данных? Перед этим будет создан снимок."))return;
+  await createPreActionSnapshot("Перед безопасным ремонтом данных");
+  await commitStateAtomically(()=>{
+    for(const b of S.books||[])recomputeBookProgress(b.id);
+    const q=(S.books||[]).filter(b=>b.status==="queued").slice().sort((a,b)=>(+a.readingOrder||999999)-(+b.readingOrder||999999)||String(a.created||"").localeCompare(String(b.created||"")));
+    q.forEach((b,i)=>b.readingOrder=i+1);
+    for(const d of S.crmDeals||[])d.probability=clamp(+d.probability||0,0,100);
+    for(const t of S.tennis||[])if(Array.isArray(t.matches)&&t.matches.length){t.w=t.matches.filter(m=>String(m.result||"").toUpperCase()==="W").length;t.l=t.matches.filter(m=>String(m.result||"").toUpperCase()==="L").length}
+    if(typeof recomputeTennisElo==="function")recomputeTennisElo();
+    reconcileReadingAwards();
+    audit("Безопасный ремонт данных","system","очередь книг • прогресс • CRM probability • Tennis Elo");
+  });
+  render();toast("Производные данные пересчитаны")
+}
+
+
 
 function renderSystemDiagnostics(){const box=$("systemDiagnostics");if(!box)return;const issues=dataIntegrityIssues();if($("trashStatus"))$("trashStatus").textContent=(S.trash||[]).length?`В корзине: ${S.trash.length}`:"Корзина пуста";if(!issues.length){box.innerHTML='<div class="status"><b>OK.</b> Финансы, CRM, Work, Tennis и Knowledge не показывают критичных проблем целостности.</div>';return}box.innerHTML=issues.map(x=>`<div class="notice ${x.level==="bad"?"diagnostic-bad":""}" style="margin-top:8px"><b>${escapeHtml(x.title)}</b>${x.detail?`<div class="sub">${escapeHtml(x.detail)}</div>`:""}</div>`).join("")}
 

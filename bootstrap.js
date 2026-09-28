@@ -25,11 +25,14 @@ function lifeInstallRuntime(){
     ["ensureKnowledgeGrowthUi","renderKnowledgeGrowth"],["ensureKnowledge124Ui","renderKnowledge124"],["ensureTennisGrowthUi","renderTennisGrowth"],["tennisHuaweiEnsureUi","tennisHuaweiRefresh"],["ensureTennisDecision22Ui","renderTennisDecision22"],["ensureTodayExecution123Ui","renderTodayExecution123"],["ensureRpgGrowthUi","renderRpgGrowth"],["ensurePersonalImportUi","renderPersonalImportUi"],["ensureImport127Ui","renderImport127"],["ensureDashboardOsUi","renderDashboardOs"],["ensureIntegration125Ui","renderIntegration125"],["ensureUx128Ui","renderUx128"],["ensureShare131Ui","renderShare131"],["ensureIntelligence132Ui","renderIntelligence132"],["ensureIntelligence1321Ui","renderIntelligence1321"],["ensurePredictive1322Ui","renderPredictive1322"],["ensureRecovery133Ui","renderRecovery133"],["ensureGpt135Ui","renderGpt135"]
   ];
   render=function(){
-    try{baseRender()}catch(e){lifeRuntimeRecordError("base-render","render",e)}
-    for(const [ensureName,renderName] of renderPipeline){
-      lifeRuntimeInvoke(ensureName,"ensure");
-      lifeRuntimeInvoke(renderName,"render")
-    }
+    const safe=typeof storageSafeModeActive==="function"&&storageSafeModeActive(),before=safe?deepClone(S):null;
+    try{
+      try{baseRender()}catch(e){lifeRuntimeRecordError("base-render","render",e)}
+      for(const [ensureName,renderName] of renderPipeline){
+        lifeRuntimeInvoke(ensureName,"ensure");
+        lifeRuntimeInvoke(renderName,"render")
+      }
+    }finally{if(safe)S=before}
     requestAnimationFrame(()=>{lifeRefreshReleaseLabels();renderUx7FinancePulse();renderUx7TodayPulse();ux7RefreshHeaders();const active=document.querySelector(".section.active")?.id||"today";for(const id of Object.keys(UX7_META)){const section=$(id);if(id===active||section?.querySelector(".ux7-card:not(.ux7-view-ready)"))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false)}window.LifePlatform?.refreshIcons?.();if(typeof dashboardApply==="function")dashboardApply()})
   };
   const baseSwitchTab=switchTab;switchTab=function(id){baseSwitchTab(id);requestAnimationFrame(()=>{const view=UX7_PREFS[id]||UX7_DEFAULTS[id];ux7SetView(id,view,false);ux7RefreshHeaders();ui82SyncChrome(id,view);if(typeof dashboardApply==="function")dashboardApply()})}

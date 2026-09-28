@@ -11,14 +11,18 @@ const INTEL132_MAX_STATE=500;
 let INTEL132_INTEGRATED=false;
 
 function intelligence132Store(){
-  S.settings=S.settings||{};
-  let x=S.settings.intelligence132;
-  if(!x||typeof x!=="object"||Array.isArray(x))x={};
+  const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+  const current=S.settings?.intelligence132;
+  let x=current&&typeof current==="object"&&!Array.isArray(current)?(readOnly?deepClone(current):current):{};
   if(!Array.isArray(x.journal))x.journal=[];
   if(!x.candidateState||typeof x.candidateState!=="object"||Array.isArray(x.candidateState))x.candidateState={};
   if(!x.scenario||typeof x.scenario!=="object"||Array.isArray(x.scenario))x.scenario={spend:0,incomeFactor:100,trainingMinutes:0,trainingRpe:4,extraWorkMinutes:0,extraKnowledgeMinutes:0};
-  x.version=INTEL132_VERSION;S.settings.intelligence132=x;return x
+  x.version=INTEL132_VERSION;
+  if(!readOnly){S.settings=S.settings||{};S.settings.intelligence132=x}
+  return x
 }
+
+
 function intelligence132Now(){return new Date().toISOString()}
 function intelligence132Finite(v,f=0){const n=Number(v);return Number.isFinite(n)?n:f}
 function intelligence132Clamp(v,a=0,b=100){return clamp(intelligence132Finite(v,0),a,b)}

@@ -3,7 +3,7 @@
 /* Life RPG 11.1.0 — Data Architecture / Entity Integrity */
 
 const DATA_ENTITY_KEYS=["projects","tasks","goals","routines","routineLogs","reviews","inbox","calendarEvents"];
-function entityStore(key){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities[key]))S.entities[key]=[];return S.entities[key]}
+function entityStore(key){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return deepClone(Array.isArray(S.entities?.[key])?S.entities[key]:[]);if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities[key]))S.entities[key]=[];return S.entities[key]}
 function entityIndex(key){return new Map(entityStore(key).map(x=>[String(x.id||""),x]).filter(([id])=>id))}
 function entitySummary(){return Object.fromEntries(DATA_ENTITY_KEYS.map(k=>[k,entityStore(k).length]))}
 function entityIntegrityIssues(){

@@ -2,7 +2,7 @@
 
 /* Life RPG 13.2.2 — Core utilities and constants */
 
-const APP_VERSION="13.7.1";
+const APP_VERSION="13.7.2";
 
 const STATE_VERSION=18;
 

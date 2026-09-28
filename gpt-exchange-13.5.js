@@ -17,21 +17,21 @@ function gpt135Id(prefix="gpt"){
   try{return `${prefix}-${crypto.randomUUID()}`}catch{return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,9)}`}
 }
 function gpt135Store(){
-  S.settings=S.settings||{};
-  let x=S.settings.gptExchange135;
-  if(!x||typeof x!=="object"||Array.isArray(x))x={};
+  const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+  const current=S.settings?.gptExchange135;
+  let x=current&&typeof current==="object"&&!Array.isArray(current)?(readOnly?deepClone(current):current):{};
   if(!["summary","detailed"].includes(x.privacy))x.privacy="summary";
   if(!x.scopes||typeof x.scopes!=="object"||Array.isArray(x.scopes))x.scopes={finance:true,work:true,tennis:true,training:true,knowledge:true,planning:true,intelligence:true};
   for(const k of ["finance","work","tennis","training","knowledge","planning","intelligence"])if(typeof x.scopes[k]!=="boolean")x.scopes[k]=true;
   if(!Array.isArray(x.history))x.history=[];
   if(!Array.isArray(x.appliedFingerprints))x.appliedFingerprints=[];
   if(!x.lastAnalysis||typeof x.lastAnalysis!=="object")x.lastAnalysis=null;
-  x.history=x.history.slice(0,GPT135_MAX_HISTORY);
-  x.appliedFingerprints=x.appliedFingerprints.slice(-200);
-  x.version=GPT135_VERSION;
-  S.settings.gptExchange135=x;
+  x.history=x.history.slice(0,GPT135_MAX_HISTORY);x.appliedFingerprints=x.appliedFingerprints.slice(-200);x.version=GPT135_VERSION;
+  if(!readOnly){S.settings=S.settings||{};S.settings.gptExchange135=x}
   return x
 }
+
+
 function gpt135CleanupLegacy(){
   if(GPT135_LEGACY_CLEANED)return false;
   GPT135_LEGACY_CLEANED=true;

@@ -2,8 +2,9 @@
 
 /* Life RPG Growth OS — universal tracking + habit strength. */
 function growthData(){
-  S.settings=S.settings||{};
-  const g=S.settings.growthOS&&typeof S.settings.growthOS==="object"?S.settings.growthOS:(S.settings.growthOS={});
+  const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+  const current=S.settings?.growthOS;
+  const g=current&&typeof current==="object"&&!Array.isArray(current)?(readOnly?deepClone(current):current):{};
   if(!Array.isArray(g.trackers))g.trackers=[];if(!Array.isArray(g.events))g.events=[];if(!Array.isArray(g.knowledgeNotes))g.knowledgeNotes=[];if(!Array.isArray(g.tennisTemplates))g.tennisTemplates=[];if(!Array.isArray(g.tennisDetails))g.tennisDetails=[];
   if(!g.activeTimers||typeof g.activeTimers!=="object"||Array.isArray(g.activeTimers))g.activeTimers={};
   if(!g.initializedAt){
@@ -14,8 +15,11 @@ function growthData(){
       {id:"tracker-sleep",name:"Сон",area:"Личное",type:"value",unit:"ч",active:true,createdAt:new Date().toISOString()}
     );g.initializedAt=new Date().toISOString()
   }
+  if(!readOnly){S.settings=S.settings||{};S.settings.growthOS=g}
   return g
 }
+
+
 function growthTrackers(){return growthData().trackers.filter(x=>x&&x.active!==false)}
 function growthTracker(id){return growthData().trackers.find(x=>String(x.id)===String(id))||null}
 function growthEventDate(x){const k=String(x?.dateKey||"");return validDateKey(k)?k:String(x?.occurredAt||x?.createdAt||"").slice(0,10)}

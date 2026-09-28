@@ -126,7 +126,7 @@ function applyEnvelopeCarryover(month){
   if(!S.settings.envelopeRollover)return;const next=nextMonthKey(month),carry={};for(const cat of Object.keys(S.envelopeLimits||{})){const limit=effectiveEnvelopeLimit(cat,month),spent=monthCategorySpend(cat,month);if(limit>0)carry[cat]=Math.max(0,limit-spent)}S.envelopeCarryovers[next]=carry
 }
 
-function plannedIncomeForMonth(){return (S.settings.incomeEvents||[]).reduce((a,x)=>a+(+x.amount||0),0)}
+function plannedIncomeForMonth(){return moneySum((S.settings.incomeEvents||[]).map(x=>x.amount))}
 
 function plannedIncomeToDate(d=new Date()){const today=d.getDate(),last=daysInMonth(d);return moneySum((S.settings.incomeEvents||[]).filter(x=>Math.min(+x.day||1,last)<=today).map(x=>x.amount))}
 
@@ -192,36 +192,35 @@ function financialPhase(){
 }
 
 function autopilotPlan(options={}){
-  const ignoreReservations=!!options.ignoreReservations,cash=operatingCashBalance(),reserved=ignoreReservations?0:reservedCashTotal(),available=Math.max(0,cash-reserved),next=nextPlannedIncomeDate(),today=new Date(),days=next?Math.max(1,daysBetween(today,next.date)):7;
-  const mandatory=next?mandatoryBefore(next.date):overdueMinimums(),alreadyMandatory=ignoreReservations?0:reservationAmount("mandatory"),mandatoryNeed=Math.max(0,mandatory.reduce((a,x)=>a+x.amount,0)-alreadyMandatory);
-  const daily=dynamicDailyBudget(),alreadyLiving=ignoreReservations?0:reservationAmount("living"),livingNeed=Math.max(0,Math.min(remainingLivingBudget(),Math.max(0,days*daily))-alreadyLiving);
-  const phase=financialPhase();let left=available;
-  const mandatoryReserve=Math.min(left,mandatoryNeed);left-=mandatoryReserve;
-  const livingReserve=Math.min(left,livingNeed);left-=livingReserve;
+  const ignoreReservations=!!options.ignoreReservations,cash=moneyFromCents(moneyCents(operatingCashBalance())),reserved=ignoreReservations?0:reservedCashTotal(),available=Math.max(0,moneySub(cash,reserved)),next=nextPlannedIncomeDate(),today=new Date(),days=next?Math.max(1,daysBetween(today,next.date)):7;
+  const mandatory=next?mandatoryBefore(next.date):overdueMinimums(),alreadyMandatory=ignoreReservations?0:reservationAmount("mandatory"),mandatoryNeed=Math.max(0,moneySub(moneySum(mandatory.map(x=>x.amount)),alreadyMandatory));
+  const daily=dynamicDailyBudget(),alreadyLiving=ignoreReservations?0:reservationAmount("living"),livingNeed=Math.max(0,moneySub(Math.min(remainingLivingBudget(),Math.max(0,days*daily)),alreadyLiving));
+  const phase=financialPhase();let left=moneyFromCents(moneyCents(available));
+  const take=need=>{const cents=Math.min(Math.max(0,moneyCents(left)),Math.max(0,moneyCents(need))),value=moneyFromCents(cents);left=moneySub(left,value);return value};
+  const mandatoryReserve=take(mandatoryNeed),livingReserve=take(livingNeed);
   let emergencyNeed=0,emergencyTopUp=0,best=null,debtExtra=0;
-  if(phase.id==="mini_buffer"){
-    emergencyNeed=Math.max(0,miniBufferGap()-(ignoreReservations?0:reservationAmount("emergency")));emergencyTopUp=Math.min(left,emergencyNeed);left-=emergencyTopUp;best=bestDebt();debtExtra=best?Math.min(left,best.balance):0;left-=debtExtra
-  }else if(phase.id==="debt_attack"){
-    best=highestHighInterestDebt()||bestDebt();debtExtra=best?Math.min(left,best.balance):0;left-=debtExtra
-  }else if(phase.id==="full_reserve"){
-    emergencyNeed=Math.max(0,emergencyFundGap()-(ignoreReservations?0:reservationAmount("emergency")));emergencyTopUp=Math.min(left,emergencyNeed);left-=emergencyTopUp;best=bestDebt();debtExtra=best?Math.min(left,best.balance):0;left-=debtExtra
-  }else if(phase.id==="debt_finish"){
-    best=bestDebt();debtExtra=best?Math.min(left,best.balance):0;left-=debtExtra
-  }
-  return {cash,reserved,available,next,days,daily,mandatory,mandatoryNeed,mandatoryReserve,livingNeed,livingReserve,emergencyNeed,emergencyTopUp,best,debtExtra,phase,unallocated:Math.max(0,left),shortage:Math.max(0,mandatoryNeed+livingNeed-available)}
+  if(phase.id==="mini_buffer"){emergencyNeed=Math.max(0,moneySub(miniBufferGap(),ignoreReservations?0:reservationAmount("emergency")));emergencyTopUp=take(emergencyNeed);best=bestDebt();debtExtra=best?take(best.balance):0}
+  else if(phase.id==="debt_attack"){best=highestHighInterestDebt()||bestDebt();debtExtra=best?take(best.balance):0}
+  else if(phase.id==="full_reserve"){emergencyNeed=Math.max(0,moneySub(emergencyFundGap(),ignoreReservations?0:reservationAmount("emergency")));emergencyTopUp=take(emergencyNeed);best=bestDebt();debtExtra=best?take(best.balance):0}
+  else if(phase.id==="debt_finish"){best=bestDebt();debtExtra=best?take(best.balance):0}
+  return {cash,reserved,available,next,days,daily,mandatory,mandatoryNeed,mandatoryReserve,livingNeed,livingReserve,emergencyNeed,emergencyTopUp,best,debtExtra,phase,unallocated:moneyFromCents(Math.max(0,moneyCents(left))),shortage:Math.max(0,moneySub(moneyAdd(mandatoryNeed,livingNeed),available))}
 }
+
+
 
 function releaseActiveReservations(silent=false){let n=0;for(const r of activeReservations()){r.status="released";r.releasedAt=new Date().toISOString();n++}if(!silent&&n===0)toast("Активных резервов нет");return n}
 
 async function acceptAutopilotPlan(){
   if(!primaryCashVerifiedAt()){toast("Сначала сверь текущий денежный баланс");$("cashSyncInput")?.focus();return}
-  releaseActiveReservations(true);const p=autopilotPlan({ignoreReservations:true}),planId=uid(),createdAt=new Date().toISOString(),untilDate=p.next?localDateKey(p.next.date):localDateKey(addDays(new Date(),7));let left=p.mandatoryReserve;
-  for(const m of p.mandatory){if(left<=0.009)break;const amount=Math.min(left,m.amount);if(amount>0)S.reservations.push({id:uid(),planId,type:"mandatory",label:m.label||m.debt,debtIndex:m.debtIndex??null,regularPaymentId:m.regularPaymentId||null,amount,remaining:amount,createdAt,untilDate,status:"active"});left-=amount}
-  if(p.livingReserve>0)S.reservations.push({id:uid(),planId,type:"living",label:"Жизнь до следующего дохода",amount:p.livingReserve,remaining:p.livingReserve,createdAt,untilDate,status:"active"});
-  if(p.emergencyTopUp>0)S.reservations.push({id:uid(),planId,type:"emergency",label:"Пополнение резерва",amount:p.emergencyTopUp,remaining:p.emergencyTopUp,createdAt,untilDate,status:"active"});
-  if(p.debtExtra>0&&p.best)S.reservations.push({id:uid(),planId,type:"debt",label:`Досрочка: ${p.best.name}`,debtIndex:p.best.i,amount:p.debtExtra,remaining:p.debtExtra,createdAt,untilDate,status:"active"});
+  releaseActiveReservations(true);const p=autopilotPlan({ignoreReservations:true}),planId=uid(),createdAt=new Date().toISOString(),untilDate=p.next?localDateKey(p.next.date):localDateKey(addDays(new Date(),7));let leftCents=Math.max(0,moneyCents(p.mandatoryReserve));
+  for(const m of p.mandatory){if(leftCents<=0)break;const amountCents=Math.min(leftCents,Math.max(0,moneyCents(m.amount))),amount=moneyFromCents(amountCents);if(amountCents>0)S.reservations.push({id:uid(),planId,type:"mandatory",label:m.label||m.debt,debtIndex:m.debtIndex??null,regularPaymentId:m.regularPaymentId||null,amount,remaining:amount,createdAt,untilDate,status:"active"});leftCents-=amountCents}
+  if(moneyCents(p.livingReserve)>0)S.reservations.push({id:uid(),planId,type:"living",label:"Жизнь до следующего дохода",amount:p.livingReserve,remaining:p.livingReserve,createdAt,untilDate,status:"active"});
+  if(moneyCents(p.emergencyTopUp)>0)S.reservations.push({id:uid(),planId,type:"emergency",label:"Пополнение резерва",amount:p.emergencyTopUp,remaining:p.emergencyTopUp,createdAt,untilDate,status:"active"});
+  if(moneyCents(p.debtExtra)>0&&p.best)S.reservations.push({id:uid(),planId,type:"debt",label:`Досрочка: ${p.best.name}`,debtIndex:p.best.i,amount:p.debtExtra,remaining:p.debtExtra,createdAt,untilDate,status:"active"});
   await save("План денег принят — суммы больше не считаются свободными")
 }
+
+
 
 async function releaseAutopilotPlan(){const n=releaseActiveReservations(true);if(!n){toast("Активных резервов нет");return}await save("Резервы плана освобождены")}
 
@@ -253,7 +252,9 @@ function projectedDailyLiving(d){
   const mk=localMonthKey(d),envelopeTotal=Object.keys(S.envelopeLimits||{}).reduce((a,cat)=>a+effectiveEnvelopeLimit(cat,mk),0);return envelopeTotal>0?envelopeTotal/daysInMonth(d):(+S.settings.dailySpendLimit||0)
 }
 
-function dailyCashFlow(days=30,mode="safe"){const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12),end=addDays(start,days-1),payments=projectionPaymentEvents(start,end),incomes=incomeEventsBetween(start,end),byPay={},byIncome={};for(const e of payments)byPay[e.dateKey]=(byPay[e.dateKey]||0)+e.amount;for(const e of incomes)byIncome[e.dateKey]=(byIncome[e.dateKey]||0)+e.amount;const rows=[];let balance=operatingCashBalance();for(let i=0;i<days;i++){const d=addDays(start,i),key=localDateKey(d),income=byIncome[key]||0,debt=byPay[key]||0,living=projectedDailyLiving(d),extraDebt=mode==="plan"?plannedExtraDebtOnDate(d):0;balance+=income-debt-living-extraDebt;rows.push({date:d,income,debt,living,extraDebt,balance})}const min=rows.reduce((a,x)=>Math.min(a,x.balance),Infinity),deficit=rows.find(x=>x.balance<0)||null;return {rows,min,deficit,end:rows.at(-1)?.balance??operatingCashBalance(),mode}}
+function dailyCashFlow(days=30,mode="safe"){const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12),end=addDays(start,days-1),payments=projectionPaymentEvents(start,end),incomes=incomeEventsBetween(start,end),byPay={},byIncome={};for(const e of payments)byPay[e.dateKey]=moneyAdd(byPay[e.dateKey]||0,e.amount);for(const e of incomes)byIncome[e.dateKey]=moneyAdd(byIncome[e.dateKey]||0,e.amount);const rows=[];let balance=moneyFromCents(moneyCents(operatingCashBalance()));for(let i=0;i<days;i++){const d=addDays(start,i),key=localDateKey(d),income=byIncome[key]||0,debt=byPay[key]||0,living=moneyFromCents(moneyCents(projectedDailyLiving(d))),extraDebt=mode==="plan"?moneyFromCents(moneyCents(plannedExtraDebtOnDate(d))):0;balance=moneyAdd(balance,income,-debt,-living,-extraDebt);rows.push({date:d,income,debt,living,extraDebt,balance})}const min=rows.reduce((a,x)=>Math.min(a,x.balance),Infinity),deficit=rows.find(x=>x.balance<0)||null;return {rows,min,deficit,end:rows.at(-1)?.balance??moneyFromCents(moneyCents(operatingCashBalance())),mode}}
+
+
 
 function simulateScenario(monthlyBudget,immediateExtra=0){
   const copy=deepClone(S.debts),i=highestRateDebtIndex();if(i>=0&&immediateExtra>0)copy[i].balance=Math.max(0,copy[i].balance-immediateExtra);return {result:simulateDebt(monthlyBudget,copy),debt:i>=0?S.debts[i]:null}
@@ -264,7 +265,7 @@ function financeMonthMetrics(month=localMonthKey()){
   return {month,income,expenses,livingExpenses,regularExpenses,payments,cash:income-expenses-payments,livingBudget,incomePlan:+S.settings.monthlyIncome||0,debtGoal:+S.settings.monthlyDebtGoal||0,totalDebt:totalDebt(),operatingCash:operatingCashBalance(),reservedCash:reservedCashTotal(),freeCash:freeCashBalance(),emergencyFund:+S.settings.emergencyFundBalance||0}
 }
 
-function monthCategorySpend(cat,month=localMonthKey()){return S.expenses.filter(x=>x.dateKey?.startsWith(month)&&x.category===cat&&!x.regularPaymentId).reduce((a,x)=>a+(+x.amount||0),0)}
+function monthCategorySpend(cat,month=localMonthKey()){return moneySum(S.expenses.filter(x=>x.dateKey?.startsWith(month)&&x.category===cat&&!x.regularPaymentId).map(x=>x.amount))}
 
 function plannedIncomeOverDays(days){const start=new Date(),end=addDays(start,days),seen=new Set();let sum=0;for(let i=0;i<=days;i++){const d=addDays(new Date(start.getFullYear(),start.getMonth(),start.getDate(),12),i),k=localDateKey(d);if(k>localDateKey(end)||seen.has(k))continue;seen.add(k);sum+=plannedIncomeOnDate(d)}return sum}
 
@@ -280,7 +281,7 @@ function debtById(id){return S.debts.find(d=>d.id===id)}
 
 function debtIndexById(id){return S.debts.findIndex(d=>d.id===id)}
 
-function paymentToDebtThisMonth(i){const m=localMonthKey();return S.payments.filter(p=>p.debtIndex===i&&(p.monthKey||String(p.date||"").slice(0,7))===m).reduce((a,p)=>a+(+p.amount||0),0)}
+function paymentToDebtThisMonth(i){const m=localMonthKey();return moneySum(S.payments.filter(p=>p.debtIndex===i&&(p.monthKey||String(p.date||"").slice(0,7))===m).map(p=>p.amount))}
 
 function incomeScheduleRow(ev={id:uid(),day:1,label:"Доход",amount:0}){return `<div class="income-schedule-row"><input data-income-id type="hidden" value="${escapeHtml(ev.id||uid())}"><div class="field"><label>День</label><input data-income-day type="number" min="1" max="31" value="${ev.day||1}"></div><div class="field"><label>Название</label><input data-income-label value="${escapeHtml(ev.label||"Доход")}"></div><div class="field"><label>Сумма, ₽</label><input data-income-amount type="number" min="0" value="${+ev.amount||0}"></div><button class="btn ghost small" type="button" onclick="removeIncomeScheduleRow(this)">Удалить</button></div>`}
 
@@ -449,7 +450,9 @@ function incomeEventsBetween(start,end){const out=[];let cur=new Date(start.getF
 
 function projectionLivingPerDay(d){const env=Object.values(S.envelopeLimits||{}).reduce((s,x)=>s+(+x||0),0);if(env>0)return monthlyLivingBudget(d)/Math.max(1,daysInMonth(d));return Math.max(0,+S.settings.dailySpendLimit||0)}
 
-function buildFinancialProjection(days=90,opts={}){days=clamp(Math.round(+days||90),1,180);const start=new Date(),startDay=new Date(start.getFullYear(),start.getMonth(),start.getDate(),12),end=addDays(startDay,days-1),incomeFactor=Math.max(0,opts.incomeFactor==null?100:(+opts.incomeFactor||0))/100,oneOff=Math.max(0,+opts.oneOffExpense||0),extraMonthly=Math.max(0,+opts.extraDebtMonthly||0),floor=Math.max(0,+S.settings.minimumCashFloor||0),events=[...incomeEventsBetween(startDay,end),...projectionPaymentEvents(startDay,end)];const by={};for(const e of events)(by[e.dateKey]??=[]).push(e);let balance=operatingCashBalance(),minBalance=balance,minDate=localDateKey(startDay),cashGapDate="",income=0,outflow=0,living=0;const series=[];for(let i=0;i<days;i++){const d=addDays(startDay,i),key=localDateKey(d),dayEvents=by[key]||[];for(const e of dayEvents){if(e.type==="income"){const v=e.amount*incomeFactor;balance+=v;income+=v}else{balance-=e.amount;outflow+=e.amount}}const live=projectionLivingPerDay(d);balance-=live;living+=live;if(i===0&&oneOff>0){balance-=oneOff;outflow+=oneOff}if(extraMonthly>0&&d.getDate()===25){balance-=extraMonthly;outflow+=extraMonthly}if(balance<minBalance){minBalance=balance;minDate=key}if(!cashGapDate&&balance<floor)cashGapDate=key;series.push({date:key,balance})}return {days,start:startDay,end,balanceStart:operatingCashBalance(),endingBalance:balance,minBalance,minDate,cashGapDate,income,outflow,living,series,events:events.sort((a,b)=>a.date-b.date),warnings:[...(accountsModeActive()?[]:["Нет подтверждённого банковского остатка"]),...(debtScheduleIssues().length?[`У ${debtScheduleIssues().length} долгов отсутствует или просрочена следующая дата платежа`]:[]),...((!+S.settings.dailySpendLimit&&!Object.values(S.envelopeLimits||{}).some(x=>+x>0))?["Не задан бюджет повседневных расходов"]:[])]}}
+function buildFinancialProjection(days=90,opts={}){days=clamp(Math.round(+days||90),1,180);const start=new Date(),startDay=new Date(start.getFullYear(),start.getMonth(),start.getDate(),12),end=addDays(startDay,days-1),incomeFactor=Math.max(0,opts.incomeFactor==null?100:(+opts.incomeFactor||0))/100,oneOff=moneyFromCents(Math.max(0,moneyCents(opts.oneOffExpense||0))),extraMonthly=moneyFromCents(Math.max(0,moneyCents(opts.extraDebtMonthly||0))),floor=moneyFromCents(Math.max(0,moneyCents(S.settings.minimumCashFloor||0))),events=[...incomeEventsBetween(startDay,end),...projectionPaymentEvents(startDay,end)];const by={};for(const e of events)(by[e.dateKey]??=[]).push(e);let balance=moneyFromCents(moneyCents(operatingCashBalance())),minBalance=balance,minDate=localDateKey(startDay),cashGapDate="",income=0,outflow=0,living=0;const series=[];for(let i=0;i<days;i++){const d=addDays(startDay,i),key=localDateKey(d),dayEvents=by[key]||[];for(const e of dayEvents){if(e.type==="income"){const v=moneyFromCents(moneyCents(e.amount*incomeFactor));balance=moneyAdd(balance,v);income=moneyAdd(income,v)}else{balance=moneyAdd(balance,-e.amount);outflow=moneyAdd(outflow,e.amount)}}const live=moneyFromCents(moneyCents(projectionLivingPerDay(d)));balance=moneyAdd(balance,-live);living=moneyAdd(living,live);if(i===0&&oneOff>0){balance=moneyAdd(balance,-oneOff);outflow=moneyAdd(outflow,oneOff)}if(extraMonthly>0&&d.getDate()===25){balance=moneyAdd(balance,-extraMonthly);outflow=moneyAdd(outflow,extraMonthly)}if(balance<minBalance){minBalance=balance;minDate=key}if(!cashGapDate&&balance<floor)cashGapDate=key;series.push({date:key,balance})}return {days,start:startDay,end,balanceStart:moneyFromCents(moneyCents(operatingCashBalance())),endingBalance:balance,minBalance,minDate,cashGapDate,income,outflow,living,series,events:events.sort((a,b)=>a.date-b.date),warnings:[...(accountsModeActive()?[]:["Нет подтверждённого банковского остатка"]),...(debtScheduleIssues().length?[`У ${debtScheduleIssues().length} долгов отсутствует или просрочена следующая дата платежа`]:[]),...((!+S.settings.dailySpendLimit&&!Object.values(S.envelopeLimits||{}).some(x=>+x>0))?["Не задан бюджет повседневных расходов"]:[])]}}
+
+
 
 function financialHealthData(){const p=buildFinancialProjection(30),cash=operatingCashBalance(),out30=moneyAdd(p.outflow,p.living),liq=out30>0?cash/out30:null,debt30=moneySum(p.events.filter(x=>x.kind==="debt").map(x=>x.amount)),income30=Math.max(0,moneyFromCents(moneyCents(p.income))),burden=income30>0?debt30/income30:null,availableReserve=moneyAdd(availableAssetValue(),+S.settings.emergencyFundBalance||0),dailyEssential=out30/30,reserveDays=dailyEssential>0?availableReserve/dailyEssential:null,today=localDateKey();const verified=activeAccounts().filter(accountVerified).map(a=>dateKeyDiff(localDateKey(new Date(accountVerificationTs(a))),today)).filter(Number.isFinite).map(x=>Math.max(0,x)),fresh=verified.length?Math.max(...verified):null;return {liq,burden,reserveDays,fresh,cash,out30,income30,debt30,availableReserve,p}}
 
@@ -483,7 +486,7 @@ async function archiveAsset(id){const a=(S.assets||[]).find(x=>x.id===id);if(!a)
 
 function matchAssetByDescription(desc){const s=String(desc||"").toLowerCase();return (S.assets||[]).find(a=>a.active!==false&&(s.includes(a.name.toLowerCase())||(a.name.toLowerCase().includes("инвест")&&s.includes("инвесткопил"))))||null}
 
-function remainingMinimumsThisMonth(){const mk=localMonthKey(),start=new Date(),end=new Date(start.getFullYear(),start.getMonth()+1,0,23,59,59);return debtEventsBetween(new Date(start.getFullYear(),start.getMonth(),1,0),end).filter(x=>localMonthKey(x.date)===mk).reduce((s,x)=>s+x.amount,0)}
+function remainingMinimumsThisMonth(){const mk=localMonthKey(),start=new Date(),end=new Date(start.getFullYear(),start.getMonth()+1,0,23,59,59);return moneySum(debtEventsBetween(new Date(start.getFullYear(),start.getMonth(),1,0),end).filter(x=>localMonthKey(x.date)===mk).map(x=>x.amount))}
 
 function overdueMinimums(){const now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0),todayKey=localDateKey(today),out=[];(S.debts||[]).forEach((d,i)=>{if(d.balance<=0||!validDateKey(d.nextPaymentDate)||d.nextPaymentDate>=todayKey)return;const due=parseLocal(d.nextPaymentDate),mk=localMonthKey(due),base=Math.max(0,+d.nextPaymentAmount||+d.min||0),paid=paymentToDebtMonth(i,mk),amount=Math.max(0,Math.min(d.balance,base-paid));if(amount>0)out.push({date:due,dateKey:d.nextPaymentDate,type:"payment",kind:"debt",label:d.name,amount,debtIndex:i,debtId:d.id,overdue:true,confirmed:true,estimated:false})});const mk=localMonthKey(today);for(const r of activeRegularPayments()){if(r.mandatory===false)continue;const due=regularDueDate(r,today.getFullYear(),today.getMonth());if(due>=today)continue;const amount=regularRemaining(r,mk);if(amount>0)out.push({date:due,dateKey:localDateKey(due),type:"payment",kind:"regular",label:r.name,amount,regularPaymentId:r.id,overdue:true,confirmed:true,estimated:false})}return out.sort((a,b)=>a.date-b.date)}
 

@@ -18,19 +18,19 @@ let AI134_LAST_HEALTH=null;
 let AI134_BUSY=false;
 
 function ai134Store(){
-  S.settings=S.settings||{};
-  let x=S.settings.aiBridge134;
-  if(!x||typeof x!=="object"||Array.isArray(x))x={};
+  const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+  const current=S.settings?.aiBridge134;
+  let x=current&&typeof current==="object"&&!Array.isArray(current)?(readOnly?deepClone(current):current):{};
   if(typeof x.endpoint!=="string")x.endpoint="";
   if(!["summary","detailed"].includes(x.privacy))x.privacy="summary";
   if(!x.scopes||typeof x.scopes!=="object"||Array.isArray(x.scopes))x.scopes={finance:true,work:true,tennis:true,training:true,knowledge:true,planning:true,intelligence:true};
   for(const k of ["finance","work","tennis","training","knowledge","planning","intelligence"])if(typeof x.scopes[k]!=="boolean")x.scopes[k]=true;
-  if(!Array.isArray(x.history))x.history=[];
-  x.history=x.history.slice(0,AI134_MAX_HISTORY);
-  x.version=AI134_VERSION;
-  S.settings.aiBridge134=x;
+  if(!Array.isArray(x.history))x.history=[];x.history=x.history.slice(0,AI134_MAX_HISTORY);x.version=AI134_VERSION;
+  if(!readOnly){S.settings=S.settings||{};S.settings.aiBridge134=x}
   return x
 }
+
+
 function ai134Token(){try{return String(localStorage.getItem(AI134_TOKEN_KEY)||"")}catch{return""}}
 function ai134SetToken(v){try{v=String(v||"").trim();if(v)localStorage.setItem(AI134_TOKEN_KEY,v);else localStorage.removeItem(AI134_TOKEN_KEY)}catch{}}
 function ai134NormalizeBaseUrl(value){

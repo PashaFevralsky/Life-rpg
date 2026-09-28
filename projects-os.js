@@ -3,7 +3,7 @@
 /* Projects OS — outcome -> deadline -> next action.
    Stored in the v18 entities layer; Goals can reference Projects and Tasks reference Projects. */
 
-function projectStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.projects))S.entities.projects=[];return S.entities.projects}
+function projectStore(){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return deepClone(Array.isArray(S.entities?.projects)?S.entities.projects:[]);if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.projects))S.entities.projects=[];return S.entities.projects}
 function projectEl(id){return document.getElementById(id)}
 function projectPriorityLabel(p){return +p===1?"Высокий":+p===2?"Средний":"Низкий"}
 function projectAreaStat(area){return area==="Финансы"?"Финансы":area==="Работа"?"Карьера":area==="Теннис"?"Теннис":area==="Знания"?"Разум":"Дисциплина"}

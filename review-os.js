@@ -3,7 +3,7 @@
 /* Review / Planning OS — close the loop between activity, projects and the next period.
    Reviews are snapshots; optional notes never block closing a period. */
 
-function reviewStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.reviews))S.entities.reviews=[];return S.entities.reviews}
+function reviewStore(){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return deepClone(Array.isArray(S.entities?.reviews)?S.entities.reviews:[]);if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.reviews))S.entities.reviews=[];return S.entities.reviews}
 function reviewWipLimit(){return Math.round(lifeOsSettingNumber("reviewProjectWipLimit",5,1,12))}
 function reviewPeriodKey(kind,date=new Date()){return kind==="month"?localMonthKey(date):isoWeekKey(date)}
 function reviewDaysSince(v){const d=new Date(v||"");if(!Number.isFinite(d.getTime()))return null;const k=localDateKey(d),n=typeof dateKeyDiff==="function"?dateKeyDiff(k,localDateKey()):null;return n==null?null:Math.max(0,n)}

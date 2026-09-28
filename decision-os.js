@@ -2,7 +2,7 @@
 
 /* Life RPG 11.1.0 — Explainable Decision Layer */
 
-function decisionPreferenceStore(){if(!S.settings.decisionPreferences||typeof S.settings.decisionPreferences!=="object"||Array.isArray(S.settings.decisionPreferences))S.settings.decisionPreferences={};return S.settings.decisionPreferences}
+function decisionPreferenceStore(){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive()){const x=S.settings?.decisionPreferences;return deepClone(x&&typeof x==="object"&&!Array.isArray(x)?x:{})}if(!S.settings.decisionPreferences||typeof S.settings.decisionPreferences!=="object"||Array.isArray(S.settings.decisionPreferences))S.settings.decisionPreferences={};return S.settings.decisionPreferences}
 function decisionPreference(id){return decisionPreferenceStore()[String(id)]||null}
 function decisionAdjustCandidates(rows){const today=localDateKey(),prefs=decisionPreferenceStore(),out=[];for(const x of rows){const p=prefs[x.id]||{};if(p.disabled)continue;if(p.hiddenDate===today)continue;if(validDateKey(p.notBefore)&&today<p.notBefore)continue;out.push({...x,score:Math.max(0,(+x.score||0)+(+p.scoreDelta||0)),userAdjusted:!!(p.scoreDelta||p.notBefore||p.hiddenDate)})}return out}
 function decisionSource(x){if(x.source)return x.source;if(x.id.startsWith("finance:"))return"Finance OS";if(x.id.startsWith("work:"))return"Work / CRM OS";if(x.id.startsWith("task:"))return"Tasks OS";if(x.id.startsWith("project:"))return"Projects OS";if(x.id.startsWith("goal:"))return"Goals OS";if(x.id.startsWith("routine:"))return"Routines OS";if(x.id.startsWith("review:"))return"Review OS";if(x.id.startsWith("calendar:"))return"Calendar OS";if(x.id.startsWith("rule:"))return"Rules OS";if(x.id.startsWith("execution:"))return"Execution Intelligence";return x.area||"Life OS"}

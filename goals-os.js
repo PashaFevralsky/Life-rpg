@@ -3,7 +3,7 @@
 /* Life RPG 11.1.0 — Goals / Horizons OS
    Goal = desired outcome + horizon. Execution stays in Projects / Tasks. */
 
-function goalStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.goals))S.entities.goals=[];return S.entities.goals}
+function goalStore(){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return deepClone(Array.isArray(S.entities?.goals)?S.entities.goals:[]);if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.goals))S.entities.goals=[];return S.entities.goals}
 function goalNormalize(x={}){const deadline=String(x.deadline||"");return {id:String(x.id||uid()),title:String(x.title||"Цель").trim(),area:String(x.area||"Личное"),priority:clamp(Math.round(+x.priority||2),1,3),horizon:["90d","year","custom"].includes(x.horizon)?x.horizon:"90d",deadline:validDateKey(deadline)?deadline:"",outcome:String(x.outcome||""),manualProgress:clamp(Math.round(+x.manualProgress||0),0,100),projectIds:Array.isArray(x.projectIds)?[...new Set(x.projectIds.map(String).filter(Boolean))]:[],status:["active","paused","done","archived"].includes(x.status)?x.status:"active",createdAt:String(x.createdAt||new Date().toISOString()),updatedAt:String(x.updatedAt||x.createdAt||new Date().toISOString()),completedAt:String(x.completedAt||""),archivedAt:String(x.archivedAt||""),xpAwarded:+x.xpAwarded||0}}
 function goalAll(){const a=goalStore();for(let i=0;i<a.length;i++){const current=a[i],normalized=goalNormalize(current);if(current&&typeof current==="object"&&!Array.isArray(current))Object.assign(current,normalized);else a[i]=normalized}return a}
 function goalActive(){return goalAll().filter(x=>x.status==="active")}

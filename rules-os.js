@@ -3,7 +3,7 @@
 /* Life RPG 11.1.0 — Automation / Rules OS
    Transparent heuristics only. Domain engines remain authoritative for finance/CRM/projects. */
 
-function ruleToggles(){if(!S.settings.ruleToggles||typeof S.settings.ruleToggles!=="object")S.settings.ruleToggles={};return S.settings.ruleToggles}
+function ruleToggles(){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive()){const x=S.settings?.ruleToggles;return deepClone(x&&typeof x==="object"&&!Array.isArray(x)?x:{})}if(!S.settings.ruleToggles||typeof S.settings.ruleToggles!=="object")S.settings.ruleToggles={};return S.settings.ruleToggles}
 function ruleEnabled(id){return ruleToggles()[id]!==false}
 function ruleDefinitions(){return [
   {id:"calendar-tomorrow-overload",title:"Завтрашняя перегрузка → Life OS",description:"Если завтра плановая нагрузка превышает дневной лимит, поднять системное предупреждение.",kind:"cross",evaluate(){const k=localDateKey(addDays(new Date(),1)),d=typeof calendarDayLoad==="function"?calendarDayLoad(k):null;return d?.level==="bad"?{id:"rule:calendar-tomorrow-overload",kind:"rule-calendar",area:"Система",title:"Разгрузить завтрашний календарь",meta:`${fmtDate(parseLocal(k))} • ~${d.minutes}/${d.capacity} мин • событий ${d.rows.length}`,score:64,hard:false,route:"calendar",minutes:10}:null}},

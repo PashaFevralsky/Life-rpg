@@ -3,16 +3,18 @@
 /* Life RPG Personal OS — shared local-first store and widget registry. */
 
 function personalData(){
-  S.settings=S.settings||{};
-  const p=S.settings.personalOS&&typeof S.settings.personalOS==="object"&&!Array.isArray(S.settings.personalOS)?S.settings.personalOS:(S.settings.personalOS={});
-  for(const key of ["journal","decisions","people","interactions","timeboxes","focusSessions","chores","choreLogs","inventory","shopping","importFingerprints"]){
-    if(!Array.isArray(p[key]))p[key]=[];
-  }
+  const readOnly=typeof storageSafeModeActive==="function"&&storageSafeModeActive();
+  const current=S.settings?.personalOS;
+  const p=current&&typeof current==="object"&&!Array.isArray(current)?(readOnly?deepClone(current):current):{};
+  for(const key of ["journal","decisions","people","interactions","timeboxes","focusSessions","chores","choreLogs","inventory","shopping","importFingerprints"])if(!Array.isArray(p[key]))p[key]=[];
   if(!p.dashboard||typeof p.dashboard!=="object"||Array.isArray(p.dashboard))p.dashboard={order:[],hidden:[],compact:false};
   if(!p.activeFocus||typeof p.activeFocus!=="object"||Array.isArray(p.activeFocus))p.activeFocus={};
   if(!p.version)p.version=1;
+  if(!readOnly){S.settings=S.settings||{};S.settings.personalOS=p}
   return p
 }
+
+
 
 const PERSONAL_WIDGETS={};
 function personalRegisterWidget(id,title,section="more"){

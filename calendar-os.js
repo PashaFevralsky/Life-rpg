@@ -4,7 +4,7 @@
    and manually planned events such as training/tournaments.
    Calendar load is an estimate of active commitment time, not a full-day time tracker. */
 
-function calendarStore(){if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.calendarEvents))S.entities.calendarEvents=[];return S.entities.calendarEvents}
+function calendarStore(){if(typeof storageSafeModeActive==="function"&&storageSafeModeActive())return deepClone(Array.isArray(S.entities?.calendarEvents)?S.entities.calendarEvents:[]);if(!S.entities||typeof S.entities!=="object")S.entities={};if(!Array.isArray(S.entities.calendarEvents))S.entities.calendarEvents=[];return S.entities.calendarEvents}
 function calendarCapacity(){return Math.round(lifeOsSettingNumber("calendarDailyCapacityMin",180,30,720))}
 function calendarHorizon(){return Math.round(lifeOsSettingNumber("calendarHorizonDays",30,7,90))}
 function calendarTypeArea(type){
