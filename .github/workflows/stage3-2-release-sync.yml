@@ -86,6 +86,12 @@ jobs:
             s=replaceExact(s,'APP_VERSION="13.2.2"',`APP_VERSION="${TARGET}"`,"predictive app version");
             s=replaceExact(s,'manifest.includes("Life RPG 13.2.2")',`manifest.includes("Life RPG ${TARGET}")`,"predictive manifest");
             s=replaceExact(s,'cacheId:"life-rpg-13.2.2"',`cacheId:"life-rpg-${TARGET}"`,"predictive cache");
+            s=replaceExact(
+              s,
+              'const RealDate=Date,futureGapDate=(()=>{',
+              'const NativeDate=Date,FIXED="2026-09-27T12:00:00Z";class FixedDate extends NativeDate{constructor(...a){super(...(a.length?a:[FIXED]))}static now(){return new NativeDate(FIXED).getTime()}static parse(v){return NativeDate.parse(v)}static UTC(...a){return NativeDate.UTC(...a)}}const RealDate=FixedDate,futureGapDate=(()=>{',
+              "predictive deterministic clock"
+            );
             return s;
           });
 
