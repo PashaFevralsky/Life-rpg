@@ -40,10 +40,15 @@ function validDateKey(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||""))
 function dateKeyDiff(a,b){if(!validDateKey(a)||!validDateKey(b))return null;const pa=String(a).split("-").map(Number),pb=String(b).split("-").map(Number);return Math.round((Date.UTC(pb[0],pb[1]-1,pb[2])-Date.UTC(pa[0],pa[1]-1,pa[2]))/86400000)}
 function validActivityDate(s){return validDateKey(s)&&s<=localDateKey()}
 
-/* Reporting boundary: factual history stays in storage, campaign analytics start here. */
+/* Reporting boundary: factual history stays in storage, campaign analytics start here.
+   Runtime uses only a normalized/configured reportStart. Passing an explicit state is
+   allowed during normalization/migration before its marker has been persisted. */
 function reportStartKey(state){
-  const x=state||(typeof S!=="undefined"?S:null),raw=String(x?.settings?.reportStart||x?.settings?.campaignStart||"");
-  return validDateKey(raw)?raw:""
+  const x=state||(typeof S!=="undefined"?S:null),report=String(x?.settings?.reportStart||"");
+  if(!validDateKey(report))return "";
+  if(state)return report;
+  const configured=!!x?.settings?.reportStartMigration||!!x?.settings?.reportStartCleanupVersion||!!x?.settings?.reportStartEnvelopeFixVersion||report!==String(x?.settings?.campaignStart||"");
+  return configured?report:""
 }
 function reportingDateKey(v){
   if(typeof v==="string"){if(validDateKey(v))return v;if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10)}
