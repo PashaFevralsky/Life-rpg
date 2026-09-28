@@ -1,0 +1,104 @@
+name: Release hotfix 13.7.5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release-hotfix-13.7.5.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  align-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Align all tracked release references
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          OLD = "13.7.4"
+          NEW = "13.7.5"
+          SELF = ".github/workflows/release-hotfix-13.7.5.yml"
+
+          raw = subprocess.check_output(["git", "ls-files", "-z"])
+          paths = [p.decode("utf-8") for p in raw.split(b"\0") if p]
+
+          changed = []
+          for rel in paths:
+              if rel == SELF:
+                  continue
+              p = Path(rel)
+              try:
+                  text = p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if OLD not in text:
+                  continue
+              p.write_text(text.replace(OLD, NEW), encoding="utf-8")
+              changed.append(rel)
+
+          print(f"Updated {len(changed)} tracked text files:")
+          for rel in changed:
+              print(f"  {rel}")
+
+          # Critical release files must now be aligned.
+          required = [
+              "core.js",
+              "bootstrap.js",
+              "index.html",
+              "manifest.webmanifest",
+              "vite.config.mjs",
+              "package.json",
+              "package-lock.json",
+              "static-check.js",
+              "architecture.test.js",
+              "stage2-ci-release-integrity.test.js",
+              "dist-audit.test.js",
+          ]
+          for rel in required:
+              text = Path(rel).read_text(encoding="utf-8")
+              if OLD in text:
+                  raise SystemExit(f"{rel}: stale {OLD} remains")
+          PY
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run full unit/static suite
+        run: npm test
+
+      - name: Build production PWA
+        run: npm run build
+
+      - name: Verify production service worker
+        run: node dist-audit.test.js
+
+      - name: Commit aligned 13.7.5 release
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No release references required updating."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Align Life RPG release metadata to 13.7.5"
+          git push
