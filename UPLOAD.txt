@@ -1,0 +1,4 @@
+Загрузить все 5 файлов в корень репозитория Life-rpg с заменой одноимённых файлов.
+Новый файл: ui-polish-13.7.5.js
+Новый тест: ui-polish-13.7.5.e2e.test.js
+Заменить: bootstrap.js, vite.config.mjs, playwright.config.mjs
