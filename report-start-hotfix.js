@@ -220,21 +220,32 @@
     return true
   }
 
-  async function activate(){
+  let REPORT_START_FINALIZED=false;
+
+  async function lifeReportStartFinalize(){
     try{
       installWrappers();
+      if(REPORT_START_FINALIZED)return false;
+      if(typeof storage137BootSettling!=="undefined"&&storage137BootSettling)return false;
+      if(!stateReady())return false;
+
+      REPORT_START_FINALIZED=true;
       const changed=rebuildCampaignGamification();
+
       if(changed&&typeof persist==="function"){
         try{await persist()}catch(e){console.warn("reportStart cleanup persist failed",e)}
       }
-      if(typeof render==="function")try{render()}catch{}
-    }catch(e){console.error("reportStart hotfix failed",e)}
+      if(changed&&typeof render==="function"){
+        try{render()}catch{}
+      }
+      return changed
+    }catch(e){
+      console.error("reportStart hotfix failed",e);
+      return false
+    }
   }
 
-  void activate();
-  document.addEventListener("DOMContentLoaded",()=>{void activate()},{once:true});
-  window.addEventListener("load",()=>{void activate()},{once:true});
-  setTimeout(()=>{void activate()},250);
-  setTimeout(()=>{void activate()},1200);
-  setTimeout(()=>{void activate()},3000);
+  window.lifeReportStartFinalize=lifeReportStartFinalize;
+  installWrappers();
+
 })();
