@@ -388,7 +388,17 @@ jobs:
           polish=polish.replace("expect(nav.buttons).toHaveLength(6);","expect(nav.buttons).toHaveLength(4);")
           polish_path.write_text(polish,encoding="utf-8")
 
-          print("Prepared Life RPG 13.9.1 UI Architecture v2.")
+          ux_path=Path("ux-12.8.e2e.test.js")
+          ux=ux_path.read_text(encoding="utf-8")
+          old_ux='  await page.evaluate(()=>{switchTab("more");ux7SetView("more","overview",false)});\n  await expect(page.locator("#more .book-hero")).toBeHidden();\n  await expect(page.locator("#weeklyReview").locator("xpath=ancestor::div[contains(@class,\'card\')]")).toBeHidden();\n  await expect(page.locator("#calibrationOsCommand").locator("xpath=ancestor::div[contains(@class,\'card\')]")).toBeHidden();'
+          new_ux='  await page.evaluate(()=>{switchTab("more");ux7SetView("more","overview",false)});\n  await expect(page.locator("#more .ui139-more-hub")).toBeVisible();\n  expect(await page.locator("#more .ui139-hub-row").count()).toBeGreaterThanOrEqual(6);\n  await expect(page.locator("#weeklyReview").locator("xpath=ancestor::div[contains(@class,\'card\')]")).toBeHidden();\n  await expect(page.locator("#calibrationOsCommand").locator("xpath=ancestor::div[contains(@class,\'card\')]")).toBeHidden();'
+          if new_ux not in ux:
+              if old_ux not in ux:
+                  raise SystemExit("ux-12.8 More overview contract anchor not found")
+              ux=ux.replace(old_ux,new_ux,1)
+          ux_path.write_text(ux,encoding="utf-8")
+
+          print("Prepared Life RPG 13.9.1 UI Architecture v3.")
           PY
 
       - name: Preflight UI architecture contracts
@@ -418,9 +428,12 @@ jobs:
           assert.ok(release.includes("expect(nav.count).toBe(4)"));
           assert.ok(layout.includes("reduced navigation layers and mobile rails stay compact"));
           assert.ok(!layout.includes("overview shortcuts reduce taps"));
+          const ux=read("ux-12.8.e2e.test.js");
           assert.ok(polish.includes("expect(nav.buttons).toHaveLength(4)"));
           assert.ok(ui.includes('if(sectionId==="more"&&view==="overview")'));
-          console.log("OK — 13.9.1 UI architecture v2 preflight passed");
+          assert.ok(ux.includes('await expect(page.locator("#more .ui139-more-hub")).toBeVisible()'));
+          assert.ok(!ux.includes('await expect(page.locator("#more .book-hero")).toBeHidden()'));
+          console.log("OK — 13.9.1 UI architecture v3 preflight passed");
           NODE
 
       - name: Install dependencies
