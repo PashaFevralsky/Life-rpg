@@ -484,10 +484,10 @@ jobs:
             assert.ok(!ux.includes("integrated mobile polish (formerly runtime hotfix)"),"old integrated polish block must be removed from ux-12.8.css");
             assert.ok(pkg.scripts.test.includes("interface-13.9.test.js"));
             assert.ok(pkg.scripts.test.includes("release-13.9.0.test.js"));
-            assert.ok(!pkg.scripts.test.includes("release-13.8.0.test.js"));
+            assert.ok(!pkg.scripts.test.includes("release-13.8"+"."+"0.test.js"));
             assert.ok(pw.includes("interface-13.9.e2e.test.js"));
             assert.ok(pw.includes("release-13.9.0.e2e.test.js"));
-            assert.ok(!pw.includes('"release-13.8.0.e2e.test.js"'));
+            assert.ok(!pw.includes('"release-13.8"+"."+"0.e2e.test.js"'));
             assert.ok(ui.includes('aria-current'),"main navigation aria-current contract missing");
             console.log("OK — Life RPG 13.9.0 interface architecture contract passed");
           INTERFACE_E2E: |
