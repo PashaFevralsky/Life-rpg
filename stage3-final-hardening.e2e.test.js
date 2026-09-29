@@ -5,7 +5,7 @@ test("Stage 3.5 final mobile/PWA/Recovery gate",async({page})=>{
   await page.setViewportSize({width:360,height:480});
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
-  await expect(page.locator("#versionStatus")).toContainText("13.8.0");
+  await expect(page.locator("#versionStatus")).toContainText("13.9.0");
 
   await page.evaluate(()=>openModal("readingModal"));
   const card=page.locator("#readingModal .modal-card");

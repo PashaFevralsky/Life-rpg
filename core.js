@@ -1,8 +1,8 @@
 "use strict";
 
-/* Life RPG 13.8.0 — Core utilities, money math and native reporting boundary */
+/* Life RPG 13.9.0 — Core utilities, money math and native reporting boundary */
 
-const APP_VERSION="13.8.0";
+const APP_VERSION="13.9.0";
 
 const STATE_VERSION=18;
 

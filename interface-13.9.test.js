@@ -1,0 +1,31 @@
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");
+const root=__dirname,read=n=>fs.readFileSync(path.join(root,n),"utf8");
+const RELEASE="13.9.0";
+const css=read("interface-13.9.css"),html=read("index.html"),ui=read("ui.js"),vite=read("vite.config.mjs"),
+      ux=read("ux-12.8.css"),pkg=JSON.parse(read("package.json")),core=read("core.js"),pw=read("playwright.config.mjs");
+
+assert.equal(pkg.version,RELEASE);
+assert.ok(core.includes(`APP_VERSION="${RELEASE}"`));
+assert.ok(core.includes("STATE_VERSION=18"),"UI release must not migrate state");
+assert.ok(ui.includes('classList.add("ux7","ui82")')&&ui.includes('classList.add("ui139")'),"13.9 interface body class missing");
+assert.ok(html.includes(`interface-13.9.css?v=${RELEASE}`),"13.9 stylesheet is not linked");
+assert.ok(html.indexOf("mobile-layout.css")<html.indexOf("interface-13.9.css"),"13.9 layer must load after base mobile geometry");
+assert.ok(vite.includes('"interface-13.9.css"'),"13.9 stylesheet is not copied to dist");
+assert.ok(css.includes("--ui139-surface"));
+assert.ok(css.includes('[data-section]:not([data-section="today"]) .top'),"duplicate mobile chrome is not suppressed");
+assert.ok(css.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),"finance 3x2 mobile tab contract missing");
+assert.ok(css.includes(".ui-polish-model-note")&&css.includes(".ui-polish-chart-details"),"13.8 finance polish was not consolidated");
+assert.ok(!ux.includes("integrated mobile polish (formerly runtime hotfix)"),"old integrated polish block must be removed from ux-12.8.css");
+assert.ok(pkg.scripts.test.includes("interface-13.9.test.js"));
+assert.ok(pkg.scripts.test.includes("release-13.9.0.test.js"));
+assert.ok(!pkg.scripts.test.includes("release-13.8"+"."+"0.test.js"));
+assert.ok(pw.includes("interface-13.9.e2e.test.js"));
+assert.ok(pw.includes("release-13.9.0.e2e.test.js"));
+assert.ok(!pw.includes('"release-13.8"+"."+"0.e2e.test.js"'));
+assert.ok(ui.includes('aria-current'),"main navigation aria-current contract missing");
+assert.ok(html.includes('data-tab="today" aria-current="page"'),"initial aria-current missing");
+assert.ok(css.includes('#today .quick-card .quick')&&css.includes('display:flex!important'),"Today horizontal quick rail missing");
+assert.ok(css.includes('.work-hero .kpi-row')&&css.includes('.tennis-hero .kpi-row'),"Work/Tennis KPI rail missing");
+assert.ok(css.includes('min-height:44px'),"44px touch-target contract missing");
+console.log("OK — Life RPG 13.9.0 interface architecture contract passed");

@@ -1,0 +1,458 @@
+/* Life RPG 13.9.0 — Interface & UX
+   Canonical visual layer for the mobile-first PWA.
+   Domain logic stays outside this file. */
+
+body.ui82.ui139{
+  --ui139-bg:#090b10;
+  --ui139-bg-elevated:#0d1016;
+  --ui139-surface:#11151c;
+  --ui139-surface-2:#151a23;
+  --ui139-surface-3:#0c0f14;
+  --ui139-line:rgba(255,255,255,.075);
+  --ui139-line-strong:rgba(255,255,255,.12);
+  --ui139-text:#f4f6f8;
+  --ui139-muted:#8e97a7;
+  --ui139-accent:#9da8ff;
+  --ui139-accent-strong:#b8c0ff;
+  --ui139-accent-soft:rgba(157,168,255,.12);
+  --ui139-good:#70d9aa;
+  --ui139-warn:#e5c675;
+  --ui139-bad:#ff8c9b;
+  --ui139-radius:16px;
+  --ui139-radius-sm:12px;
+  --ui139-touch:44px;
+  background:var(--ui139-bg);
+  color:var(--ui139-text);
+  font-size:15px;
+  line-height:1.45;
+}
+body.ui82.ui139::before{
+  height:180px;
+  background:radial-gradient(480px 180px at 50% -75px,rgba(157,168,255,.08),transparent 72%);
+}
+.ui82.ui139 .shell{
+  max-width:1040px;
+  padding-bottom:calc(128px + env(safe-area-inset-bottom));
+}
+.ui82.ui139 .grid{gap:10px;align-items:start}
+.ui82.ui139 .hero{gap:10px;margin-bottom:10px}
+
+/* Numeric content is easier to scan when digits do not jump. */
+.ui82.ui139 :is(.metric,.num,.cash-number,.big,.level,.stat-xp,.debt-rate,.goal-top b,.kpi b,.report-item b){
+  font-variant-numeric:tabular-nums;
+}
+
+/* App chrome */
+.ui82.ui139 .top{
+  background:var(--ui139-bg);
+  margin-bottom:8px;
+}
+.ui82.ui139 .avatar{
+  width:40px;height:40px;border-radius:12px;
+  background:var(--ui139-accent);color:#0a0c11;
+}
+.ui82.ui139 .name{font-size:16px;font-weight:730}
+.ui82.ui139 .top .sub{font-size:11.5px;color:var(--ui139-muted)}
+.ui82.ui139 .iconbtn{
+  min-width:var(--ui139-touch);height:var(--ui139-touch);
+  border-radius:12px;border-color:var(--ui139-line);
+  background:var(--ui139-surface-3);color:#c3c9d3;
+}
+
+/* Section header becomes the primary navigation context on non-Today screens. */
+.ui82.ui139 .ux7-section-head{
+  position:sticky;top:0;z-index:70;
+  margin-bottom:10px;
+  background:rgba(9,11,16,.97);
+  border-bottom:0;
+  box-shadow:0 1px 0 var(--ui139-line);
+}
+.ui82.ui139 .ux7-head-copy{min-height:39px;margin-bottom:5px;gap:8px}
+.ui82.ui139 .ux7-head-copy h1{
+  font-size:26px;font-weight:780;line-height:1.05;letter-spacing:-.04em;
+}
+.ui82.ui139 .ux7-head-desc{font-size:11.5px;color:#788292}
+.ui82.ui139 .ux7-head-actions{gap:8px}
+.ui82.ui139 .ux7-clarity-toggle{
+  min-height:44px;border-radius:10px;border:1px solid var(--ui139-line);
+  background:var(--ui139-surface-3);color:#aeb6c3;padding:6px 10px;
+}
+
+/* Internal navigation: one component everywhere. */
+.ui82.ui139 .ux7-tabs{
+  display:flex;gap:5px;padding:4px;
+  border:1px solid var(--ui139-line);
+  border-radius:14px;background:var(--ui139-surface-3);
+  overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;
+}
+.ui82.ui139 .ux7-tabs::-webkit-scrollbar{display:none}
+.ui82.ui139 .ux7-tab{
+  flex:0 0 auto;min-height:44px;margin:0;padding:9px 12px;
+  border:0;border-radius:10px;
+  background:transparent;color:#7e8796;
+  font-size:12.5px;font-weight:650;
+  scroll-snap-align:center;
+}
+.ui82.ui139 .ux7-tab.active{
+  background:var(--ui139-surface-2);color:#f4f5f7;
+  box-shadow:inset 0 0 0 1px var(--ui139-line);
+}
+.ui82.ui139 .ux7-tab.active::after{display:none}
+
+/* Overview shortcuts are contextual actions, not a second navigation bar. */
+.ui82.ui139 .ux7-section-shortcuts{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;margin:-2px 0 10px;
+}
+.ui82.ui139 .ux7-section-shortcuts .btn{
+  min-height:44px;padding:8px 9px;border-radius:11px;
+  white-space:normal;line-height:1.15;text-align:center;
+}
+
+/* Surfaces */
+.ui82.ui139 .card{
+  padding:15px;border-radius:var(--ui139-radius);
+  border:1px solid var(--ui139-line);
+  background:var(--ui139-surface);
+  box-shadow:none;
+  scroll-margin-top:126px;
+}
+.ui82.ui139 :is(.hero-main,.streak,.ux7-pulse,.tennis-hero,.work-hero,.book-hero,.autopilot-hero,.money-engine-card,.financial-command-card,.bank-sync-card)::before{
+  display:none;
+}
+.ui82.ui139 :is(.hero-main,.streak,.ux7-pulse,.tennis-hero,.work-hero,.book-hero,.autopilot-hero,.money-engine-card,.financial-command-card,.bank-sync-card){
+  background:var(--ui139-surface);
+  border-color:var(--ui139-line)!important;
+}
+.ui82.ui139 .ux7-today-pulse,
+.ui82.ui139 #ux7FinancePulse{
+  background:linear-gradient(180deg,rgba(157,168,255,.075),rgba(17,21,28,.98));
+  border-color:rgba(157,168,255,.18)!important;
+}
+.ui82.ui139 .ux7-clarity-collapsed{display:none!important}
+
+/* Typography / hierarchy */
+.ui82.ui139 .eyebrow,.ui82.ui139 .smallcaps{
+  font-size:9.5px;letter-spacing:.11em;color:#77808f;font-weight:700;
+}
+.ui82.ui139 .section-title{
+  font-size:21px;font-weight:770;line-height:1.16;letter-spacing:-.03em;
+}
+.ui82.ui139 .title{
+  margin-bottom:10px;font-size:15.5px;font-weight:710;letter-spacing:-.015em;
+}
+.ui82.ui139 .muted,.ui82.ui139 .sub{color:var(--ui139-muted)}
+.ui82.ui139 .qmeta,.ui82.ui139 .score,.ui82.ui139 .ach-sub{color:var(--ui139-muted)}
+.ui82.ui139 .metric{font-weight:790}
+.ui82.ui139 .level{font-weight:820}
+
+/* Fast actions */
+.ui82.ui139 .quick-card{padding:0;border:0;background:transparent;overflow:visible}
+.ui82.ui139 .quick-card .title{margin:0 2px 5px;font-size:12px;color:#8992a0;font-weight:650}
+.ui82.ui139 .quick{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.ui82.ui139 .quick button{
+  min-height:72px;padding:8px 4px;border-radius:13px;
+  border:1px solid var(--ui139-line);
+  background:var(--ui139-surface);color:#cfd4dc;
+}
+.ui82.ui139 .quick button:active{background:var(--ui139-surface-2);transform:scale(.98)}
+.ui82.ui139 .quick b{
+  width:36px;height:36px;flex-basis:36px;border-radius:11px;
+  background:var(--ui139-accent-soft);color:var(--ui139-accent-strong);
+}
+.ui82.ui139 .quick span{font-size:11.5px;font-weight:630}
+
+/* Mobile overview rails */
+.ui82.ui139 #today .quick-card .quick{
+  display:flex!important;
+  gap:6px;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;scroll-snap-type:x proximity;
+  -webkit-overflow-scrolling:touch;
+}
+.ui82.ui139 #today .quick-card .quick::-webkit-scrollbar{display:none}
+.ui82.ui139 #today .quick-card .quick button{
+  flex:0 0 96px;min-width:96px;scroll-snap-align:start;
+}
+.ui82.ui139 .work-hero .kpi-row,
+.ui82.ui139 .tennis-hero .kpi-row{
+  display:flex!important;
+  gap:1px;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;scroll-snap-type:x proximity;
+  -webkit-overflow-scrolling:touch;
+}
+.ui82.ui139 .work-hero .kpi-row::-webkit-scrollbar,
+.ui82.ui139 .tennis-hero .kpi-row::-webkit-scrollbar{display:none}
+.ui82.ui139 .work-hero .kpi-row>*,
+.ui82.ui139 .tennis-hero .kpi-row>*{
+  flex:0 0 148px;min-width:0;scroll-snap-align:start;
+}
+
+/* Metric groups */
+.ui82.ui139 :is(.kpi-row,.report-grid,.health-grid,.decision-kpis,.forecast-os-grid,.money-balance-grid,.bank-sync-summary,.analytics-grid,.autopilot-grid,.compare-grid,.mini-forecast,.ux7-pulse-grid){
+  gap:1px;border:1px solid var(--ui139-line);border-radius:14px;
+  background:var(--ui139-line);overflow:hidden;
+}
+.ui82.ui139 :is(.kpi,.report-item,.health-item,.decision-kpis>div,.forecast-card,.money-balance,.bank-sync-summary>div,.autopilot-step,.compare-card,.mini-forecast>div,.ux7-pulse-grid>div){
+  background:#101319;border:0!important;border-radius:0;
+}
+.ui82.ui139 .kpi{padding:12px}
+.ui82.ui139 .kpi .num{font-size:19px;font-weight:770}
+.ui82.ui139 #finance .kpi:first-child,
+.ui82.ui139 #finance .kpi:nth-child(6){
+  background:rgba(157,168,255,.055);
+}
+.ui82.ui139 .report-item,.ui82.ui139 .health-item{padding:11px}
+
+/* Row language: content first, actions second. */
+.ui82.ui139 :is(.log-item,.quest,.debt,.scenario,.reward,.envelope,.cashflow-event,.regular-row,.income-schedule-row,.account-row,.transaction-row,.debt-engine-row,.asset-row,.smart-proposal,.ai-action,.decision-row,.boss-mini){
+  border-color:var(--ui139-line);
+}
+.ui82.ui139 .log-item,.ui82.ui139 .quest,.ui82.ui139 .decision-row{padding:11px 0}
+.ui82.ui139 :is(.reward,.envelope,.regular-row,.income-schedule-row,.account-row,.transaction-row,.debt-engine-row,.asset-row,.smart-proposal,.ai-action){
+  padding-top:11px;padding-bottom:11px;
+}
+.ui82.ui139 .check{
+  width:24px;height:24px;border-radius:8px;
+  background:var(--ui139-surface-3);border-color:var(--ui139-line-strong);
+}
+.ui82.ui139 .check.done{
+  background:var(--ui139-accent);border-color:var(--ui139-accent);color:#090b10;
+}
+
+/* Controls */
+.ui82.ui139 .btn{
+  min-height:var(--ui139-touch);
+  border-radius:12px;padding:10px 14px;
+  background:#e8eaf3;color:#0d1015;font-weight:700;
+}
+.ui82.ui139 .btn.secondary{
+  background:var(--ui139-surface-2);border:1px solid var(--ui139-line);color:#e4e7ec;
+}
+.ui82.ui139 .btn.ghost{
+  background:transparent;border:1px solid var(--ui139-line-strong);color:#aeb6c2;
+}
+.ui82.ui139 .btn.danger{
+  background:rgba(255,140,155,.12);border:1px solid rgba(255,140,155,.18);color:#ffc5cc;
+}
+.ui82.ui139 .btn.small{min-height:36px;border-radius:10px;padding:7px 10px}
+.ui82.ui139 :is(input,select,textarea){
+  min-height:48px;border-radius:12px;
+  border:1px solid var(--ui139-line-strong);
+  background:var(--ui139-surface-3);color:var(--ui139-text);
+  padding:11px 12px;
+}
+.ui82.ui139 :is(input,select,textarea):focus{
+  border-color:rgba(157,168,255,.62);
+  box-shadow:0 0 0 3px rgba(157,168,255,.10);
+  background:#11151c;
+}
+.ui82.ui139 .field label{font-size:11.5px;color:#808998;margin-bottom:6px}
+.ui82.ui139 .formgrid{gap:9px;align-items:end}
+.ui82.ui139 .split{gap:7px}
+
+/* Disclosure / nested content */
+.ui82.ui139 :is(.entry-details,.settings-group,.crm-details){
+  background:var(--ui139-surface-3);
+  border:1px solid var(--ui139-line);
+  border-radius:12px;padding:10px 11px;
+}
+.ui82.ui139 details>summary{min-height:40px;display:flex;align-items:center}
+.ui82.ui139 .goal,
+.ui82.ui139 .phase-box,
+.ui82.ui139 .accepted-plan,
+.ui82.ui139 .book,
+.ui82.ui139 .skill-node,
+.ui82.ui139 .season,
+.ui82.ui139 .ach,
+.ui82.ui139 .ocr-row,
+.ui82.ui139 .crm-deal,
+.ui82.ui139 .boss,
+.ui82.ui139 .cash-advisor{
+  border-radius:13px;background:#0f1218;border-color:var(--ui139-line);
+}
+
+/* Finance model / chart polish is now owned by the 13.9 interface layer. */
+.ui82.ui139 .ui-polish-model-note{
+  margin:8px 0 10px;padding:9px 10px;
+  border:1px solid var(--ui139-line);border-radius:11px;
+  background:var(--ui139-surface-3);color:var(--ui139-muted);
+  font-size:11px;line-height:1.45;
+}
+.ui82.ui139 .ui-polish-model-note b{color:#d8dce4;font-weight:700}
+.ui82.ui139 .ui-polish-chart-details{
+  margin-top:9px;border-top:1px solid var(--ui139-line);
+}
+.ui82.ui139 .ui-polish-chart-details>summary{
+  min-height:42px;display:flex;align-items:center;gap:7px;
+  cursor:pointer;color:#9ba4b2;font-size:12px;font-weight:680;
+  list-style:none;user-select:none;
+}
+.ui82.ui139 .ui-polish-chart-details>summary::-webkit-details-marker{display:none}
+.ui82.ui139 .ui-polish-chart-details>summary::before{
+  content:"›";width:17px;text-align:center;font-size:19px;line-height:1;
+  transition:transform .14s ease;
+}
+.ui82.ui139 .ui-polish-chart-details[open]>summary::before{transform:rotate(90deg)}
+.ui82.ui139 .ui-polish-chart-details .cashflow-chart{margin-top:2px}
+
+/* Status */
+.ui82.ui139 .status{
+  padding:10px 11px;border-radius:11px;
+  background:var(--ui139-surface-3);border-color:var(--ui139-line);color:#a8afbb;
+}
+.ui82.ui139 .notice{
+  padding:11px;border-radius:11px;
+  background:rgba(229,198,117,.055);
+  border-color:rgba(229,198,117,.17);color:#dbc382;
+}
+.ui82.ui139 .empty{
+  padding:15px;border-radius:11px;background:var(--ui139-surface-3);border-color:var(--ui139-line);
+}
+.ui82.ui139 .income-good,.ui82.ui139 .csv-ok,.ui82.ui139 .ux7-status-good{color:var(--ui139-good)}
+.ui82.ui139 .income-warn,.ui82.ui139 .csv-warn,.ui82.ui139 .ux7-status-warn{color:var(--ui139-warn)}
+.ui82.ui139 .income-bad,.ui82.ui139 .csv-bad,.ui82.ui139 .ux7-status-bad{color:var(--ui139-bad)}
+
+/* Bottom sheets */
+.ui82.ui139 .modal{background:rgba(0,0,0,.72);backdrop-filter:blur(8px)}
+.ui82.ui139 .modal-card{
+  background:var(--ui139-surface);
+  border-color:var(--ui139-line);
+  border-radius:22px;
+}
+.ui82.ui139 .close{background:var(--ui139-surface-2);color:#aeb6c3}
+.ui82.ui139 .ux7-action-grid{
+  gap:1px;border-radius:14px;border-color:var(--ui139-line);background:var(--ui139-line);
+}
+.ui82.ui139 .ux7-action-grid button{background:#101319;min-height:68px}
+.ui82.ui139 .ux7-action-grid button:active{background:var(--ui139-surface-2)}
+.ui82.ui139 .ui82-action-icon{
+  border-radius:10px;background:var(--ui139-accent-soft);color:var(--ui139-accent-strong);
+}
+
+/* Bottom navigation */
+.ui82.ui139 .bottom{
+  width:min(620px,calc(100% - 14px));
+  bottom:max(6px,env(safe-area-inset-bottom));
+  padding:4px 5px;
+  border:1px solid var(--ui139-line);
+  border-radius:18px;
+  background:rgba(15,18,24,.97);
+  box-shadow:0 14px 34px rgba(0,0,0,.34);
+}
+.ui82.ui139 .navbtn{
+  min-height:56px;padding:5px 2px 6px;border-radius:12px;
+  color:#727c8c;font-size:9.5px;font-weight:620;
+}
+.ui82.ui139 .navbtn b{
+  width:30px;height:25px;margin-bottom:1px;border-radius:9px;color:#7d8798;
+}
+.ui82.ui139 .navbtn.active{
+  background:rgba(157,168,255,.075);color:#f1f3f6;
+}
+.ui82.ui139 .navbtn.active b{
+  background:transparent;color:var(--ui139-accent-strong);
+}
+.ui82.ui139 .navbtn.active::after{display:none}
+.ui82.ui139 .ux7-fab{
+  width:48px;height:48px;border-radius:15px;
+  background:#e4e7f4;color:#0d1015;
+  box-shadow:0 12px 28px rgba(0,0,0,.38);
+}
+
+/* Section-specific density */
+.ui82.ui139 body{}
+.ui82.ui139[data-section="finance"][data-view="analysis"] #finance .grid,
+.ui82.ui139[data-section="more"][data-view="settings"] #more .grid{gap:8px}
+.ui82.ui139[data-section="more"][data-view="settings"] #more .card{padding:14px}
+.ui82.ui139 #more .danger-zone{border-color:rgba(255,140,155,.15)}
+.ui82.ui139 #finance .cashflow-event{border-color:var(--ui139-line)}
+.ui82.ui139 #finance .chartbox{opacity:.96}
+
+/* Desktop */
+@media(min-width:851px){
+  .ui82.ui139 .card{padding:17px}
+  .ui82.ui139 .ux7-section-head{top:58px}
+  .ui82.ui139 .quick{max-width:760px}
+}
+
+/* Mobile-first behavior */
+@media(max-width:850px){
+  body.ui82.ui139{font-size:15px}
+  .ui82.ui139 .shell{padding:0 11px calc(126px + env(safe-area-inset-bottom))!important}
+  .ui82.ui139 .top{
+    margin:0 -11px 2px;padding:10px 11px 7px;
+  }
+  body.ui82.ui139[data-section]:not([data-section="today"]) .top{display:none}
+  .ui82.ui139 .ux7-section-head{
+    top:0;margin:0 -11px 9px;padding:8px 11px 8px;
+  }
+  .ui82.ui139 .ux7-head-copy h1{font-size:25px}
+  .ui82.ui139 .ux7-head-desc{max-width:55%}
+  .ui82.ui139 .card{padding:14px;border-radius:15px}
+  .ui82.ui139 .grid{gap:9px}
+  .ui82.ui139 .quick{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .ui82.ui139 .quick button{min-height:70px}
+  .ui82.ui139 .kpi-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .ui82.ui139 .report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ui82.ui139 .modal{align-items:flex-end;padding:0}
+  .ui82.ui139 .modal-card{
+    width:100%;max-height:min(89vh,790px);
+    border-left:0;border-right:0;border-bottom:0;
+    border-radius:22px 22px 0 0;
+    padding:27px 14px calc(16px + env(safe-area-inset-bottom));
+  }
+  .ui82.ui139 #finance .cashflow-chart{height:136px}
+  .ui82.ui139 #finance .cashflow-event{
+    grid-template-columns:58px minmax(0,1fr) auto;
+    gap:7px;padding:7px 0;font-size:11px;
+  }
+  .ui82.ui139 #finance .cashflow-event>div{min-width:0;overflow-wrap:anywhere}
+  .ui82.ui139 #finance .cashflow-event>b{white-space:nowrap}
+}
+
+/* Finance has six destinations: show all without horizontal discovery. */
+@media(max-width:600px){
+  body.ui82.ui139[data-section="finance"] #finance .ux7-tabs{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:4px;overflow:visible;padding:4px;scroll-snap-type:none;
+  }
+  body.ui82.ui139[data-section="finance"] #finance .ux7-tab{
+    width:100%;min-width:0;min-height:44px;padding:9px 4px;text-align:center;
+  }
+  .ui82.ui139 #finance .ux7-section-head{padding-bottom:7px}
+  .ui82.ui139 .health-grid,
+  .ui82.ui139 .forecast-os-grid,
+  .ui82.ui139 .analytics-grid,
+  .ui82.ui139 .autopilot-grid,
+  .ui82.ui139 .compare-grid,
+  .ui82.ui139 .money-balance-grid,
+  .ui82.ui139 .bank-sync-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* Narrow Android phones */
+@media(max-width:390px){
+  .ui82.ui139 .shell{padding-left:9px;padding-right:9px}
+  .ui82.ui139 .top{margin-left:-9px;margin-right:-9px;padding-left:9px;padding-right:9px}
+  .ui82.ui139 .ux7-section-head{margin-left:-9px;margin-right:-9px;padding-left:9px;padding-right:9px}
+  .ui82.ui139 .ux7-head-desc{display:none}
+  .ui82.ui139 .card{padding:13px}
+  .ui82.ui139 .ux7-section-shortcuts{gap:4px}
+  .ui82.ui139 .ux7-section-shortcuts .btn{padding-left:6px;padding-right:6px;font-size:11.5px}
+  .ui82.ui139 .navbtn{font-size:9.2px}
+  .ui82.ui139 .bottom{width:calc(100% - 10px)}
+}
+@media(max-width:360px){
+  .ui82.ui139 .quick{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ui82.ui139 .report-grid{grid-template-columns:1fr}
+  .ui82.ui139 .health-grid,
+  .ui82.ui139 .forecast-os-grid,
+  .ui82.ui139 .analytics-grid,
+  .ui82.ui139 .autopilot-grid,
+  .ui82.ui139 .compare-grid{grid-template-columns:1fr}
+  body.ui82.ui139[data-section="finance"] #finance .ux7-tabs{gap:3px}
+  body.ui82.ui139[data-section="finance"] #finance .ux7-tab{font-size:11.5px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .ui82.ui139 *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
