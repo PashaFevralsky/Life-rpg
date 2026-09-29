@@ -1,0 +1,416 @@
+name: Release Life RPG 13.9.1 UI Architecture
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-release-13-9-1-ui
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Prepare 13.9.1 UI architecture
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          ROOT=Path(".")
+          OLD="13.9.0"
+          NEW="13.9.1"
+          OLD_ESC=r"13\.9\.0"
+          NEW_ESC=r"13\.9\.1"
+
+          renames=[
+              (Path("release-13.9.0.test.js"),Path("release-13.9.1.test.js")),
+              (Path("release-13.9.0.e2e.test.js"),Path("release-13.9.1.e2e.test.js")),
+          ]
+          for old,new in renames:
+              if old.exists() and not new.exists():
+                  old.rename(new)
+              elif old.exists() and new.exists():
+                  old.unlink()
+              elif not new.exists():
+                  raise SystemExit(f"Missing release gate: {old}")
+
+          allowed={".js",".mjs",".html",".css",".json",".webmanifest",".md",".txt"}
+          for p in ROOT.rglob("*"):
+              if not p.is_file():
+                  continue
+              rel=p.as_posix()
+              if rel.startswith((".git/","node_modules/","dist/","test-results/","playwright-report/","docs/history/",".github/workflows/")):
+                  continue
+              if p.suffix.lower() not in allowed:
+                  continue
+              try:
+                  text=p.read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  continue
+              if OLD in text or OLD_ESC in text:
+                  p.write_text(text.replace(OLD,NEW).replace(OLD_ESC,NEW_ESC),encoding="utf-8")
+
+          ui_path=Path("ui.js")
+          ui=ui_path.read_text(encoding="utf-8")
+
+          old_meta='''const UX7_META={
+            today:{title:"Сегодня",desc:()=>ux7DateTitle(),tabs:[["focus","Главное"],["progress","Прогресс"]]},
+            finance:{title:"Деньги",desc:()=>"Что есть → что делать → почему",tabs:[["overview","Сейчас"],["operations","Операции"],["bank","Банк"],["debts","Долги"],["analysis","Прогноз"],["more","Ещё"]]},
+            work:{title:"Работа",desc:()=>"Sales OS: прогноз, сделки и следующие действия",tabs:[["overview","Обзор"],["crm","CRM"],["log","День"]]},
+            tennis:{title:"Теннис",desc:()=>"Tennis OS: нагрузка, техника и матчи",tabs:[["overview","Обзор"],["training","Тренировки"],["analytics","Аналитика"]]},
+            more:{title:"Ещё",desc:()=>"Knowledge OS, прогресс и настройки",tabs:[["overview","Обзор"],["knowledge","Знания"],["rewards","Прогресс"],["settings","Настройки"]]}
+          };'''
+          new_meta='''const UX7_META={
+            today:{title:"Сегодня",desc:()=>ux7DateTitle(),tabs:[["focus","Главное"],["progress","Прогресс"]]},
+            finance:{title:"Деньги",desc:()=>"Свободные деньги, обязательства и следующий шаг",tabs:[["overview","Сейчас"],["operations","Операции"],["debts","Долги"],["analysis","Аналитика"]]},
+            work:{title:"Работа",desc:()=>"Прогноз, сделки и следующие действия",tabs:[["overview","Обзор"],["crm","CRM"],["log","День"]]},
+            tennis:{title:"Теннис",desc:()=>"Нагрузка, техника и матчи",tabs:[["overview","Обзор"],["training","Тренировки"],["analytics","Аналитика"]]},
+            more:{title:"Ещё",desc:()=>"Знания, прогресс и настройки",tabs:[["overview","Обзор"],["knowledge","Знания"],["rewards","Прогресс"],["settings","Настройки"]]}
+          };'''
+          if new_meta not in ui:
+              if old_meta not in ui:
+                  raise SystemExit("UX7_META anchor not found")
+              ui=ui.replace(old_meta,new_meta,1)
+
+          old_shortcuts='''const UX7_SECTION_SHORTCUTS={
+            finance:[["expense","Расход"],["bank","Сверить банк"],["payment","Платёж"]],
+            work:[["crm","CRM"],["worklog","Записать день"],["worknext","Следующие шаги"]],
+            tennis:[["tennisnew","Новая сессия"],["huawei","Huawei"],["tennisanalytics","Аналитика"]],
+            more:[["reading","Чтение"],["knowledge","Знания"],["settings","Настройки"]]
+          };'''
+          if 'const UX7_SECTION_SHORTCUTS={};' not in ui:
+              if old_shortcuts not in ui:
+                  raise SystemExit("UX7_SECTION_SHORTCUTS anchor not found")
+              ui=ui.replace(old_shortcuts,'const UX7_SECTION_SHORTCUTS={};',1)
+
+          helper_anchor='''function ux7UpdateSectionShortcuts(sectionId,view){const bar=$(sectionId)?.querySelector(":scope > .ux7-section-shortcuts");if(bar)bar.hidden=view!=="overview"}
+
+          '''
+          helper_block='''function ux7UpdateSectionShortcuts(sectionId,view){const bar=$(sectionId)?.querySelector(":scope > .ux7-section-shortcuts");if(bar)bar.hidden=view!=="overview"}
+
+          function ui139NormalizeFinanceViews(){
+            const section=$("finance");if(!section)return;
+            section.querySelectorAll(".ux7-card").forEach(card=>{
+              const views=(card.dataset.ux7View||"").split(/\\s+/).filter(Boolean),next=views.filter(v=>v!=="bank"&&v!=="more");
+              if(views.includes("bank"))next.push("operations");
+              if(views.includes("more"))next.push(card.querySelector("#aiImportInput")?"operations":"analysis");
+              card.dataset.ux7View=[...new Set(next.length?next:["overview"])].join(" ")
+            })
+          }
+
+          function ui139MoreNavigate(view,target=""){
+            ux7Go("more",view);
+            if(target)setTimeout(()=>{const node=document.querySelector(target),card=node?.closest?.(".card")||node;card?.scrollIntoView?.({behavior:"smooth",block:"start"})},180)
+          }
+
+          function ui139InstallMoreHub(){
+            const card=document.querySelector('#more .book-hero[data-ux7-view~="overview"]');if(!card||card.dataset.ui139Hub==="1")return;
+            card.dataset.ui139Hub="1";card.classList.add("ui139-more-hub");
+            card.innerHTML=`<div class="ui139-hub-intro"><div class="smallcaps">Life RPG</div><div class="section-title">Разделы и система</div><div class="muted">Главное — сверху. Сервисные функции собраны отдельно и не конкурируют с ежедневными действиями.</div></div>
+            <div class="ui139-hub-group"><div class="ui139-hub-label">Личное</div>
+              <button type="button" class="ui139-hub-row" data-ui139-view="knowledge"><span><b>Знания</b><small>Книги, заметки и база знаний</small></span><i>›</i></button>
+              <button type="button" class="ui139-hub-row" data-ui139-view="rewards"><span><b>Прогресс</b><small>XP, достижения и сезоны</small></span><i>›</i></button>
+            </div>
+            <div class="ui139-hub-group"><div class="ui139-hub-label">Система</div>
+              <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#import127Command"><span><b>Импорт и Share</b><small>Файлы, скриншоты и внешние данные</small></span><i>›</i></button>
+              <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#recovery133Center"><span><b>Backup и Recovery</b><small>Резервные копии и восстановление</small></span><i>›</i></button>
+              <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#systemDiagnostics"><span><b>Диагностика</b><small>Целостность данных и состояние системы</small></span><i>›</i></button>
+            </div>
+            <div class="ui139-hub-group"><div class="ui139-hub-label">Настройки</div>
+              <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#profileName"><span><b>Профиль и параметры</b><small>Финансы, работа, теннис и чтение</small></span><i>›</i></button>
+            </div>`;
+            card.querySelectorAll(".ui139-hub-row").forEach(b=>b.addEventListener("click",()=>ui139MoreNavigate(b.dataset.ui139View,b.dataset.ui139Target||"")))
+          }
+
+          let UI139_SCROLL_BOUND=false;
+          function ui139SyncScrollChrome(){document.body?.classList.toggle("ui139-scrolled",(window.scrollY||0)>32)}
+          function ui139InstallScrollChrome(){if(UI139_SCROLL_BOUND)return;UI139_SCROLL_BOUND=true;window.addEventListener("scroll",ui139SyncScrollChrome,{passive:true});ui139SyncScrollChrome()}
+
+          '''
+          if "function ui139NormalizeFinanceViews()" not in ui:
+              if helper_anchor not in ui:
+                  raise SystemExit("UI architecture helper anchor not found")
+              ui=ui.replace(helper_anchor,helper_block,1)
+
+          old_set='''function ux7SetView(sectionId,view,scrollTop=false){
+            const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);'''
+          new_set='''function ux7SetView(sectionId,view,scrollTop=false){
+            if(sectionId==="finance"){ui139NormalizeFinanceViews();if(view==="bank")view="operations";if(view==="more")view="analysis"}
+            const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);'''
+          if new_set not in ui:
+              if old_set not in ui:
+                  raise SystemExit("ux7SetView anchor not found")
+              ui=ui.replace(old_set,new_set,1)
+
+          old_chrome='''  ui139SyncCommandPalette(sectionId);
+            const fab=$("ux7Fab"),hideFab=(sectionId==="today")||(sectionId==="more"&&view==="settings")||(sectionId==="finance"&&view==="analysis");'''
+          new_chrome='''  ui139SyncCommandPalette(sectionId);
+            ui139SyncScrollChrome();
+            const fab=$("ux7Fab"),hideFab=(sectionId==="today")||(sectionId==="more"&&view==="settings")||(sectionId==="finance"&&view==="analysis");'''
+          if new_chrome not in ui:
+              if old_chrome not in ui:
+                  raise SystemExit("ui82SyncChrome anchor not found")
+              ui=ui.replace(old_chrome,new_chrome,1)
+
+          ui=ui.replace('function ux7OpenInbox(triggerFile=false){ux7Go("finance","bank");','function ux7OpenInbox(triggerFile=false){ux7Go("finance","operations");')
+
+          old_install='''  for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
+            ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupSectionShortcuts();'''
+          new_install='''  for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
+            ui139NormalizeFinanceViews();ui139InstallMoreHub();ui139InstallScrollChrome();
+            ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupSectionShortcuts();'''
+          if new_install not in ui:
+              if old_install not in ui:
+                  raise SystemExit("ux7InstallShell anchor not found")
+              ui=ui.replace(old_install,new_install,1)
+
+          ui_path.write_text(ui,encoding="utf-8")
+
+          css_path=Path("interface-13.9.css")
+          css=css_path.read_text(encoding="utf-8")
+          marker="/* 13.9.1 UI architecture — reduced navigation layers and calmer surfaces */"
+          if marker not in css:
+              css += r'''
+
+          /* 13.9.1 UI architecture — reduced navigation layers and calmer surfaces */
+          body.ui82.ui139{
+            --ui139-space-1:4px;
+            --ui139-space-2:8px;
+            --ui139-space-3:12px;
+            --ui139-space-4:16px;
+            --ui139-space-5:24px;
+          }
+          .ui82.ui139 .eyebrow,.ui82.ui139 .smallcaps{
+            font-size:10.5px;
+            letter-spacing:.08em;
+          }
+          .ui82.ui139 .ux7-section-shortcuts{display:none!important}
+
+          .ui82.ui139 .ux7-section-head,
+          .ui82.ui139 .ux7-head-copy,
+          .ui82.ui139 .ux7-head-copy h1{
+            transition:min-height .16s ease,margin .16s ease,padding .16s ease,font-size .16s ease;
+          }
+          body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head{
+            padding-top:4px;
+            padding-bottom:5px;
+          }
+          body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-head-copy{
+            min-height:30px;
+            margin-bottom:2px;
+          }
+          body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-head-copy h1{
+            font-size:20px;
+            letter-spacing:-.025em;
+          }
+          body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-head-desc{display:none}
+
+          body.ui82.ui139[data-section="finance"][data-view="operations"] #finance .ux7-card[data-ux7-view~="operations"]:not(.bank-sync-card),
+          body.ui82.ui139[data-section="finance"][data-view="debts"] #finance .ux7-card[data-ux7-view~="debts"]:not(#debtEditorCard),
+          body.ui82.ui139[data-section="finance"][data-view="analysis"] #finance .ux7-card[data-ux7-view~="analysis"]:not(.financial-command-card){
+            background:transparent;
+            border:0;
+            border-top:1px solid var(--ui139-line);
+            border-radius:0;
+            padding-left:2px;
+            padding-right:2px;
+          }
+          body.ui82.ui139[data-section="more"][data-view="settings"] #more .ux7-card[data-ux7-view~="settings"]:not(.danger-zone):not(#recovery133Center){
+            background:transparent;
+            border:0;
+            border-top:1px solid var(--ui139-line);
+            border-radius:0;
+            padding-left:2px;
+            padding-right:2px;
+          }
+          body.ui82.ui139[data-section="more"][data-view="settings"] #more .ux7-card[data-ux7-view~="settings"]>.eyebrow{
+            display:none;
+          }
+
+          .ui82.ui139 .ui139-more-hub{
+            padding:0;
+            overflow:hidden;
+          }
+          .ui82.ui139 .ui139-hub-intro{
+            padding:16px 15px 13px;
+          }
+          .ui82.ui139 .ui139-hub-intro .muted{
+            margin-top:5px;
+            max-width:58ch;
+            font-size:12.5px;
+          }
+          .ui82.ui139 .ui139-hub-group{
+            border-top:1px solid var(--ui139-line);
+          }
+          .ui82.ui139 .ui139-hub-label{
+            padding:11px 15px 5px;
+            color:#747e8d;
+            font-size:10.5px;
+            font-weight:700;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+          }
+          .ui82.ui139 .ui139-hub-row{
+            width:100%;
+            min-height:62px;
+            display:grid;
+            grid-template-columns:minmax(0,1fr) auto;
+            align-items:center;
+            gap:12px;
+            padding:10px 15px;
+            border:0;
+            border-top:1px solid rgba(255,255,255,.045);
+            background:transparent;
+            color:var(--ui139-text);
+            text-align:left;
+          }
+          .ui82.ui139 .ui139-hub-label+.ui139-hub-row{border-top:0}
+          .ui82.ui139 .ui139-hub-row:active{background:var(--ui139-surface-2)}
+          .ui82.ui139 .ui139-hub-row span{min-width:0;display:grid;gap:2px}
+          .ui82.ui139 .ui139-hub-row b{font-size:14px;font-weight:690}
+          .ui82.ui139 .ui139-hub-row small{color:var(--ui139-muted);font-size:12px;line-height:1.3}
+          .ui82.ui139 .ui139-hub-row i{
+            color:#6f7989;
+            font-size:24px;
+            font-style:normal;
+            font-weight:300;
+          }
+
+          @media(max-width:600px){
+            body.ui82.ui139[data-section="finance"] #finance .ux7-tabs{
+              grid-template-columns:repeat(4,minmax(0,1fr));
+              gap:4px;
+            }
+            body.ui82.ui139[data-section="finance"] #finance .ux7-tab{
+              font-size:11.8px;
+              padding-left:3px;
+              padding-right:3px;
+            }
+          }
+          '''
+              css_path.write_text(css,encoding="utf-8")
+
+          test_path=Path("interface-13.9.test.js")
+          test=test_path.read_text(encoding="utf-8")
+          old_assert='assert.ok(css.includes(\'grid-template-columns:repeat(3,minmax(0,1fr))\'),"finance 3x2 mobile tab contract missing");'
+          new_assert='''assert.ok(css.includes('grid-template-columns:repeat(4,minmax(0,1fr))'),"finance four-destination mobile tab contract missing");
+          assert.ok(ui.includes('const UX7_SECTION_SHORTCUTS={}'),"legacy section shortcut layer must be removed");
+          assert.ok(ui.includes("function ui139NormalizeFinanceViews()")&&ui.includes("function ui139InstallMoreHub()"),"13.9.1 UI architecture helpers missing");
+          assert.ok(ui.includes("ui139-scrolled")&&css.includes("ui139-scrolled"),"collapsing mobile chrome contract missing");
+          assert.ok(ui.includes('function ux7OpenInbox(triggerFile=false){ux7Go("finance","operations")'),"bank capture must route to Operations");'''
+          if new_assert not in test:
+              if old_assert not in test:
+                  raise SystemExit("interface static gate anchor not found")
+              test=test.replace(old_assert,new_assert,1)
+          test_path.write_text(test,encoding="utf-8")
+
+          e2e_path=Path("interface-13.9.e2e.test.js")
+          e2e=e2e_path.read_text(encoding="utf-8")
+          e2e=e2e.replace("expect(finance.tabColumns).toBe(3);","expect(finance.tabColumns).toBe(4);")
+          e2e=e2e.replace("expect(finance.tabsVisible).toBe(6);","expect(finance.tabsVisible).toBe(4);")
+          old_touch='''  const touch=await page.locator("#finance .ux7-section-shortcuts .btn").first().evaluate(el=>el.getBoundingClientRect().height);
+            expect(touch).toBeGreaterThanOrEqual(36);
+
+            await page.evaluate(()=>ux7SetView("finance","analysis",false));'''
+          new_touch='''  await expect(page.locator("#finance .ux7-section-shortcuts")).toHaveCount(0);
+            await expect(page.locator("#finance .ux7-tab")).toHaveCount(4);
+
+            await page.evaluate(()=>{window.scrollTo(0,160);window.dispatchEvent(new Event("scroll"))});
+            await page.waitForTimeout(60);
+            await expect(page.locator("body")).toHaveClass(/ui139-scrolled/);
+            await page.evaluate(()=>window.scrollTo(0,0));
+
+            await page.evaluate(()=>ux7Go("more","overview"));
+            await page.waitForTimeout(90);
+            await expect(page.locator("#more .ui139-more-hub")).toBeVisible();
+            expect(await page.locator("#more .ui139-hub-row").count()).toBeGreaterThanOrEqual(6);
+
+            await page.evaluate(()=>ux7Go("finance","analysis"));
+            await page.waitForTimeout(60);'''
+          if new_touch not in e2e:
+              if old_touch not in e2e:
+                  raise SystemExit("interface E2E shortcut anchor not found")
+              e2e=e2e.replace(old_touch,new_touch,1)
+          e2e_path.write_text(e2e,encoding="utf-8")
+
+          release_e2e=Path("release-13.9.1.e2e.test.js")
+          text=release_e2e.read_text(encoding="utf-8")
+          if "expect(nav.count).toBe(6);" in text:
+              text=text.replace("expect(nav.count).toBe(6);","expect(nav.count).toBe(4);",1)
+          release_e2e.write_text(text,encoding="utf-8")
+
+          print("Prepared Life RPG 13.9.1 UI Architecture.")
+          PY
+
+      - name: Preflight UI architecture contracts
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs"),assert=require("assert");
+          const read=f=>fs.readFileSync(f,"utf8");
+          const core=read("core.js"),ui=read("ui.js"),css=read("interface-13.9.css"),
+                pkg=JSON.parse(read("package.json")),pw=read("playwright.config.mjs"),
+                iface=read("interface-13.9.e2e.test.js"),release=read("release-13.9.1.e2e.test.js");
+          assert.ok(core.includes('APP_VERSION="13.9.1"'));
+          assert.equal(pkg.version,"13.9.1");
+          assert.ok(pkg.scripts.test.includes("release-13.9.1.test.js"));
+          assert.ok(pw.includes("release-13.9.1.e2e.test.js"));
+          assert.ok(!fs.existsSync("release-13.9.0.test.js"));
+          assert.ok(!fs.existsSync("release-13.9.0.e2e.test.js"));
+          assert.ok(ui.includes('tabs:[["overview","Сейчас"],["operations","Операции"],["debts","Долги"],["analysis","Аналитика"]]'));
+          assert.ok(ui.includes("const UX7_SECTION_SHORTCUTS={}"));
+          assert.ok(ui.includes("function ui139NormalizeFinanceViews()"));
+          assert.ok(ui.includes("function ui139InstallMoreHub()"));
+          assert.ok(ui.includes("function ui139InstallScrollChrome()"));
+          assert.ok(css.includes("13.9.1 UI architecture"));
+          assert.ok(css.includes("repeat(4,minmax(0,1fr))"));
+          assert.ok(iface.includes("ui139-more-hub"));
+          assert.ok(release.includes("expect(nav.count).toBe(4)"));
+          console.log("OK — 13.9.1 UI architecture preflight passed");
+          NODE
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run full unit and static suite
+        run: npm test
+
+      - name: Build production PWA
+        run: npm run build
+
+      - name: Verify production dist
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run complete mobile E2E suite
+        run: npm run test:e2e
+
+      - name: Commit tested 13.9.1 release
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --name-only | grep -q '^\.github/workflows/'; then
+            echo "Refusing to commit workflow-file changes"
+            git diff --cached --name-only
+            exit 1
+          fi
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+          git commit -m "Release Life RPG 13.9.1 UI architecture"
+          git push origin HEAD:main
