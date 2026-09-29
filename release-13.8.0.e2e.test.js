@@ -8,7 +8,7 @@ async function boot(page){
 
 test("13.8.0 release: native reportStart boundary and integrated mobile UI",async({page})=>{
   await boot(page);
-  await expect(page).toHaveTitle(/Life RPG 13\.8\.0/);
+  await expect(page).toHaveTitle("Life RPG 13.8.0");
 
   const runtime=await page.evaluate(()=>({
     version:APP_VERSION,

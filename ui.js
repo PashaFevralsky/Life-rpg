@@ -158,10 +158,17 @@ function ux7SetView(sectionId,view,scrollTop=false){
 }
 
 
+function ui139SyncCommandPalette(sectionId){
+  const btn=document.getElementById("commandPaletteBtn");if(!btn)return;
+  const target=sectionId==="today"?document.querySelector(".top-actions"):document.querySelector(`#${sectionId} .ux7-head-actions`);
+  if(target&&btn.parentElement!==target)target.insertBefore(btn,target.firstChild);
+}
+
 function ui82SyncChrome(sectionId,view){
   const active=document.querySelector?.(".section.active")?.id||sectionId;
   if(sectionId!==active)return;
   if(document.body?.dataset){document.body.dataset.section=sectionId;document.body.dataset.view=view}
+  ui139SyncCommandPalette(sectionId);
   const fab=$("ux7Fab"),hideFab=(sectionId==="today")||(sectionId==="more"&&view==="settings")||(sectionId==="finance"&&view==="analysis");
   fab?.classList.toggle("ui82-fab-hidden",hideFab);
   const tab=document.querySelector?.(`#${sectionId} .ux7-tab[data-view="${view}"]`),rail=tab?.closest?.(".ux7-tabs");
