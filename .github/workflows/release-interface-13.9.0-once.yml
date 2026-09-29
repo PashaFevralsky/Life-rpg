@@ -193,6 +193,31 @@ jobs:
             }
             .ui82.ui139 .quick span{font-size:11.5px;font-weight:630}
             
+            /* Mobile overview rails */
+            .ui82.ui139 #today .quick-card .quick{
+              display:flex!important;
+              gap:6px;overflow-x:auto;overflow-y:hidden;
+              scrollbar-width:none;scroll-snap-type:x proximity;
+              -webkit-overflow-scrolling:touch;
+            }
+            .ui82.ui139 #today .quick-card .quick::-webkit-scrollbar{display:none}
+            .ui82.ui139 #today .quick-card .quick button{
+              flex:0 0 96px;min-width:96px;scroll-snap-align:start;
+            }
+            .ui82.ui139 .work-hero .kpi-row,
+            .ui82.ui139 .tennis-hero .kpi-row{
+              display:flex!important;
+              gap:1px;overflow-x:auto;overflow-y:hidden;
+              scrollbar-width:none;scroll-snap-type:x proximity;
+              -webkit-overflow-scrolling:touch;
+            }
+            .ui82.ui139 .work-hero .kpi-row::-webkit-scrollbar,
+            .ui82.ui139 .tennis-hero .kpi-row::-webkit-scrollbar{display:none}
+            .ui82.ui139 .work-hero .kpi-row>*,
+            .ui82.ui139 .tennis-hero .kpi-row>*{
+              flex:0 0 148px;min-width:0;scroll-snap-align:start;
+            }
+            
             /* Metric groups */
             .ui82.ui139 :is(.kpi-row,.report-grid,.health-grid,.decision-kpis,.forecast-os-grid,.money-balance-grid,.bank-sync-summary,.analytics-grid,.autopilot-grid,.compare-grid,.mini-forecast,.ux7-pulse-grid){
               gap:1px;border:1px solid var(--ui139-line);border-radius:14px;
