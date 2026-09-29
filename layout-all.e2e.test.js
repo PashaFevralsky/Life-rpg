@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 const widths=[360,390,412,430];
 const views={
   today:["focus","progress"],
-  finance:["overview","operations","bank","debts","analysis","more"],
+  finance:["overview","operations","debts","analysis"],
   work:["overview","crm","log"],
   tennis:["overview","training","analytics"],
   more:["overview","knowledge","rewards","settings"]
@@ -83,26 +83,22 @@ test("overview clarity keeps secondary cards optional",async({page})=>{
 });
 
 
-test("overview shortcuts reduce taps and mobile rails stay compact",async({page})=>{
+test("reduced navigation layers and mobile rails stay compact",async({page})=>{
   const errors=await boot(page,390);
   for(const section of ["finance","work","tennis","more"]){
     await page.evaluate(s=>{switchTab(s);ux7SetView(s,"overview",false)},section);
-    const bar=page.locator(`#${section} .ux7-section-shortcuts`);
-    await expect(bar).toBeVisible();
-    expect(await bar.locator("button").count(),`${section}: shortcuts`).toBeGreaterThanOrEqual(3)
+    await expect(page.locator(`#${section} .ux7-section-shortcuts`)).toHaveCount(0)
   }
 
-  await page.evaluate(()=>{switchTab("work");ux7SetView("work","overview",false)});
-  await page.locator('#work .ux7-shortcut[data-action="worklog"]').click();
-  await expect(page.locator('#work .ux7-tab[data-view="log"]')).toHaveClass(/active/);
-  await expect(page.locator('#work .ux7-section-shortcuts')).toBeHidden();
-
-  await page.evaluate(()=>{switchTab("tennis");ux7SetView("tennis","overview",false)});
-  await page.locator('#tennis .ux7-shortcut[data-action="tennisanalytics"]').click();
-  await expect(page.locator('#tennis .ux7-tab[data-view="analytics"]')).toHaveClass(/active/);
+  await page.evaluate(()=>{switchTab("finance");ux7SetView("finance","overview",false)});
+  await expect(page.locator("#finance .ux7-tab")).toHaveCount(4);
+  await expect(page.locator("#ux7Fab")).toBeVisible();
 
   await page.evaluate(()=>{switchTab("more");ux7SetView("more","overview",false)});
-  await page.locator('#more .ux7-shortcut[data-action="knowledge"]').click();
+  const hub=page.locator("#more .ui139-more-hub");
+  await expect(hub).toBeVisible();
+  expect(await hub.locator(".ui139-hub-row").count()).toBeGreaterThanOrEqual(6);
+  await hub.locator('.ui139-hub-row[data-ui139-view="knowledge"]').click();
   await expect(page.locator('#more .ux7-tab[data-view="knowledge"]')).toHaveClass(/active/);
 
   await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});

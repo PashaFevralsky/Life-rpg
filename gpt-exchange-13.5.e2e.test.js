@@ -5,7 +5,7 @@ async function boot(page){
   const errors=[];page.on("pageerror",e=>errors.push(String(e)));
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
-  await expect(page.locator("#versionStatus")).toContainText("13.9.0");
+  await expect(page.locator("#versionStatus")).toContainText("13.9.1");
   return errors
 }
 

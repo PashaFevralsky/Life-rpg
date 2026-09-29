@@ -6,16 +6,16 @@ async function boot(page){
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
 }
 
-test("13.9.0 release: native reportStart boundary and integrated mobile UI",async({page})=>{
+test("13.9.1 release: native reportStart boundary and integrated mobile UI",async({page})=>{
   await boot(page);
-  await expect(page).toHaveTitle("Life RPG 13.9.0");
+  await expect(page).toHaveTitle("Life RPG 13.9.1");
 
   const runtime=await page.evaluate(()=>({
     version:APP_VERSION,
     oldHotfix:[...document.scripts].some(s=>/report-start-hotfix|ui-polish-13\.7\.5/.test(s.src)),
     core:typeof reportStartKey==="function"&&typeof reportingDateAllowed==="function"
   }));
-  expect(runtime.version).toBe("13.9.0");
+  expect(runtime.version).toBe("13.9.1");
   expect(runtime.oldHotfix).toBe(false);
   expect(runtime.core).toBe(true);
 
@@ -48,7 +48,7 @@ test("13.9.0 release: native reportStart boundary and integrated mobile UI",asyn
     count:el.querySelectorAll(".ux7-tab").length
   }));
   expect(nav.display).toBe("grid");
-  expect(nav.count).toBe(6);
+  expect(nav.count).toBe(4);
   await expect(page.locator(".ui-polish-model-note").first()).toBeVisible();
   await expect(page.locator(".ui-polish-chart-details")).toHaveCount(1);
 });

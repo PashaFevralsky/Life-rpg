@@ -62,19 +62,14 @@ function ux7DateTitle(){return new Intl.DateTimeFormat("ru-RU",{weekday:"long",d
 
 const UX7_META={
   today:{title:"Сегодня",desc:()=>ux7DateTitle(),tabs:[["focus","Главное"],["progress","Прогресс"]]},
-  finance:{title:"Деньги",desc:()=>"Что есть → что делать → почему",tabs:[["overview","Сейчас"],["operations","Операции"],["bank","Банк"],["debts","Долги"],["analysis","Прогноз"],["more","Ещё"]]},
-  work:{title:"Работа",desc:()=>"Sales OS: прогноз, сделки и следующие действия",tabs:[["overview","Обзор"],["crm","CRM"],["log","День"]]},
-  tennis:{title:"Теннис",desc:()=>"Tennis OS: нагрузка, техника и матчи",tabs:[["overview","Обзор"],["training","Тренировки"],["analytics","Аналитика"]]},
-  more:{title:"Ещё",desc:()=>"Knowledge OS, прогресс и настройки",tabs:[["overview","Обзор"],["knowledge","Знания"],["rewards","Прогресс"],["settings","Настройки"]]}
+  finance:{title:"Деньги",desc:()=>"Свободные деньги, обязательства и следующий шаг",tabs:[["overview","Сейчас"],["operations","Операции"],["debts","Долги"],["analysis","Аналитика"]]},
+  work:{title:"Работа",desc:()=>"Прогноз, сделки и следующие действия",tabs:[["overview","Обзор"],["crm","CRM"],["log","День"]]},
+  tennis:{title:"Теннис",desc:()=>"Нагрузка, техника и матчи",tabs:[["overview","Обзор"],["training","Тренировки"],["analytics","Аналитика"]]},
+  more:{title:"Ещё",desc:()=>"Знания, прогресс и настройки",tabs:[["overview","Обзор"],["knowledge","Знания"],["rewards","Прогресс"],["settings","Настройки"]]}
 };
 
 
-const UX7_SECTION_SHORTCUTS={
-  finance:[["expense","Расход"],["bank","Сверить банк"],["payment","Платёж"]],
-  work:[["crm","CRM"],["worklog","Записать день"],["worknext","Следующие шаги"]],
-  tennis:[["tennisnew","Новая сессия"],["huawei","Huawei"],["tennisanalytics","Аналитика"]],
-  more:[["reading","Чтение"],["knowledge","Знания"],["settings","Настройки"]]
-};
+const UX7_SECTION_SHORTCUTS={};
 
 function ux7RunSectionShortcut(action){
   if(action==="expense")return openModal("expenseModal");
@@ -101,6 +96,44 @@ function ux7SetupSectionShortcuts(){
 }
 
 function ux7UpdateSectionShortcuts(sectionId,view){const bar=$(sectionId)?.querySelector(":scope > .ux7-section-shortcuts");if(bar)bar.hidden=view!=="overview"}
+
+function ui139NormalizeFinanceViews(){
+  const section=$("finance");if(!section)return;
+  section.querySelectorAll(".ux7-card").forEach(card=>{
+    const views=(card.dataset.ux7View||"").split(/\s+/).filter(Boolean),next=views.filter(v=>v!=="bank"&&v!=="more");
+    if(views.includes("bank"))next.push("operations");
+    if(views.includes("more"))next.push(card.querySelector("#aiImportInput")?"operations":"analysis");
+    card.dataset.ux7View=[...new Set(next.length?next:["overview"])].join(" ")
+  })
+}
+
+function ui139MoreNavigate(view,target=""){
+  ux7Go("more",view);
+  if(target)setTimeout(()=>{const node=document.querySelector(target),card=node?.closest?.(".card")||node;card?.scrollIntoView?.({behavior:"smooth",block:"start"})},180)
+}
+
+function ui139InstallMoreHub(){
+  const card=document.querySelector('#more .book-hero[data-ux7-view~="overview"]');if(!card||card.dataset.ui139Hub==="1")return;
+  card.dataset.ui139Hub="1";card.classList.add("ui139-more-hub");
+  card.innerHTML=`<div class="ui139-hub-intro"><div class="smallcaps">Life RPG</div><div class="section-title">Разделы и система</div><div class="muted">Главное — сверху. Сервисные функции собраны отдельно и не конкурируют с ежедневными действиями.</div></div>
+  <div class="ui139-hub-group"><div class="ui139-hub-label">Личное</div>
+    <button type="button" class="ui139-hub-row" data-ui139-view="knowledge"><span><b>Знания</b><small>Книги, заметки и база знаний</small></span><i>›</i></button>
+    <button type="button" class="ui139-hub-row" data-ui139-view="rewards"><span><b>Прогресс</b><small>XP, достижения и сезоны</small></span><i>›</i></button>
+  </div>
+  <div class="ui139-hub-group"><div class="ui139-hub-label">Система</div>
+    <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#import127Command"><span><b>Импорт и Share</b><small>Файлы, скриншоты и внешние данные</small></span><i>›</i></button>
+    <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#recovery133Center"><span><b>Backup и Recovery</b><small>Резервные копии и восстановление</small></span><i>›</i></button>
+    <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#systemDiagnostics"><span><b>Диагностика</b><small>Целостность данных и состояние системы</small></span><i>›</i></button>
+  </div>
+  <div class="ui139-hub-group"><div class="ui139-hub-label">Настройки</div>
+    <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#profileName"><span><b>Профиль и параметры</b><small>Финансы, работа, теннис и чтение</small></span><i>›</i></button>
+  </div>`;
+  card.querySelectorAll(".ui139-hub-row").forEach(b=>b.addEventListener("click",()=>ui139MoreNavigate(b.dataset.ui139View,b.dataset.ui139Target||"")))
+}
+
+let UI139_SCROLL_BOUND=false;
+function ui139SyncScrollChrome(){document.body?.classList.toggle("ui139-scrolled",(window.scrollY||0)>32)}
+function ui139InstallScrollChrome(){if(UI139_SCROLL_BOUND)return;UI139_SCROLL_BOUND=true;window.addEventListener("scroll",ui139SyncScrollChrome,{passive:true});ui139SyncScrollChrome()}
 
 function ux7ViewsForCard(sectionId,card,index){if(card?.dataset?.ux7View)return card.dataset.ux7View;const t=ux7CardText(card);if(sectionId==="today"){if(/быстрые действия|daily engine|план дня|главные цели месяца|что сделать сегодня/.test(t))return "focus";return "progress"}if(sectionId==="finance"){if(/финансовый центр|обновить данные из банка|счета и реальные остатки|правила авторазбора|пакеты импорта|импорт банковской выписки/.test(t))return "bank";if(/кампания против долгов|состояние финансов|что делать сейчас|реальный денежный баланс|как распределить деньги сейчас|money engine|можно потратить/.test(t))return "overview";if(/денежный поток|расходы месяца|регулярные обязательные платежи|добавить регулярный платеж|единый журнал операций|transaction engine/.test(t))return "operations";if(/долги-боссы|следующее действие|история платежей|debt engine|сценарии погашения|долг → ноль|проценты|avalanche vs snowball/.test(t))return "debts";if(/прогноз|calendar center|финансовый календарь|динамический бюджет|конверты расходов|cash-flow по дням|ключевые даты|отдельный резерв|лаборатория «что если|smart budget|рекомендованный бюджет|financial health|decision engine/.test(t))return "analysis";return "more"}if(sectionId==="work"){if(/work crm|карточка сделки|сделки и следующие шаги/.test(t))return "crm";if(/добавить рабочий день|последние записи/.test(t))return "log";return "overview"}if(sectionId==="tennis"){if(/добавить сессию|история тренировок/.test(t))return "training";if(/tennis analytics|соперники/.test(t))return "analytics";return "overview"}if(sectionId==="more"){if(/библиотека|навыки \/ skill tree|чтение и знания|база знаний/.test(t))return "knowledge";if(/магазин наград|xp: процесс|история сезонов|все достижения/.test(t))return "rewards";if(/уведомления|график ожидаемых доходов|локальные снимки|профиль и настройки|облако и android|данные, версия|опасная зона|журнал изменений/.test(t))return "settings";return "overview"}return "overview"}
 
@@ -148,7 +181,10 @@ function ux7ToggleClarity(sectionId){
 }
 
 function ux7SetView(sectionId,view,scrollTop=false){
-  const section=$(sectionId);if(!section)return;const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];const previous=UX7_PREFS[sectionId];ux7NotifyNavigation({type:"view:before",section:sectionId,view,previous});UX7_PREFS[sectionId]=view;if(previous!==view)ux7SavePrefs();
+  if(sectionId==="finance"){ui139NormalizeFinanceViews();if(view==="bank")view="operations";if(view==="more")view="analysis"}
+  const section=$(sectionId);if(!section)return;
+  if(sectionId==="more"&&view==="overview"){const hub=section.querySelector(".ui139-more-hub");if(hub)hub.hidden=false}
+  const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];const previous=UX7_PREFS[sectionId];ux7NotifyNavigation({type:"view:before",section:sectionId,view,previous});UX7_PREFS[sectionId]=view;if(previous!==view)ux7SavePrefs();
   section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view));card.classList.add("ux7-view-ready")});
   ux7ApplyClarity(sectionId,view);ux7UpdateSectionShortcuts(sectionId,view);
@@ -169,6 +205,7 @@ function ui82SyncChrome(sectionId,view){
   if(sectionId!==active)return;
   if(document.body?.dataset){document.body.dataset.section=sectionId;document.body.dataset.view=view}
   ui139SyncCommandPalette(sectionId);
+  ui139SyncScrollChrome();
   const fab=$("ux7Fab"),hideFab=(sectionId==="today")||(sectionId==="more"&&view==="settings")||(sectionId==="finance"&&view==="analysis");
   fab?.classList.toggle("ui82-fab-hidden",hideFab);
   const tab=document.querySelector?.(`#${sectionId} .ux7-tab[data-view="${view}"]`),rail=tab?.closest?.(".ux7-tabs");
@@ -203,7 +240,7 @@ function ux7CreateQuickSheet(){if($("ux7QuickSheet"))return;const m=document.cre
   const fab=document.createElement("button");fab.id="ux7Fab";fab.className="ux7-fab";fab.type="button";fab.setAttribute("aria-label","Добавить");fab.textContent="＋";fab.onclick=()=>openModal("ux7QuickSheet");document.body.appendChild(fab)
 }
 
-function ux7OpenInbox(triggerFile=false){ux7Go("finance","bank");if(triggerFile)setTimeout(()=>$("smartInboxInput")?.click(),300)}
+function ux7OpenInbox(triggerFile=false){ux7Go("finance","operations");if(triggerFile)setTimeout(()=>$("smartInboxInput")?.click(),300)}
 
 function ux7Go(sectionId,view){switchTab(sectionId);setTimeout(()=>ux7SetView(sectionId,view,true),0)}
 
@@ -257,6 +294,7 @@ function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m
 function ux7InstallShell(){
   document.body.classList.add("ux7","ui82");document.body.classList.add("ui139");ux7LoadPrefs();ux7LoadClarity();
   for(const id of Object.keys(UX7_META)){ux7BuildSectionHeader(id);ux7TagCards(id)}
+  ui139NormalizeFinanceViews();ui139InstallMoreHub();ui139InstallScrollChrome();
   ux7SetupFinancePulse();ux7SetupTodayPulse();ux7CreateQuickSheet();ux7SetupSectionShortcuts();ux7SetupTodayQuests();ux7SetupDebtEditor();ux7SetupFinanceEditors();ux7SetupEditors();ux7PatchEditorActions();ux7EnhanceAccessibility();
   for(const id of Object.keys(UX7_META))ux7SetView(id,UX7_PREFS[id]||UX7_DEFAULTS[id],false);
   const financeNav=document.querySelector('.navbtn[data-tab="finance"]');if(financeNav){const b=financeNav.querySelector('b')?.outerHTML||'<b>₽</b>';financeNav.innerHTML=b+'Деньги'}

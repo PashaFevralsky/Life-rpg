@@ -72,7 +72,7 @@ function normalizeReportStartDerived(out){
   const limits=out.envelopeLimits||{},signature=[["Еда",17000],["Транспорт",10000],["Развлечения",1000],["Теннис",9000],["Покупки",2000],["Другое",8000]];
   if(signature.every(([k,v])=>Math.abs((+limits[k]||0)-v)<.01)&&(+limits["Связь"]||0)===0)limits["Связь"]=2000;
   if(localDateKey()<s){out.questDone={};out.xpEvents=[];out.xpEarned=0;out.xpSpent=0;out.achievements={};out.rewardPurchases=[];for(const k of statKeys)out.stats[k]=0}
-  out.settings.reportStartMigration=marker;out.settings.reportStartCleanupVersion="13.9.0-core";out.settings.reportStartEnvelopeFixVersion="13.9.0-core";
+  out.settings.reportStartMigration=marker;out.settings.reportStartCleanupVersion="13.9.1-core";out.settings.reportStartEnvelopeFixVersion="13.9.1-core";
   return out
 }
 

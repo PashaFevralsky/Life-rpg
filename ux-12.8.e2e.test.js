@@ -38,7 +38,8 @@ test("12.8 restores last section/view and consolidates More",async({page})=>{
   await expect(page.locator('#work .ux7-tab[data-view="crm"]')).toHaveClass(/active/);
 
   await page.evaluate(()=>{switchTab("more");ux7SetView("more","overview",false)});
-  await expect(page.locator("#more .book-hero")).toBeHidden();
+  await expect(page.locator("#more .ui139-more-hub")).toBeVisible();
+  expect(await page.locator("#more .ui139-hub-row").count()).toBeGreaterThanOrEqual(6);
   await expect(page.locator("#weeklyReview").locator("xpath=ancestor::div[contains(@class,'card')]")).toBeHidden();
   await expect(page.locator("#calibrationOsCommand").locator("xpath=ancestor::div[contains(@class,'card')]")).toBeHidden();
 

@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("fs"),path=require("path"),cp=require("child_process"),assert=require("assert");
 const root=__dirname,read=n=>fs.readFileSync(path.join(root,n),"utf8");
-const RELEASE="13.9.0",SHELL_ANCHOR="13.9.0";
+const RELEASE="13.9.1",SHELL_ANCHOR="13.9.1";
 const baseModules=["core.js","state.js","finance.js","imports.js","work.js","tennis.js","knowledge.js","gamification.js","pwa.js","ui.js"];
 const bootstrap=read("bootstrap.js"),registry=bootstrap.match(/const\s+LIFE_RPG_RUNTIME_MODULES\s*=\s*\[(.*?)\];/s);
 assert.ok(registry,"Runtime registry not found in bootstrap.js");

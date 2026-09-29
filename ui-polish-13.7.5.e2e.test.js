@@ -18,7 +18,7 @@ test("13.7.5 UI polish: finance navigation is fully visible and forecast is comp
     return {display:getComputedStyle(el).display,left:r.left,right:r.right,buttons}
   });
   expect(nav.display).toBe("grid");
-  expect(nav.buttons).toHaveLength(6);
+  expect(nav.buttons).toHaveLength(4);
   expect(nav.buttons.filter(x=>x.left<nav.left-1||x.right>nav.right+1)).toEqual([]);
 
   const active=await page.locator('#finance .ux7-tab[data-view="analysis"]').getAttribute("aria-selected");

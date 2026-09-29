@@ -7,16 +7,16 @@ const core=read("core.js"),pkg=JSON.parse(read("package.json")),lock=JSON.parse(
       manifest=read("manifest.webmanifest"),html=read("index.html"),vite=read("vite.config.mjs"),
       bootstrap=read("bootstrap.js"),playwright=read("playwright.config.mjs");
 
-assert.ok(core.includes('APP_VERSION="13.9.0"'));
-assert.equal(pkg.version,"13.9.0");
-assert.equal(lock.version,"13.9.0");
-assert.equal(lock.packages?.[""]?.version,"13.9.0");
-assert.ok(manifest.includes("Life RPG 13.9.0"));
-assert.ok(html.includes("<title>Life RPG 13.9.0</title>"));
-assert.ok(html.includes('window.__LIFE_RPG_HTML_VERSION__="13.9.0"'));
-assert.ok(vite.includes('cacheId:"life-rpg-13.9.0"'));
-assert.ok(pkg.scripts.test.includes("release-13.9.0.test.js"));
-assert.ok(playwright.includes("release-13.9.0.e2e.test.js"));
+assert.ok(core.includes('APP_VERSION="13.9.1"'));
+assert.equal(pkg.version,"13.9.1");
+assert.equal(lock.version,"13.9.1");
+assert.equal(lock.packages?.[""]?.version,"13.9.1");
+assert.ok(manifest.includes("Life RPG 13.9.1"));
+assert.ok(html.includes("<title>Life RPG 13.9.1</title>"));
+assert.ok(html.includes('window.__LIFE_RPG_HTML_VERSION__="13.9.1"'));
+assert.ok(vite.includes('cacheId:"life-rpg-13.9.1"'));
+assert.ok(pkg.scripts.test.includes("release-13.9.1.test.js"));
+assert.ok(playwright.includes("release-13.9.1.e2e.test.js"));
 
 for(const f of ["report-start-hotfix.js","ui-polish-13.7.5.js","README.txt",
   ".github/workflows/fix-report-start-race-13.7.5.yml",
@@ -102,4 +102,4 @@ assert.equal(normalized.expenses.length,1,"factual pre-start history must be pre
 assert.equal(normalized.xpEvents.length,0,"campaign XP must remain zero before reportStart");
 assert.equal(normalized.xpEarned,0);
 
-console.log("OK — Life RPG 13.9.0 release gate: version alignment, native report boundary, finance invariants and history preservation");
+console.log("OK — Life RPG 13.9.1 release gate: version alignment, native report boundary, finance invariants and history preservation");

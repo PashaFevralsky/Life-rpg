@@ -3,7 +3,7 @@ const fs=require("fs"),path=require("path"),assert=require("assert");
 const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),"utf8");
 const pkg=JSON.parse(read("package.json")),core=read("core.js"),manifest=read("manifest.webmanifest"),vite=read("vite.config.mjs"),wf=read(".github/workflows/deploy-pages.yml");
 const release=(core.match(/APP_VERSION="([^"]+)"/)||[])[1];
-assert.equal(release,"13.9.0");
+assert.equal(release,"13.9.1");
 assert.equal(pkg.version,release,"package.json release must match runtime APP_VERSION");
 assert.ok(manifest.includes(`Life RPG ${release}`),"manifest release mismatch");
 assert.ok(vite.includes(`cacheId:"life-rpg-${release}"`),"Workbox cacheId release mismatch");

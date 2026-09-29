@@ -1,8 +1,8 @@
-# Life RPG 13.9.0
+# Life RPG 13.9.1
 
 Local-first Personal OS / PWA designed for mobile use.
 
-- Current release: **13.9.0**
+- Current release: **13.9.1**
 - State schema: **v18**
 - Production deploy: `.github/workflows/deploy-pages.yml`
 - Storage: IndexedDB with localStorage fallback, snapshots, Recovery Center and Safe Mode
