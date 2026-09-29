@@ -636,7 +636,7 @@ jobs:
               if not p.is_file() or p.suffix.lower() not in suffixes:
                   continue
               rel=p.as_posix()
-              if rel in excluded or rel.startswith("docs/history/") or any(part in {".git","node_modules","dist","test-results","playwright-report"} for part in p.parts):
+              if rel in excluded or rel.startswith(".github/workflows/") or rel.startswith("docs/history/") or any(part in {".git","node_modules","dist","test-results","playwright-report"} for part in p.parts):
                   continue
               try:
                   text=p.read_text(encoding="utf-8")
@@ -734,7 +734,7 @@ jobs:
               if not p.is_file() or p.suffix.lower() not in suffixes:
                   continue
               rel=p.as_posix()
-              if rel in excluded or rel.startswith("docs/history/") or any(part in {".git","node_modules","dist","test-results","playwright-report"} for part in p.parts):
+              if rel in excluded or rel.startswith(".github/workflows/") or rel.startswith("docs/history/") or any(part in {".git","node_modules","dist","test-results","playwright-report"} for part in p.parts):
                   continue
               try:
                   text=p.read_text(encoding="utf-8")
@@ -795,13 +795,17 @@ jobs:
       - name: Commit tested interface release
         shell: bash
         run: |
-          rm -f .github/workflows/release-interface-13.9.0-once.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
             echo "Nothing to commit"
             exit 0
+          fi
+          if git diff --cached --name-only | grep -q '^\.github/workflows/'; then
+            echo "Refusing to commit workflow-file changes"
+            git diff --cached --name-only
+            exit 1
           fi
           git commit -m "Release Life RPG 13.9.0 interface"
           git push origin HEAD:main
