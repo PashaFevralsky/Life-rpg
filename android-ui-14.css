@@ -113,8 +113,15 @@
     scroll-margin-bottom:calc(var(--life-ui-nav-clearance) + 22px);
   }
 
-  /* Finance and Settings already expose explicit primary actions. */
+  /* Stable FAB policy:
+     hide the global add button on read-only / overview / analytics screens.
+     It remains available only on views where adding data is the primary intent. */
+  body.ui82.ui139[data-section="today"] .ux7-fab,
   body.ui82.ui139[data-section="finance"] .ux7-fab,
+  body.ui82.ui139[data-section="work"][data-view="overview"] .ux7-fab,
+  body.ui82.ui139[data-section="tennis"][data-view="overview"] .ux7-fab,
+  body.ui82.ui139[data-section="tennis"][data-view="analytics"] .ux7-fab,
+  body.ui82.ui139[data-section="more"][data-view="overview"] .ux7-fab,
   body.ui82.ui139[data-section="more"][data-view="settings"] .ux7-fab{
     display:none!important;
   }

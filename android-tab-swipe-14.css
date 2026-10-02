@@ -1,0 +1,10 @@
+/* Life RPG 14.0 — Android sub-tab swipe feedback. */
+html.life-tab-swipe-ready .section.active{touch-action:pan-y pinch-zoom}
+@media (prefers-reduced-motion:no-preference){
+  .section.active.life-tab-swipe-next .ux7-card:not(.ux7-hidden),
+  .section.active.life-tab-swipe-prev .ux7-card:not(.ux7-hidden){animation-duration:150ms;animation-timing-function:ease-out;animation-fill-mode:both}
+  .section.active.life-tab-swipe-next .ux7-card:not(.ux7-hidden){animation-name:lifeTabSwipeNext}
+  .section.active.life-tab-swipe-prev .ux7-card:not(.ux7-hidden){animation-name:lifeTabSwipePrev}
+  @keyframes lifeTabSwipeNext{from{opacity:.82;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes lifeTabSwipePrev{from{opacity:.82;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+}

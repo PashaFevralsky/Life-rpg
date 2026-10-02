@@ -8,7 +8,9 @@ for(const f of [
   "release-readiness-14.0.test.js",
   "android-life-ops-native-entry.js","android-life-ops-native.vite.mjs",
   "finance-rebuild-14.js","finance-rebuild-14.test.js",
-  "android-ui-14.css","android-ui-14.test.js","android-ui-14.e2e.test.js","playwright.android-rc.config.mjs",
+  "android-ui-14.css","android-ui-14.test.js","android-ui-14.e2e.test.js",
+  "android-tab-swipe-14.js","android-tab-swipe-14.css","android-tab-swipe-14.test.js","android-tab-swipe-14.e2e.test.js",
+  "playwright.android-rc.config.mjs",
   "ANDROID-ACCEPTANCE-14.0.md","RELEASE-14.0.md",
   ".github/workflows/android-rc.yml",".github/workflows/android-beta.yml"
 ]) assert.ok(fs.existsSync(f),`${f} missing`);
@@ -49,12 +51,16 @@ assert.ok(patch.includes("navigator.serviceWorker.getRegistrations()"));
 assert.ok(patch.includes("Native Android Share filters must not exist in RC"));
 
 const androidUi=read("android-ui-14.css");
+const swipeJs=read("android-tab-swipe-14.js");
 assert.ok(androidUi.includes("--life-ui-nav-clearance"));
 assert.ok(androidUi.includes('#today>.ux7-section-head .ux7-tabs'));
 assert.ok(androidUi.includes('#finance>.ux7-section-head .ux7-tabs'));
 assert.ok(androidUi.includes('#work>.ux7-section-head .ux7-tabs'));
 assert.ok(androidUi.includes('#tennis>.ux7-section-head .ux7-tabs'));
 assert.ok(androidUi.includes('#more>.ux7-section-head .ux7-tabs'));
+assert.ok(swipeJs.includes("life-rpg:tab-swipe"));
+assert.ok(swipeJs.includes("horizontalScroller"));
+assert.ok(swipeJs.includes("hasOpenModal"));
 
 const finance=read("finance-rebuild-14.js");
 assert.ok(finance.includes("life-rpg-finance-rebuild-v1"));

@@ -148,16 +148,30 @@ test("Android RC modal stays usable at keyboard-like 360x480 viewport",async({pa
   expect(errors).toEqual([]);
 });
 
-test("Android RC section-specific floating actions do not cover finance/settings",async({page})=>{
+test("Android RC FAB appears only on data-entry views and never covers overview cards",async({page})=>{
   const errors=await boot(page,390,844);
-  await page.evaluate(()=>ux7Go("finance","overview"));
-  await expect(page.locator("#ux7Fab")).toBeHidden();
 
-  await page.evaluate(()=>ux7Go("more","settings"));
-  await expect(page.locator("#ux7Fab")).toBeHidden();
+  const hidden=[
+    ["today","focus"],
+    ["finance","overview"],["finance","operations"],["finance","debts"],["finance","analysis"],
+    ["work","overview"],
+    ["tennis","overview"],["tennis","analytics"],
+    ["more","overview"],["more","settings"]
+  ];
+  for(const [section,view] of hidden){
+    await page.evaluate(([s,v])=>ux7Go(s,v),[section,view]);
+    await expect(page.locator("#ux7Fab"),`${section}/${view}: FAB must not cover read-only content`).toBeHidden();
+  }
 
-  await page.evaluate(()=>ux7Go("work","overview"));
-  await expect(page.locator("#ux7Fab")).toBeVisible();
+  const visible=[
+    ["work","crm"],["work","log"],
+    ["tennis","training"],
+    ["more","knowledge"],["more","rewards"]
+  ];
+  for(const [section,view] of visible){
+    await page.evaluate(([s,v])=>ux7Go(s,v),[section,view]);
+    await expect(page.locator("#ux7Fab"),`${section}/${view}: data-entry FAB should remain available`).toBeVisible();
+  }
 
   expect(errors).toEqual([]);
 });

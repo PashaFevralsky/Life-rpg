@@ -40,6 +40,8 @@ if (!fs.existsSync(path.join(dist, "android-life-ops-native.js"))) throw new Err
 if (!fs.existsSync(path.join(root, "finance-rebuild-14.js"))) throw new Error("finance-rebuild-14.js missing");
 if (!fs.existsSync(path.join(root, "android-safe-area.css"))) throw new Error("android-safe-area.css missing");
 if (!fs.existsSync(path.join(root, "android-ui-14.css"))) throw new Error("android-ui-14.css missing");
+if (!fs.existsSync(path.join(root, "android-tab-swipe-14.js"))) throw new Error("android-tab-swipe-14.js missing");
+if (!fs.existsSync(path.join(root, "android-tab-swipe-14.css"))) throw new Error("android-tab-swipe-14.css missing");
 
 /* Android RC gets its own runtime version without changing the accepted web/PWA source release yet. */
 let core = read("core.js");
@@ -62,6 +64,7 @@ if (!html.includes("__LIFE_RPG_ANDROID__")) {
 
 const css = '<link rel="stylesheet" href="./android-safe-area.css">';
 const uiCss = '<link rel="stylesheet" href="./android-ui-14.css">';
+const swipeCss = '<link rel="stylesheet" href="./android-tab-swipe-14.css">';
 if (!html.includes(css)) {
   if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
   html = html.replace("</head>", `${css}\n</head>`);
@@ -70,13 +73,24 @@ if (!html.includes(uiCss)) {
   if (!html.includes(css)) throw new Error("Android safe-area stylesheet injection failed");
   html = html.replace(css, `${css}\n${uiCss}`);
 }
+if (!html.includes(swipeCss)) {
+  if (!html.includes(uiCss)) throw new Error("Android UI stylesheet injection failed");
+  html = html.replace(uiCss, `${uiCss}\n${swipeCss}`);
+}
 
 const financeRebuild = '<script src="./finance-rebuild-14.js"></script>';
 const nativeOps = '<script src="./android-life-ops-native.js"></script>';
+const swipeJs = '<script src="./android-tab-swipe-14.js"></script>';
 if (!html.includes(financeRebuild) || !html.includes(nativeOps)) {
   const re = /<script src="\.\/bootstrap\.js[^\"]*"><\/script>/;
   if (!re.test(html)) throw new Error("bootstrap.js script tag not found");
-  html = html.replace(re, `${financeRebuild}\n${nativeOps}\n$&`);
+  html = html.replace(re, `${financeRebuild}\n${nativeOps}\n$&\n${swipeJs}`);
+}
+
+if (!html.includes(swipeJs)) {
+  const re = /<script src="\.\/bootstrap\.js[^\"]*"><\/script>/;
+  if (!re.test(html)) throw new Error("bootstrap.js script tag not found for swipe navigation");
+  html = html.replace(re, `$&\n${swipeJs}`);
 }
 
 if (/android-native-share(?:-plugin)?\.js/.test(html)) {
@@ -140,14 +154,20 @@ fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
 fs.copyFileSync(path.join(root, "android-safe-area.css"), path.join(dist, "android-safe-area.css"));
 fs.copyFileSync(path.join(root, "android-ui-14.css"), path.join(dist, "android-ui-14.css"));
+fs.copyFileSync(path.join(root, "android-tab-swipe-14.css"), path.join(dist, "android-tab-swipe-14.css"));
+fs.copyFileSync(path.join(root, "android-tab-swipe-14.js"), path.join(dist, "android-tab-swipe-14.js"));
 
 const finalHtml = read("index.html");
 const safeCssPos = finalHtml.indexOf("android-safe-area.css");
 const uiCssPos = finalHtml.indexOf("android-ui-14.css");
+const swipeCssPos = finalHtml.indexOf("android-tab-swipe-14.css");
+const swipeJsPos = finalHtml.indexOf("android-tab-swipe-14.js");
 const financePos = finalHtml.indexOf("finance-rebuild-14.js");
 const opsPos = finalHtml.indexOf("android-life-ops-native.js");
 const bootPos = finalHtml.indexOf("bootstrap.js");
 if (safeCssPos < 0 || uiCssPos < 0 || uiCssPos < safeCssPos) throw new Error("Android UI hardening CSS must load after safe-area CSS");
+if (swipeCssPos < 0 || swipeCssPos < uiCssPos) throw new Error("Android swipe CSS must load after UI hardening CSS");
+if (swipeJsPos < 0 || swipeJsPos < bootPos) throw new Error("Android swipe runtime must load after bootstrap.js");
 if (financePos < 0 || opsPos < 0 || bootPos < 0 || financePos > bootPos || opsPos > bootPos) throw new Error("Finance Rebuild and Life Ops native bridge must load before bootstrap.js");
 if (!finalHtml.includes(`__LIFE_RPG_ANDROID_SHARE_ENABLED__=${meta.androidShareEnabled ? "true" : "false"}`)) throw new Error("Android Share release flag missing");
 if (!read("core.js").includes(`APP_VERSION="${meta.versionName}"`)) throw new Error("Android runtime version transform failed");

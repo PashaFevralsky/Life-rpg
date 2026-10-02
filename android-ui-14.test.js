@@ -16,6 +16,9 @@ for(const token of [
   '#more>.ux7-section-head .ux7-tabs',
   '#lifeOpsDayClose .life-ops-check',
   '[data-section="finance"] .ux7-fab',
+  '[data-section="work"][data-view="overview"] .ux7-fab',
+  '[data-section="tennis"][data-view="overview"] .ux7-fab',
+  '[data-section="more"][data-view="overview"] .ux7-fab',
   '[data-section="more"][data-view="settings"] .ux7-fab',
   "max-height:calc(100dvh",
   ":focus-visible"
