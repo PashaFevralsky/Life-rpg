@@ -14,14 +14,46 @@ fs.mkdirSync(javaDir, { recursive: true });
 
 fs.writeFileSync(mainActivity, `package ${appId};
 
+import android.content.Intent;
 import android.os.Bundle;
+
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private static Intent pendingShareIntent;
+
+    private static boolean isShareIntent(Intent intent) {
+        if (intent == null) return false;
+        String action = intent.getAction();
+        return Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action);
+    }
+
+    private static synchronized void captureShareIntent(Intent intent) {
+        if (!isShareIntent(intent)) return;
+        pendingShareIntent = new Intent(intent);
+    }
+
+    public static synchronized Intent consumePendingShareIntent() {
+        Intent intent = pendingShareIntent;
+        pendingShareIntent = null;
+        return intent;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        /* Capture the launch share before Capacitor starts the bridge. */
+        captureShareIntent(getIntent());
         registerPlugin(NativeSharePlugin.class);
         super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        /* Capture warm-start shares directly at Activity level.
+           setIntent() also keeps Activity.getIntent() current. */
+        captureShareIntent(intent);
+        setIntent(intent);
+        super.onNewIntent(intent);
     }
 }
 `);
@@ -53,28 +85,6 @@ import java.util.Set;
 public class NativeSharePlugin extends Plugin {
     private static final int MAX_FILES = 6;
     private static final int MAX_FILE_BYTES = 16 * 1024 * 1024;
-    private Intent pendingIntent;
-
-    @Override
-    public void load() {
-        super.load();
-        Intent initial = getActivity().getIntent();
-        if (isShareIntent(initial)) {
-            synchronized (this) {
-                pendingIntent = initial;
-            }
-        }
-    }
-
-    @Override
-    protected void handleOnNewIntent(Intent intent) {
-        super.handleOnNewIntent(intent);
-        if (!isShareIntent(intent)) return;
-        synchronized (this) {
-            pendingIntent = intent;
-        }
-        notifyListeners("shareAvailable", new JSObject(), true);
-    }
 
     private boolean isShareIntent(Intent intent) {
         if (intent == null) return false;
@@ -82,13 +92,21 @@ public class NativeSharePlugin extends Plugin {
         return Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action);
     }
 
+    @Override
+    protected void handleOnNewIntent(Intent intent) {
+        super.handleOnNewIntent(intent);
+        if (!isShareIntent(intent)) return;
+
+        /* MainActivity already captured the Intent before Bridge dispatch.
+           This event only wakes JS; payload remains pending until consumed. */
+        JSObject event = new JSObject();
+        event.put("available", true);
+        notifyListeners("shareAvailable", event, true);
+    }
+
     @PluginMethod
     public void getPendingShare(PluginCall call) {
-        Intent intent;
-        synchronized (this) {
-            intent = pendingIntent;
-            pendingIntent = null;
-        }
+        Intent intent = MainActivity.consumePendingShareIntent();
 
         if (!isShareIntent(intent)) {
             JSObject empty = new JSObject();
@@ -104,6 +122,14 @@ public class NativeSharePlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void ping(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("ok", true);
+        ret.put("plugin", "NativeShare");
+        call.resolve(ret);
+    }
+
     private JSObject buildPayload(Intent intent) {
         JSObject out = new JSObject();
         out.put("empty", false);
@@ -111,6 +137,7 @@ public class NativeSharePlugin extends Plugin {
 
         CharSequence subject = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT);
         CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+
         out.put("title", subject == null ? "Android Share" : subject.toString());
         out.put("text", text == null ? "" : text.toString());
         out.put("url", "");
@@ -120,11 +147,13 @@ public class NativeSharePlugin extends Plugin {
 
         Set<Uri> uris = collectUris(intent);
         int count = 0;
+
         for (Uri uri : uris) {
             if (count >= MAX_FILES) {
                 errors.put("Получено больше " + MAX_FILES + " файлов; лишние пропущены");
                 break;
             }
+
             try {
                 files.put(readFile(uri));
                 count++;
@@ -159,11 +188,13 @@ public class NativeSharePlugin extends Plugin {
                 if (uri != null) out.add(uri);
             }
         }
+
         return out;
     }
 
     private JSObject readFile(Uri uri) throws Exception {
         ContentResolver resolver = getContext().getContentResolver();
+
         String type = resolver.getType(uri);
         if (type == null || type.isEmpty()) type = "application/octet-stream";
 
@@ -173,9 +204,14 @@ public class NativeSharePlugin extends Plugin {
         try (Cursor cursor = resolver.query(uri, null, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                if (nameIndex >= 0 && !cursor.isNull(nameIndex)) name = cursor.getString(nameIndex);
+                if (nameIndex >= 0 && !cursor.isNull(nameIndex)) {
+                    name = cursor.getString(nameIndex);
+                }
+
                 int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
-                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) declaredSize = cursor.getLong(sizeIndex);
+                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                    declaredSize = cursor.getLong(sizeIndex);
+                }
             }
         } catch (Exception ignored) {}
 
@@ -184,17 +220,25 @@ public class NativeSharePlugin extends Plugin {
         }
 
         byte[] data;
+
         try (InputStream input = resolver.openInputStream(uri)) {
             if (input == null) throw new Exception("поток недоступен");
+
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] chunk = new byte[8192];
             int total = 0;
             int read;
+
             while ((read = input.read(chunk)) != -1) {
                 total += read;
-                if (total > MAX_FILE_BYTES) throw new Exception("файл больше 16 МБ");
+
+                if (total > MAX_FILE_BYTES) {
+                    throw new Exception("файл больше 16 МБ");
+                }
+
                 buffer.write(chunk, 0, read);
             }
+
             data = buffer.toByteArray();
         }
 
@@ -215,10 +259,12 @@ public class NativeSharePlugin extends Plugin {
 `);
 
 let manifest = fs.readFileSync(manifestFile, "utf8");
+
 if (!manifest.includes('android.intent.action.SEND')) {
-  const activityStart = manifest.indexOf('<activity');
+  const activityStart = manifest.indexOf("<activity");
   if (activityStart < 0) throw new Error("Main activity not found in AndroidManifest.xml");
-  const activityEnd = manifest.indexOf('</activity>', activityStart);
+
+  const activityEnd = manifest.indexOf("</activity>", activityStart);
   if (activityEnd < 0) throw new Error("Main activity closing tag not found");
 
   const filters = `
@@ -249,18 +295,34 @@ if (!manifest.includes('android.intent.action.SEND')) {
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
 `;
-  manifest = manifest.slice(0, activityEnd) + filters + manifest.slice(activityEnd);
+
+  manifest =
+    manifest.slice(0, activityEnd) +
+    filters +
+    manifest.slice(activityEnd);
+
   fs.writeFileSync(manifestFile, manifest);
 }
 
+const mainText = fs.readFileSync(mainActivity, "utf8");
+const pluginText = fs.readFileSync(pluginFile, "utf8");
+const manifestText = fs.readFileSync(manifestFile, "utf8");
+
 const checks = [
-  [fs.readFileSync(mainActivity, "utf8").includes("registerPlugin(NativeSharePlugin.class)"), "NativeShare plugin is not registered"],
-  [fs.readFileSync(pluginFile, "utf8").includes('@CapacitorPlugin(name = "NativeShare")'), "NativeSharePlugin annotation missing"],
-  [fs.readFileSync(manifestFile, "utf8").includes("android.intent.action.SEND"), "ACTION_SEND manifest filter missing"],
-  [fs.readFileSync(manifestFile, "utf8").includes("android.intent.action.SEND_MULTIPLE"), "ACTION_SEND_MULTIPLE manifest filter missing"],
+  [mainText.includes("captureShareIntent(getIntent())"), "Cold-start Activity share capture missing"],
+  [mainText.includes("captureShareIntent(intent)"), "Warm-start Activity share capture missing"],
+  [mainText.includes("setIntent(intent)"), "Activity setIntent update missing"],
+  [mainText.includes("consumePendingShareIntent"), "Activity pending share consume method missing"],
+  [mainText.includes("registerPlugin(NativeSharePlugin.class)"), "NativeShare plugin is not registered"],
+  [pluginText.includes('@CapacitorPlugin(name = "NativeShare")'), "NativeSharePlugin annotation missing"],
+  [pluginText.includes("MainActivity.consumePendingShareIntent()"), "Plugin is not consuming Activity pending share"],
+  [pluginText.includes("void ping"), "NativeShare diagnostic ping missing"],
+  [manifestText.includes("android.intent.action.SEND"), "ACTION_SEND manifest filter missing"],
+  [manifestText.includes("android.intent.action.SEND_MULTIPLE"), "ACTION_SEND_MULTIPLE manifest filter missing"]
 ];
 
 for (const [ok, message] of checks) {
   if (!ok) throw new Error(message);
 }
-console.log("OK — native Android Share Target patched");
+
+console.log("OK — native Android Share Target patched with direct MainActivity capture");
