@@ -1,0 +1,7 @@
+{
+  "targetVersion": "14.0.0",
+  "channel": "stable",
+  "stateVersion": 18,
+  "androidShareEnabled": false,
+  "notes": "Android 14.0.0 Stable accepted from RC15. Native Share Target remains intentionally excluded. State schema remains v18."
+}
