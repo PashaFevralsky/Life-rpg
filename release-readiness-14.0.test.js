@@ -7,6 +7,7 @@ for(const f of [
   "android-release-patch.mjs","android-release-gate.test.js",
   "release-readiness-14.0.test.js",
   "android-life-ops-native-entry.js","android-life-ops-native.vite.mjs",
+  "finance-rebuild-14.js","finance-rebuild-14.test.js",
   "ANDROID-ACCEPTANCE-14.0.md","RELEASE-14.0.md",
   ".github/workflows/android-rc.yml",".github/workflows/android-beta.yml"
 ]) assert.ok(fs.existsSync(f),`${f} missing`);
@@ -45,6 +46,13 @@ const patch=read("android-release-patch.mjs");
 assert.ok(patch.includes("refreshBundledWebAssets()"));
 assert.ok(patch.includes("navigator.serviceWorker.getRegistrations()"));
 assert.ok(patch.includes("Native Android Share filters must not exist in RC"));
+
+const finance=read("finance-rebuild-14.js");
+assert.ok(finance.includes("life-rpg-finance-rebuild-v1"));
+assert.ok(finance.includes("createPreActionSnapshot"));
+assert.ok(finance.includes("commitStateAtomically"));
+assert.ok(finance.includes("financeRebuild14CurrentAudit"));
+assert.ok(finance.includes("ЗАМЕНИТЬ ФИНАНСЫ"));
 
 const acceptance=read("ANDROID-ACCEPTANCE-14.0.md");
 for(const phrase of ["Обновление поверх","Сохранность данных","Офлайн","уведомлен","Backup","Restore","Share Target"]) {

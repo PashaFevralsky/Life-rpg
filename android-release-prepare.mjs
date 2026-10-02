@@ -37,6 +37,7 @@ if (!fs.existsSync(path.join(dist, "core.js"))) throw new Error("dist/core.js mi
 if (!fs.existsSync(path.join(dist, "bootstrap.js"))) throw new Error("dist/bootstrap.js missing");
 if (!fs.existsSync(path.join(dist, "pwa.js"))) throw new Error("dist/pwa.js missing");
 if (!fs.existsSync(path.join(dist, "android-life-ops-native.js"))) throw new Error("Android Life Ops native bridge missing");
+if (!fs.existsSync(path.join(root, "finance-rebuild-14.js"))) throw new Error("finance-rebuild-14.js missing");
 if (!fs.existsSync(path.join(root, "android-safe-area.css"))) throw new Error("android-safe-area.css missing");
 
 /* Android RC gets its own runtime version without changing the accepted web/PWA source release yet. */
@@ -44,6 +45,8 @@ let core = read("core.js");
 if (!/const APP_VERSION="[^"]+";/.test(core)) throw new Error("APP_VERSION not found in dist/core.js");
 core = core.replace(/const APP_VERSION="[^"]+";/, `const APP_VERSION="${meta.versionName}";`);
 write("core.js", core);
+
+fs.copyFileSync(path.join(root, "finance-rebuild-14.js"), path.join(dist, "finance-rebuild-14.js"));
 
 let html = read("index.html");
 html = html.replace(/<title>Life RPG [^<]+<\/title>/, `<title>Life RPG ${meta.versionName}</title>`);
@@ -62,11 +65,12 @@ if (!html.includes(css)) {
   html = html.replace("</head>", `${css}\n</head>`);
 }
 
+const financeRebuild = '<script src="./finance-rebuild-14.js"></script>';
 const nativeOps = '<script src="./android-life-ops-native.js"></script>';
-if (!html.includes(nativeOps)) {
+if (!html.includes(financeRebuild) || !html.includes(nativeOps)) {
   const re = /<script src="\.\/bootstrap\.js[^\"]*"><\/script>/;
   if (!re.test(html)) throw new Error("bootstrap.js script tag not found");
-  html = html.replace(re, `${nativeOps}\n$&`);
+  html = html.replace(re, `${financeRebuild}\n${nativeOps}\n$&`);
 }
 
 if (/android-native-share(?:-plugin)?\.js/.test(html)) {
@@ -81,6 +85,11 @@ bootstrap = bootstrap.replace('"share-hub.js",', "");
 bootstrap = bootstrap.replace('["ensureShare131Ui","renderShare131"],', "");
 if (bootstrap.includes('"share-hub.js"') || bootstrap.includes("ensureShare131Ui")) {
   throw new Error("Could not remove Share Hub from Android RC bootstrap");
+}
+if (!bootstrap.includes('["ensureFinanceRebuild14Ui","renderFinanceRebuild14"]')) {
+  const hook='["ensureLifeOpsUi","renderLifeOps"],';
+  if (!bootstrap.includes(hook)) throw new Error("Life Ops runtime init hook not found");
+  bootstrap=bootstrap.replace(hook,`${hook}["ensureFinanceRebuild14Ui","renderFinanceRebuild14"],`);
 }
 write("bootstrap.js", bootstrap);
 
@@ -126,9 +135,10 @@ fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 fs.copyFileSync(path.join(root, "android-safe-area.css"), path.join(dist, "android-safe-area.css"));
 
 const finalHtml = read("index.html");
+const financePos = finalHtml.indexOf("finance-rebuild-14.js");
 const opsPos = finalHtml.indexOf("android-life-ops-native.js");
 const bootPos = finalHtml.indexOf("bootstrap.js");
-if (opsPos < 0 || bootPos < 0 || opsPos > bootPos) throw new Error("Life Ops native bridge must load before bootstrap.js");
+if (financePos < 0 || opsPos < 0 || bootPos < 0 || financePos > bootPos || opsPos > bootPos) throw new Error("Finance Rebuild and Life Ops native bridge must load before bootstrap.js");
 if (!finalHtml.includes(`__LIFE_RPG_ANDROID_SHARE_ENABLED__=${meta.androidShareEnabled ? "true" : "false"}`)) throw new Error("Android Share release flag missing");
 if (!read("core.js").includes(`APP_VERSION="${meta.versionName}"`)) throw new Error("Android runtime version transform failed");
 

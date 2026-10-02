@@ -31,3 +31,19 @@
 6. После PASS — перевести release config в stable, синхронно bump исходников web/PWA до 14.0.0 и создать постоянный GitHub Release.
 
 Никакая новая крупная функция до Stable не добавляется.
+
+
+## Stage 2 — Finance Rebuild
+
+RC получает отдельный Finance Rebuild модуль с форматом `life-rpg-finance-rebuild-v1`.
+
+Применение пакета:
+1. preview и валидация;
+2. блокировка при критических ошибках;
+3. Recovery snapshot;
+4. атомарная замена только финансового контура;
+5. импорт исторических транзакций относительно verified baseline;
+6. Finance Integrity Audit;
+7. Money Autopilot используется только после устранения блокеров.
+
+Web/PWA 13.9.1 пока не получает этот модуль.
