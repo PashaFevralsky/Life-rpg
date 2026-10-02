@@ -20,6 +20,10 @@ on:
       - "android-ui-14.css"
       - "android-ui-14.test.js"
       - "android-ui-14.e2e.test.js"
+      - "android-tab-swipe-14.js"
+      - "android-tab-swipe-14.css"
+      - "android-tab-swipe-14.test.js"
+      - "android-tab-swipe-14.e2e.test.js"
       - "playwright.android-rc.config.mjs"
       - "ANDROID-ACCEPTANCE-14.0.md"
       - "RELEASE-14.0.md"
@@ -73,6 +77,9 @@ jobs:
 
       - name: Test Android UI hardening source contract
         run: node android-ui-14.test.js
+
+      - name: Test Android tab swipe source contract
+        run: node android-tab-swipe-14.test.js
 
       - name: Build production web bundle
         run: npm run build
