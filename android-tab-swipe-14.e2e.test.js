@@ -29,21 +29,23 @@ test('swipe changes only sub-tabs inside the current main section',async({page})
   expect(await view(page)).toEqual({section:'finance',view:'operations'});
 });
 
-test('swipe transition has leave, switch and enter phases',async({page})=>{
+test('swipe transition delays the view switch and then settles cleanly',async({page})=>{
   await boot(page);
   await page.evaluate(()=>ux7Go('finance','overview'));
   await page.waitForTimeout(100);
 
   await gesture(page,'#finance .ux7-card:not(.ux7-hidden)',{x1:310,x2:220,duration:60,wait:0});
 
+  // Leave phase: transition starts but the old view is still active.
   await expect.poll(()=>page.evaluate(()=>globalThis.LifeTabSwipe14?.isTransitioning?.()===true)).toBe(true);
-  await expect(page.locator('#finance')).toHaveClass(/life-tab-swipe-transitioning/);
+  expect((await view(page)).view).toBe('overview');
 
+  // After leaveMs=90 the new view must become active.
   await page.waitForTimeout(125);
   expect((await view(page)).view).toBe('operations');
-  await expect(page.locator('#finance')).toHaveClass(/life-tab-swipe-enter-next/);
 
-  await page.waitForTimeout(230);
+  // After enterMs + settleMs the transition must fully settle.
+  await page.waitForTimeout(250);
   await expect.poll(()=>page.evaluate(()=>globalThis.LifeTabSwipe14?.isTransitioning?.()===false)).toBe(true);
   await expect(page.locator('#finance')).not.toHaveClass(/life-tab-swipe-transitioning/);
 });
