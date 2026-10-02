@@ -8,6 +8,8 @@ on:
     paths:
       - "capacitor.config.json"
       - "android-safe-area.css"
+      - "android-native-share.js"
+      - "android-native-share-patch.mjs"
       - ".github/workflows/android-beta.yml"
       - "package.json"
       - "package-lock.json"
@@ -55,24 +57,35 @@ jobs:
       - name: Audit production bundle
         run: node dist-audit.test.js
 
-      - name: Apply Android-only safe-area layer
+      - name: Apply Android-only web layers
         shell: bash
         run: |
           test -f android-safe-area.css
+          test -f android-native-share.js
           cp android-safe-area.css dist/android-safe-area.css
+          cp android-native-share.js dist/android-native-share.js
           node <<'NODE'
           const fs = require("fs");
           const path = "dist/index.html";
           let html = fs.readFileSync(path, "utf8");
-          const tag = '<link rel="stylesheet" href="./android-safe-area.css">';
-          if (!html.includes(tag)) {
+
+          const css = '<link rel="stylesheet" href="./android-safe-area.css">';
+          if (!html.includes(css)) {
             if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
-            html = html.replace("</head>", `${tag}\n</head>`);
-            fs.writeFileSync(path, html);
+            html = html.replace("</head>", `${css}\n</head>`);
           }
-          if (!fs.readFileSync(path, "utf8").includes("android-safe-area.css")) {
-            throw new Error("Android safe-area stylesheet was not injected");
+
+          const js = '<script src="./android-native-share.js"></script>';
+          if (!html.includes(js)) {
+            if (!html.includes("</body>")) throw new Error("dist/index.html has no </body>");
+            html = html.replace("</body>", `${js}\n</body>`);
           }
+
+          fs.writeFileSync(path, html);
+
+          const finalHtml = fs.readFileSync(path, "utf8");
+          if (!finalHtml.includes("android-safe-area.css")) throw new Error("Android safe-area stylesheet was not injected");
+          if (!finalHtml.includes("android-native-share.js")) throw new Error("Android native share bridge was not injected");
           NODE
 
       - name: Verify Capacitor SystemBars configuration
@@ -96,6 +109,17 @@ jobs:
 
       - name: Sync production bundle into Android
         run: npx cap sync android
+
+      - name: Patch native Android Share Target
+        run: node android-native-share-patch.mjs
+
+      - name: Verify Android Share Target source
+        shell: bash
+        run: |
+          grep -R "android.intent.action.SEND" android/app/src/main/AndroidManifest.xml
+          grep -R "android.intent.action.SEND_MULTIPLE" android/app/src/main/AndroidManifest.xml
+          grep -R "registerPlugin(NativeSharePlugin.class)" android/app/src/main/java
+          grep -R '@CapacitorPlugin(name = "NativeShare")' android/app/src/main/java
 
       - name: Set Android version
         shell: bash
