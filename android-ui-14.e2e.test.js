@@ -70,7 +70,7 @@ for(const width of widths){
         expect(["visible","clip"],`${section}: tabs should not require horizontal discovery`).toContain(tabs.overflowX);
       }
 
-      await page.evaluate(s=>ux7Go(s,views[s][0]),section);
+      await page.evaluate(([s,v])=>ux7Go(s,v),[section,sectionViews[0]]);
       await page.evaluate(()=>window.scrollTo(0,Math.max(document.body.scrollHeight,document.documentElement.scrollHeight)));
       await page.waitForTimeout(40);
 
