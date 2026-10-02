@@ -1,0 +1,83 @@
+/* Life RPG 13.9.1 — Android Beta 2 safe-area bridge
+   This file is injected into the Capacitor APK only by android-beta.yml.
+   GitHub Pages / PWA styling is intentionally unchanged. */
+
+:root{
+  --life-safe-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --life-safe-right:var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --life-safe-bottom:var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --life-safe-left:var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+}
+
+@media(max-width:850px){
+  /* Today: the profile header is the first app surface under Android status bar. */
+  .ui82.ui139 .top{
+    padding-top:calc(10px + var(--life-safe-top))!important;
+    padding-left:calc(11px + var(--life-safe-left))!important;
+    padding-right:calc(11px + var(--life-safe-right))!important;
+    margin-left:calc(-11px - var(--life-safe-left))!important;
+    margin-right:calc(-11px - var(--life-safe-right))!important;
+  }
+
+  /* Other sections hide .top, so their sticky section head owns the top inset. */
+  body.ui82.ui139[data-section]:not([data-section="today"]) .ux7-section-head{
+    top:0!important;
+    padding-top:calc(8px + var(--life-safe-top))!important;
+    padding-left:calc(11px + var(--life-safe-left))!important;
+    padding-right:calc(11px + var(--life-safe-right))!important;
+    margin-left:calc(-11px - var(--life-safe-left))!important;
+    margin-right:calc(-11px - var(--life-safe-right))!important;
+  }
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head{
+    padding-top:calc(4px + var(--life-safe-top))!important;
+  }
+
+  /* Keep fixed Android chrome and scrollable content above gesture/navigation inset. */
+  .ui82.ui139 .shell{
+    padding-bottom:calc(126px + var(--life-safe-bottom))!important;
+  }
+  .ui82.ui139 .bottom{
+    bottom:max(6px,var(--life-safe-bottom))!important;
+    width:min(620px,calc(100% - 14px - var(--life-safe-left) - var(--life-safe-right)))!important;
+  }
+  .ui82.ui139 .toast{
+    bottom:calc(112px + var(--life-safe-bottom))!important;
+  }
+  .ui82.ui139 .toast.show{
+    bottom:calc(122px + var(--life-safe-bottom))!important;
+  }
+  .ui82.ui139 .ux7-fab{
+    bottom:calc(116px + var(--life-safe-bottom))!important;
+  }
+
+  /* Bottom sheets: status-bar clearance at top and gesture clearance inside the sheet. */
+  .ui82.ui139 .modal{
+    padding-top:var(--life-safe-top)!important;
+    padding-right:var(--life-safe-right)!important;
+    padding-bottom:0!important;
+    padding-left:var(--life-safe-left)!important;
+  }
+  .ui82.ui139 .modal-card{
+    max-height:calc(100dvh - var(--life-safe-top))!important;
+    padding-bottom:calc(16px + var(--life-safe-bottom))!important;
+    scroll-padding-bottom:calc(30px + var(--life-safe-bottom))!important;
+  }
+}
+
+@media(max-width:390px){
+  .ui82.ui139 .top{
+    padding-left:calc(9px + var(--life-safe-left))!important;
+    padding-right:calc(9px + var(--life-safe-right))!important;
+    margin-left:calc(-9px - var(--life-safe-left))!important;
+    margin-right:calc(-9px - var(--life-safe-right))!important;
+  }
+  body.ui82.ui139[data-section]:not([data-section="today"]) .ux7-section-head{
+    padding-left:calc(9px + var(--life-safe-left))!important;
+    padding-right:calc(9px + var(--life-safe-right))!important;
+    margin-left:calc(-9px - var(--life-safe-left))!important;
+    margin-right:calc(-9px - var(--life-safe-right))!important;
+  }
+  .ui82.ui139 .bottom{
+    width:calc(100% - 10px - var(--life-safe-left) - var(--life-safe-right))!important;
+  }
+}
