@@ -48,6 +48,42 @@ public class MainActivity extends BridgeActivity {
         captureShareIntent(getIntent());
         registerPlugin(NativeSharePlugin.class);
         super.onCreate(savedInstanceState);
+        refreshBundledWebAssets();
+    }
+
+    private void refreshBundledWebAssets() {
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+
+        getBridge().getWebView().postDelayed(() -> {
+            try {
+                String versionName = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0)
+                    .versionName;
+                String marker = "life-rpg-android-assets-" + versionName;
+
+                String js =
+                    "(async()=>{" +
+                    "const k=" + org.json.JSONObject.quote(marker) + ";" +
+                    "if(localStorage.getItem(k)==='1')return;" +
+                    "try{" +
+                    "if('serviceWorker' in navigator){" +
+                    "const rs=await navigator.serviceWorker.getRegistrations();" +
+                    "await Promise.all(rs.map(r=>r.unregister()));" +
+                    "}" +
+                    "if('caches' in globalThis){" +
+                    "const ks=await caches.keys();" +
+                    "await Promise.all(ks.map(x=>caches.delete(x)));" +
+                    "}" +
+                    "}finally{" +
+                    "localStorage.setItem(k,'1');" +
+                    "location.reload();" +
+                    "}" +
+                    "})().catch(e=>console.error('Life RPG Android asset refresh',e));";
+
+                getBridge().getWebView().evaluateJavascript(js, null);
+            } catch (Exception ignored) {
+            }
+        }, 1200);
     }
 
     @Override
@@ -314,6 +350,8 @@ const checks = [
   [mainText.includes("peekPendingShareIntent"), "Pending share peek method missing"],
   [mainText.includes("consumePendingShareIntent"), "Pending share consume method missing"],
   [mainText.includes("registerPlugin(NativeSharePlugin.class)"), "NativeShare plugin is not registered"],
+  [mainText.includes("refreshBundledWebAssets()"), "Android bundled asset refresh missing"],
+  [mainText.includes("navigator.serviceWorker.getRegistrations()"), "Android Service Worker cleanup missing"],
   [pluginText.includes('@CapacitorPlugin(name = "NativeShare")'), "NativeSharePlugin annotation missing"],
   [pluginText.includes("getShareStatus"), "Native diagnostics getShareStatus missing"],
   [pluginText.includes("MainActivity.consumePendingShareIntent()"), "Plugin is not consuming Activity pending share"],
@@ -323,4 +361,4 @@ const checks = [
 
 for (const [ok, message] of checks) if (!ok) throw new Error(message);
 
-console.log("OK — native Android Share Target + diagnostics patched");
+console.log("OK — native Android Share Target + diagnostics + stale PWA cache reset patched");
