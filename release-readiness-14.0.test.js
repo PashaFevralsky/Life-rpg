@@ -1,9 +1,11 @@
 "use strict";
 const fs=require("node:fs"),assert=require("node:assert/strict");
 const read=f=>fs.readFileSync(f,"utf8");
+
 for(const f of [
   "android-release-config.json","android-toolchain.lock.json","android-release-prepare.mjs",
   "android-release-patch.mjs","android-release-gate.test.js",
+  "release-readiness-14.0.test.js",
   "android-life-ops-native-entry.js","android-life-ops-native.vite.mjs",
   "ANDROID-ACCEPTANCE-14.0.md","RELEASE-14.0.md",
   ".github/workflows/android-rc.yml",".github/workflows/android-beta.yml"
@@ -30,12 +32,23 @@ assert.ok(!/push:\s*\n/.test(legacy),"Legacy beta must not auto-build on push");
 
 const prep=read("android-release-prepare.mjs");
 assert.ok(prep.includes('bootstrap.replace(\'"share-hub.js",\''));
-assert.ok(prep.includes('delete manifest.share_target'));
-assert.ok(prep.includes('fs.rmSync(path.join(dist, "sw.js")'));
+assert.ok(prep.includes("delete manifest.share_target"));
+assert.ok(prep.includes('"sw.js"'),"Android RC preparation must include sw.js in removal set");
+assert.ok(prep.includes("fs.rmSync(path.join(dist, name)"),"Android RC preparation must remove excluded assets");
 assert.ok(prep.includes("__LIFE_RPG_ANDROID_SHARE_ENABLED__"));
+assert.ok(prep.includes('delete manifest.file_handlers'));
+assert.ok(prep.includes('"share-target-sw.js"'));
+assert.ok(prep.includes('"android-native-share.js"'));
+assert.ok(prep.includes('"android-native-share-plugin.js"'));
+
+const patch=read("android-release-patch.mjs");
+assert.ok(patch.includes("refreshBundledWebAssets()"));
+assert.ok(patch.includes("navigator.serviceWorker.getRegistrations()"));
+assert.ok(patch.includes("Native Android Share filters must not exist in RC"));
 
 const acceptance=read("ANDROID-ACCEPTANCE-14.0.md");
 for(const phrase of ["Обновление поверх","Сохранность данных","Офлайн","уведомлен","Backup","Restore","Share Target"]) {
   assert.ok(acceptance.toLowerCase().includes(phrase.toLowerCase()),`Acceptance checklist missing: ${phrase}`);
 }
+
 console.log("OK — Life RPG 14.0 release-hardening source gate passed");
