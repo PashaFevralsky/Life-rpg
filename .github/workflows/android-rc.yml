@@ -15,6 +15,8 @@ on:
       - "release-readiness-14.0.test.js"
       - "android-life-ops-native-entry.js"
       - "android-life-ops-native.vite.mjs"
+      - "finance-rebuild-14.js"
+      - "finance-rebuild-14.test.js"
       - "ANDROID-ACCEPTANCE-14.0.md"
       - "RELEASE-14.0.md"
       - "android-safe-area.css"
@@ -61,6 +63,9 @@ jobs:
 
       - name: Verify 14.0 release-hardening source contract
         run: node release-readiness-14.0.test.js
+
+      - name: Test Finance Rebuild contracts
+        run: node finance-rebuild-14.test.js
 
       - name: Build production web bundle
         run: npm run build
