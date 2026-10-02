@@ -208,11 +208,11 @@ async function lifeOpsReopenDay(){const d=lifeOpsDayState();d.closed=false;d.clo
 function lifeOpsOpenQuick(kind){if(typeof quickAction==="function")quickAction(kind)}
 function lifeOpsTodayHtml(){
   const d=lifeOpsDayState(),c=lifeOpsTodayCounts(),q=lifeOpsDataQuality(),items=[
-    ["expenses","Расходы проверены / за день расходов не было",`${c.expenses} записей`],
-    ["income","Доходы проверены / поступлений не было",`${c.income} записей${c.plannedIncome>0?` • ожидалось ${rub(c.plannedIncome)}`:""}`],
+    ["expenses",c.expenses?"Расходы внесены и проверены":"Расходов сегодня не было",`${c.expenses} записей`],
+    ["income",c.income?"Доходы внесены и проверены":"Поступлений сегодня не было",`${c.income} записей${c.plannedIncome>0?` • ожидалось ${rub(c.plannedIncome)}`:""}`],
     ["payments","Обязательные платежи проверены",c.due.length?`${c.due.length} требуют внимания • ${rub(c.dueAmount)}`:`сегодня просроченных/срочных нет`],
-    ["work","Работа внесена / сегодня не требовалось",`${c.work} записей`],
-    ["training","Тренировка внесена / сегодня не было",`${c.training} сессий`]
+    ["work",c.work?"Работа внесена":"Рабочих записей сегодня не было",`${c.work} записей`],
+    ["training",c.training?"Тренировка внесена":"Тренировок сегодня не было",`${c.training} сессий`]
   ];
   const checked=Object.values(d.confirmations||{}).filter(Boolean).length;
   return `<div class="life-ops-panel">
@@ -221,7 +221,7 @@ function lifeOpsTodayHtml(){
     <div class="life-ops-checks">${items.map(([k,title,meta])=>`<label class="life-ops-check"><input type="checkbox" ${d.confirmations[k]?"checked":""} onchange="lifeOpsSetConfirmation('${k}',this.checked)"><span><b>${escapeHtml(title)}</b><span class="sub">${meta}</span></span></label>`).join("")}</div>
     ${c.due.length?`<div class="notice life-ops-quality"><b>Проверь обязательства:</b><br>${c.due.slice(0,5).map(x=>`${escapeHtml(x.label)} — ${rub(x.amount)}${x.overdue?" • просрочено":" • сегодня"}`).join("<br>")}</div>`:""}
     <div class="notice life-ops-quality"><b>Финансовые данные: ${q.good?"актуальны":"нужно обновить"}.</b>${q.good?`<br>Сверка денег ${q.age===0?"сегодня":`${q.age} дн. назад`}.`:`<br>${q.reasons.map(escapeHtml).join(" • ")}`}</div>
-    <div class="life-ops-actions"><button class="btn" onclick="lifeOpsCloseDay()" ${d.closed?"disabled":""}>${d.closed?"День закрыт":"Закрыть день"}</button>${d.closed?'<button class="btn ghost" onclick="lifeOpsReopenDay()">Открыть снова</button>':'<button class="btn secondary" onclick="lifeOpsOpenQuick(\'expense\')">+ Расход</button>'}<button class="btn secondary" onclick="lifeOpsOpenQuick('income')">+ Доход</button></div>
+    <div class="life-ops-actions"><button class="btn" onclick="lifeOpsCloseDay()" ${(d.closed||checked<5)?"disabled":""}>${d.closed?"День закрыт":"Закрыть день"}</button>${d.closed?'<button class="btn ghost" onclick="lifeOpsReopenDay()">Открыть снова</button>':'<button class="btn secondary" onclick="lifeOpsOpenQuick(\'expense\')">+ Расход</button>'}<button class="btn secondary" onclick="lifeOpsOpenQuick('income')">+ Доход</button></div>
   </div>`
 }
 function lifeOpsSettingsHtml(){

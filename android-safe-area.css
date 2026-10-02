@@ -19,10 +19,12 @@
     margin-right:calc(-11px - var(--life-safe-right))!important;
   }
 
-  /* When Today is scrolled, its sticky section header replaces the profile header.
-     Keep the sticky header below the Android status bar instead of letting it slide underneath. */
+  /* When Today is scrolled, the sticky header itself owns the Android top inset.
+     Keep it at top:0 so its opaque background covers the whole status-bar zone;
+     put the safe-area clearance inside the header instead of leaving a transparent gap. */
   body.ui82.ui139.ui139-scrolled[data-section="today"] #today>.ux7-section-head{
-    top:var(--life-safe-top)!important;
+    top:0!important;
+    padding-top:calc(4px + var(--life-safe-top))!important;
   }
 
   /* Other sections hide .top, so their sticky section head owns the top inset. */
