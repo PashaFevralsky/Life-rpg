@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - "capacitor.config.json"
+      - "android-safe-area.css"
       - ".github/workflows/android-beta.yml"
       - "package.json"
       - "package-lock.json"
@@ -54,6 +55,35 @@ jobs:
       - name: Audit production bundle
         run: node dist-audit.test.js
 
+      - name: Apply Android-only safe-area layer
+        shell: bash
+        run: |
+          test -f android-safe-area.css
+          cp android-safe-area.css dist/android-safe-area.css
+          node <<'NODE'
+          const fs = require("fs");
+          const path = "dist/index.html";
+          let html = fs.readFileSync(path, "utf8");
+          const tag = '<link rel="stylesheet" href="./android-safe-area.css">';
+          if (!html.includes(tag)) {
+            if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
+            html = html.replace("</head>", `${tag}\n</head>`);
+            fs.writeFileSync(path, html);
+          }
+          if (!fs.readFileSync(path, "utf8").includes("android-safe-area.css")) {
+            throw new Error("Android safe-area stylesheet was not injected");
+          }
+          NODE
+
+      - name: Verify Capacitor SystemBars configuration
+        run: |
+          node <<'NODE'
+          const c = require("./capacitor.config.json");
+          if (c?.plugins?.SystemBars?.insetsHandling !== "css") {
+            throw new Error("SystemBars.insetsHandling must be css");
+          }
+          NODE
+
       - name: Install pinned Capacitor toolchain
         run: >
           npm install --no-save --package-lock=false
@@ -88,12 +118,13 @@ jobs:
           VERSION="$(node -p "require('./package.json').version")"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           mkdir -p android-out
-          cp android/app/build/outputs/apk/debug/app-debug.apk             "android-out/Life-RPG-${VERSION}-Android-Beta.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+            "android-out/Life-RPG-${VERSION}-Android-Beta2.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          path: android-out/Life-RPG-${{ steps.meta.outputs.version }}-Android-Beta.apk
+          path: android-out/Life-RPG-${{ steps.meta.outputs.version }}-Android-Beta2.apk
           archive: false
           retention-days: 30
           if-no-files-found: error
