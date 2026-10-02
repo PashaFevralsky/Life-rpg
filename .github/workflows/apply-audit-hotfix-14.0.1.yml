@@ -1,0 +1,114 @@
+name: Apply Life RPG 14.0.1 Audit Hotfix
+run-name: Apply 14.0.1 audit hotfix and verify source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-audit-hotfix-14-0-1
+  cancel-in-progress: false
+
+jobs:
+  patch-test-commit:
+    name: Patch, regression-test and commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Refuse unexpected pre-existing hotfix
+        shell: bash
+        run: |
+          test ! -e AUDIT-HOTFIX-14.0.1.md || {
+            echo "14.0.1 audit hotfix is already applied."
+            exit 1
+          }
+          node -e "const c=require('./android-release-config.json'); if(c.targetVersion!=='14.0.0'||c.channel!=='rc') throw Error('Unexpected starting Android RC config')"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply audited source patch
+        run: node apply-audit-hotfix-14.0.1.mjs
+
+      - name: Syntax-check patched critical files
+        shell: bash
+        run: |
+          node --check imports.js
+          node --check finance.js
+          node --check finance-rebuild-14.js
+          node --check life-ops.js
+          node --check state.js
+          node --check tennis-huawei.js
+          node --check android-release-patch.mjs
+          node --check audit-hotfix-14.0.1.test.js
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Verify Android 14.0.1 source contracts
+        shell: bash
+        run: |
+          node release-readiness-14.0.test.js
+          node finance-rebuild-14.test.js
+          node android-ui-14.test.js
+          node android-tab-swipe-14.test.js
+
+      - name: Build production PWA source
+        run: npm run build
+
+      - name: Audit production bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Show patch summary
+        shell: bash
+        run: |
+          git status --short
+          git diff --stat
+          git diff --check
+
+      - name: Commit verified hotfix to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            platform.vite.mjs \
+            imports.js \
+            finance.js \
+            finance-rebuild-14.js \
+            life-ops.js \
+            state.js \
+            tennis-huawei.js \
+            android-release-patch.mjs \
+            android-release-config.json \
+            release-readiness-14.0.test.js \
+            android-release-gate.test.js \
+            android-ui-14.e2e.test.js \
+            package.json \
+            audit-hotfix-14.0.1.test.js \
+            AUDIT-HOTFIX-14.0.1.md \
+            .github/workflows/android-rc.yml
+          git diff --cached --check
+          git commit -m "Fix full-system audit findings for 14.0.1 [skip ci]"
+          git push origin HEAD:main
