@@ -1,25 +1,72 @@
 "use strict";
-/* Life RPG Android-only native Share bridge — Capacitor plugin proxy registered.
-   Injected only into the Android APK by android-beta.yml.
-   GitHub Pages/PWA remains unchanged. */
+/* Life RPG Android-only native Share bridge.
+   NativeShare plugin proxy is bundled from @capacitor/core by GitHub Actions
+   into android-native-share-plugin.js and loaded before this file. */
 (() => {
   let draining = false;
-  let nativeShare = null;
   let foregroundHooksInstalled = false;
   let nativeListenerInstalled = false;
   let lastDrainAt = 0;
 
+  const D = {
+    proxy: "loading",
+    ping: "pending",
+    pending: "unknown",
+    lastDrain: "—",
+    lastPayload: "—",
+    lastError: "",
+    accepted: 0
+  };
+
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-  function getNativeShare() {
-    if (nativeShare) return nativeShare;
+  function plugin() {
+    const p = globalThis.LifeRpgNativeSharePlugin || null;
+    D.proxy = p ? "OK" : "NO";
+    return p;
+  }
 
-    const cap = globalThis.Capacitor;
-    if (!cap || typeof cap.registerPlugin !== "function") return null;
+  function esc(v) {
+    const s = String(v ?? "");
+    if (typeof escapeHtml === "function") return escapeHtml(s);
+    return s.replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+  }
 
-    /* Required JS-side registration for a local Capacitor native plugin. */
-    nativeShare = cap.registerPlugin("NativeShare");
-    return nativeShare;
+  function diagHtml() {
+    const good = D.proxy === "OK" && D.ping === "OK";
+    return `
+      <div id="lifeRpgNativeShareDiag" class="notice" style="margin:10px 0">
+        <div class="split">
+          <div>
+            <b>Android Native Share • ${good ? "BRIDGE OK" : "DIAGNOSTICS"}</b>
+            <div class="qmeta">
+              JS proxy: ${esc(D.proxy)} • native ping: ${esc(D.ping)} • pending: ${esc(D.pending)}
+            </div>
+            <div class="qmeta">
+              last drain: ${esc(D.lastDrain)} • payload: ${esc(D.lastPayload)} • accepted: ${D.accepted}
+            </div>
+            ${D.lastError ? `<div class="qmeta">error: ${esc(D.lastError)}</div>` : ""}
+          </div>
+          <button class="btn ghost small" onclick="LifeRpgAndroidNativeShare.probe()">Проверить bridge</button>
+        </div>
+      </div>`;
+  }
+
+  function renderDiag() {
+    const command = document.getElementById("share131Command");
+    if (!command) return;
+
+    const card = command.closest(".card");
+    if (!card) return;
+
+    const old = document.getElementById("lifeRpgNativeShareDiag");
+    if (old) {
+      old.outerHTML = diagHtml();
+    } else {
+      command.insertAdjacentHTML("beforebegin", diagHtml());
+    }
   }
 
   async function waitLifeRpgReady() {
@@ -28,12 +75,17 @@
         typeof share131QueuePut === "function" &&
         typeof share131AutoRoute === "function" &&
         typeof renderShare131 === "function" &&
+        typeof share131CombinedText === "function" &&
+        typeof share131HistoryAdd === "function" &&
         typeof uid === "function" &&
         typeof S !== "undefined"
-      ) return true;
+      ) {
+        renderDiag();
+        return true;
+      }
       await sleep(100);
     }
-    return false;
+    throw new Error("Life RPG Share Hub не успел загрузиться");
   }
 
   function base64File(row) {
@@ -51,12 +103,35 @@
     );
   }
 
+  async function probe() {
+    const p = plugin();
+    if (!p) {
+      D.ping = "NO PROXY";
+      D.lastError = "android-native-share-plugin.js не создал NativeShare proxy";
+      renderDiag();
+      return false;
+    }
+
+    try {
+      const pong = await p.ping();
+      D.ping = pong?.ok ? "OK" : "BAD";
+      const status = typeof p.getShareStatus === "function" ? await p.getShareStatus() : null;
+      D.pending = status?.pending ? `${status.action || "share"} • ${status.type || "?"}` : "empty";
+      D.lastError = "";
+      renderDiag();
+      return pong?.ok === true;
+    } catch (e) {
+      D.ping = "FAIL";
+      D.lastError = String(e?.message || e);
+      renderDiag();
+      return false;
+    }
+  }
+
   async function acceptPayload(payload) {
     if (!payload || payload.empty) return false;
 
-    if (!(await waitLifeRpgReady())) {
-      throw new Error("Life RPG Share Hub не успел загрузиться");
-    }
+    await waitLifeRpgReady();
 
     const files = [];
     const payloadErrors = Array.isArray(payload.errors) ? payload.errors.map(String) : [];
@@ -88,7 +163,11 @@
       routedAt: ""
     };
 
-    if (!row.files.length && !share131CombinedText(row)) return false;
+    if (!row.files.length && !share131CombinedText(row)) {
+      D.lastError = "Intent получен, но в нём нет читаемого текста/файла";
+      renderDiag();
+      return false;
+    }
 
     await share131QueuePut(row);
 
@@ -109,17 +188,18 @@
       }
     }
 
+    D.accepted += 1;
+    D.lastPayload = `${payload.action || "share"} • files ${row.files.length}`;
+    D.pending = "consumed";
+    D.lastError = "";
+
     try {
       ux7Go("more", "settings");
     } catch {}
 
     await renderShare131();
+    renderDiag();
 
-    /* Keep existing Life RPG routing rules:
-       image -> finance/Huawei route,
-       import docs -> Import Hub,
-       ICS -> calendar,
-       text -> Inbox. */
     await share131AutoRoute(row);
 
     setTimeout(() => {
@@ -138,20 +218,37 @@
     if (draining) return false;
     if (reason !== "manual" && now - lastDrainAt < 150) return false;
 
-    const p = getNativeShare();
-    if (!p || typeof p.getPendingShare !== "function") return false;
+    const p = plugin();
+    D.lastDrain = reason;
+
+    if (!p || typeof p.getPendingShare !== "function") {
+      D.lastError = "NativeShare proxy отсутствует или не содержит getPendingShare()";
+      renderDiag();
+      return false;
+    }
 
     draining = true;
     lastDrainAt = now;
 
     try {
+      const status = typeof p.getShareStatus === "function" ? await p.getShareStatus() : null;
+      D.pending = status?.pending ? `${status.action || "share"} • ${status.type || "?"}` : "empty";
+
       const payload = await p.getPendingShare();
+      if (payload?.empty) {
+        D.lastPayload = "empty";
+        renderDiag();
+        return false;
+      }
+
+      D.lastPayload = `${payload.action || "share"} • files ${(payload.files || []).length}`;
+      renderDiag();
       return await acceptPayload(payload);
     } catch (e) {
+      D.lastError = String(e?.message || e);
       console.error("Life RPG NativeShare drain:", reason, e);
-      try {
-        toast(`Android Share: ${e?.message || e}`);
-      } catch {}
+      renderDiag();
+      try { toast(`Android Share: ${D.lastError}`); } catch {}
       return false;
     } finally {
       draining = false;
@@ -180,29 +277,30 @@
 
   async function installNativeListener() {
     if (nativeListenerInstalled) return;
-    const p = getNativeShare();
-    if (!p || typeof p.addListener !== "function") return;
 
-    nativeListenerInstalled = true;
+    const p = plugin();
+    if (!p || typeof p.addListener !== "function") {
+      D.lastError = "NativeShare.addListener недоступен";
+      renderDiag();
+      return;
+    }
+
     try {
       await p.addListener("shareAvailable", () => scheduleDrain("native-event"));
+      nativeListenerInstalled = true;
     } catch (e) {
-      nativeListenerInstalled = false;
-      console.error("Life RPG NativeShare listener:", e);
+      D.lastError = `listener: ${e?.message || e}`;
+      renderDiag();
     }
   }
 
   async function install() {
-    const cap = globalThis.Capacitor;
-    if (!cap) return;
-
-    const p = getNativeShare();
-    if (!p) return;
+    await waitLifeRpgReady().catch(() => {});
+    await probe();
 
     installForegroundHooks();
     await installNativeListener();
 
-    /* Cold start and early bridge timing coverage. */
     scheduleDrain("startup");
     for (const ms of [350, 900, 1800]) {
       setTimeout(() => void drain(`startup-${ms}`), ms);
@@ -212,7 +310,8 @@
   globalThis.LifeRpgAndroidNativeShare = {
     drain: () => drain("manual"),
     acceptPayload,
-    getNativeShare
+    probe,
+    diagnostics: D
   };
 
   if (document.readyState === "loading") {
