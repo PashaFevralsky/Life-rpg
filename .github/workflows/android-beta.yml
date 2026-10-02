@@ -1,4 +1,4 @@
-name: Build Life RPG Android Beta
+name: Build Life RPG Android Signed Beta
 
 on:
   workflow_dispatch:
@@ -24,12 +24,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: life-rpg-android-beta
+  group: life-rpg-android-signed-beta
   cancel-in-progress: true
 
 jobs:
-  build-android-beta:
-    name: Test, package and build APK
+  build-android-signed-beta:
+    name: Test, sign and build updateable APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -97,6 +97,25 @@ jobs:
       - name: Sync production bundle into Android
         run: npx cap sync android
 
+      - name: Set Android version
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const pkg = require("./package.json");
+          const path = "android/app/build.gradle";
+          let s = fs.readFileSync(path, "utf8");
+          const run = Number(process.env.GITHUB_RUN_NUMBER || 1);
+          const code = 1309000 + run;
+          const name = `${pkg.version}-beta.${run}`;
+          if (!/versionCode\s+\d+/.test(s)) throw new Error("versionCode not found");
+          if (!/versionName\s+"[^"]+"/.test(s)) throw new Error("versionName not found");
+          s = s.replace(/versionCode\s+\d+/, `versionCode ${code}`);
+          s = s.replace(/versionName\s+"[^"]+"/, `versionName "${name}"`);
+          fs.writeFileSync(path, s);
+          console.log(`Android versionCode=${code}, versionName=${name}`);
+          NODE
+
       - name: Setup Java
         uses: actions/setup-java@v6
         with:
@@ -104,27 +123,79 @@ jobs:
           java-version: "21"
           cache: gradle
 
+      - name: Restore permanent signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD secret is missing"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/life-rpg-signing"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore"
+          keytool -list \
+            -keystore "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore" \
+            -storetype PKCS12 \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias life-rpg >/dev/null
+
+      - name: Configure release signing
+        shell: bash
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  lifeRpgRelease {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias "life-rpg"
+                      keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.lifeRpgRelease
+                  }
+              }
+          }
+          GRADLE
+
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
 
-      - name: Build installable debug APK
+      - name: Build signed release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/life-rpg-signing/Life-RPG-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
 
       - name: Prepare APK filename
         id: meta
         shell: bash
         run: |
           VERSION="$(node -p "require('./package.json').version")"
+          RUN="${GITHUB_RUN_NUMBER}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
           mkdir -p android-out
-          cp android/app/build/outputs/apk/debug/app-debug.apk \
-            "android-out/Life-RPG-${VERSION}-Android-Beta2.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "android-out/Life-RPG-${VERSION}-Signed-Beta-${RUN}.apk"
 
-      - name: Upload APK
+      - name: Upload signed APK
         uses: actions/upload-artifact@v7
         with:
-          path: android-out/Life-RPG-${{ steps.meta.outputs.version }}-Android-Beta2.apk
+          path: android-out/Life-RPG-${{ steps.meta.outputs.version }}-Signed-Beta-${{ steps.meta.outputs.run }}.apk
           archive: false
           retention-days: 30
           if-no-files-found: error
