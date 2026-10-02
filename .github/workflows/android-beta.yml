@@ -1,0 +1,99 @@
+name: Build Life RPG Android Beta
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "capacitor.config.json"
+      - ".github/workflows/android-beta.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.mjs"
+      - "index.html"
+      - "manifest.webmanifest"
+      - "icon-192.png"
+      - "icon-512.png"
+      - "READING-LIST-27.json"
+      - "*.js"
+      - "*.css"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: life-rpg-android-beta
+  cancel-in-progress: true
+
+jobs:
+  build-android-beta:
+    name: Test, package and build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Life RPG dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run Life RPG regression gate
+        run: npm test
+
+      - name: Build production web bundle
+        run: npm run build
+
+      - name: Audit production bundle
+        run: node dist-audit.test.js
+
+      - name: Install pinned Capacitor toolchain
+        run: >
+          npm install --no-save --package-lock=false
+          @capacitor/core@8.5.2
+          @capacitor/android@8.5.2
+          @capacitor/cli@8.5.2
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Sync production bundle into Android
+        run: npx cap sync android
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
+      - name: Build installable debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Prepare APK filename
+        id: meta
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          mkdir -p android-out
+          cp android/app/build/outputs/apk/debug/app-debug.apk             "android-out/Life-RPG-${VERSION}-Android-Beta.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          path: android-out/Life-RPG-${{ steps.meta.outputs.version }}-Android-Beta.apk
+          archive: false
+          retention-days: 30
+          if-no-files-found: error
