@@ -1,0 +1,361 @@
+name: Build Life RPG Android Stable
+run-name: Life RPG 14.0.0 Android Stable
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-android-stable-14-0-0
+  cancel-in-progress: false
+
+jobs:
+  build-android-stable:
+    name: Verify, sign and publish Android 14.0.0 Stable
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Stable source freeze gate
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs");
+          const rc=JSON.parse(fs.readFileSync("android-release-config.json","utf8"));
+          const stable=JSON.parse(fs.readFileSync("android-stable-config.json","utf8"));
+          if(rc.targetVersion!=="14.0.0"||rc.channel!=="rc"||rc.stateVersion!==18) throw new Error("Accepted RC source config changed");
+          if(stable.targetVersion!=="14.0.0"||stable.channel!=="stable"||stable.stateVersion!==18) throw new Error("Stable config invalid");
+          if(stable.androidShareEnabled!==false) throw new Error("Native Share Target must remain excluded from 14.0.0 Stable");
+          const swipe=fs.readFileSync("android-tab-swipe-14.js","utf8");
+          if(!swipe.includes("leaveMs:90")||!swipe.includes("enterMs:190")) throw new Error("Accepted smooth-swipe runtime missing");
+          const finance=fs.readFileSync("finance-rebuild-14.js","utf8");
+          if(!finance.includes("FINANCE_REBUILD14_SNAPSHOT_VERSION=2")) throw new Error("Finance snapshot v2 missing");
+          NODE
+
+      - name: Ensure v14.0.0 is not already published
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v14.0.0 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "GitHub Release v14.0.0 already exists. Stable releases are immutable."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin refs/tags/v14.0.0 >/dev/null 2>&1; then
+            echo "Git tag v14.0.0 already exists."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run full regression gate
+        run: npm test
+
+      - name: Verify accepted 14.0 RC source contract
+        run: node release-readiness-14.0.test.js
+
+      - name: Test Finance Rebuild contracts
+        run: node finance-rebuild-14.test.js
+
+      - name: Test Android UI hardening source contract
+        run: node android-ui-14.test.js
+
+      - name: Test Android tab swipe source contract
+        run: node android-tab-swipe-14.test.js
+
+      - name: Build production web bundle
+        run: npm run build
+
+      - name: Audit production web bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium for Stable E2E
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Validate Android release toolchain pins
+        shell: bash
+        run: |
+          node <<'NODE'
+          const t=require("./android-toolchain.lock.json");
+          if(t.node!=="22"||t.java!=="21") throw new Error("Unexpected Node/Java release pins");
+          for(const k of ["capacitorCore","capacitorAndroid","capacitorCli","localNotifications"]){
+            if(!/^\d+\.\d+\.\d+$/.test(t[k])) throw new Error(`Invalid toolchain pin ${k}: ${t[k]}`);
+          }
+          NODE
+
+      - name: Install pinned Capacitor release toolchain
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs"),t=require("./android-toolchain.lock.json");
+          const p=JSON.parse(fs.readFileSync("package.json","utf8"));
+          p.dependencies=p.dependencies||{};
+          p.dependencies["@capacitor/local-notifications"]=t.localNotifications;
+          fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\n");
+          NODE
+
+          CORE="$(node -p "require('./android-toolchain.lock.json').capacitorCore")"
+          ANDROID="$(node -p "require('./android-toolchain.lock.json').capacitorAndroid")"
+          CLI="$(node -p "require('./android-toolchain.lock.json').capacitorCli")"
+          NOTIF="$(node -p "require('./android-toolchain.lock.json').localNotifications")"
+
+          npm install --no-save --package-lock=false \
+            "@capacitor/core@$CORE" \
+            "@capacitor/android@$ANDROID" \
+            "@capacitor/cli@$CLI" \
+            "@capacitor/local-notifications@$NOTIF"
+
+          test "$(node -p "require('./node_modules/@capacitor/core/package.json').version")" = "$CORE"
+          test "$(node -p "require('./node_modules/@capacitor/android/package.json').version")" = "$ANDROID"
+          test "$(node -p "require('./node_modules/@capacitor/cli/package.json').version")" = "$CLI"
+          test "$(node -p "require('./node_modules/@capacitor/local-notifications/package.json').version")" = "$NOTIF"
+
+      - name: Build Android Life Ops native bridge
+        run: |
+          npx vite build --config android-life-ops-native.vite.mjs
+          test -s dist/android-life-ops-native.js
+          grep -q "LocalNotifications" dist/android-life-ops-native.js
+
+      - name: Switch runner to Stable release config
+        shell: bash
+        run: |
+          cp android-stable-config.json android-release-config.json
+          node <<'NODE'
+          const c=require("./android-release-config.json");
+          if(c.channel!=="stable"||c.targetVersion!=="14.0.0"||c.stateVersion!==18) throw new Error("Stable config activation failed");
+          NODE
+
+      - name: Make Android UI E2E channel-neutral on runner
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs");
+          const f="android-ui-14.e2e.test.js";
+          let s=fs.readFileSync(f,"utf8");
+          const old='await expect(page).toHaveTitle(/Life RPG 14\\.0\\.0-rc\\./);';
+          const next='await expect(page).toHaveTitle(/Life RPG 14\\.0\\.0(?:-rc\\.\\d+)?$/);';
+          if(!s.includes(old)) throw new Error("Expected RC-only title assertion not found");
+          s=s.replace(old,next);
+          fs.writeFileSync(f,s);
+          NODE
+
+      - name: Prepare Android Stable web assets
+        run: node android-release-prepare.mjs
+
+      - name: Android Stable UI, swipe and finance roundtrip gate
+        run: npx playwright test --config=playwright.android-rc.config.mjs
+
+      - name: Verify Stable web payload
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs");
+          const meta=JSON.parse(fs.readFileSync("android-release-meta.json","utf8"));
+          if(meta.channel!=="stable") throw new Error("Release channel is not stable");
+          if(meta.versionName!=="14.0.0") throw new Error(`Unexpected stable versionName ${meta.versionName}`);
+          if(meta.versionCode!==14000099) throw new Error(`Unexpected stable versionCode ${meta.versionCode}`);
+          if(meta.stateVersion!==18) throw new Error("Unexpected state schema");
+          if(meta.androidShareEnabled!==false) throw new Error("Native Share must remain disabled");
+          const html=fs.readFileSync("dist/index.html","utf8");
+          if(!html.includes('window.__LIFE_RPG_RELEASE_CHANNEL__="stable"')) throw new Error("Stable runtime marker missing");
+          if(!html.includes("android-tab-swipe-14.js")||!html.includes("finance-rebuild-14.js")) throw new Error("Stable Android payload incomplete");
+          if(html.includes("android-native-share.js")||html.includes("android-native-share-plugin.js")) throw new Error("Unaccepted Native Share payload present");
+          const core=fs.readFileSync("dist/core.js","utf8");
+          if(!core.includes('APP_VERSION="14.0.0"')) throw new Error("Stable APP_VERSION missing");
+          NODE
+
+      - name: Verify Capacitor SystemBars configuration
+        run: |
+          node <<'NODE'
+          const c=require("./capacitor.config.json");
+          if(c?.plugins?.SystemBars?.insetsHandling!=="css") throw new Error("SystemBars.insetsHandling must be css");
+          if(c.appId!=="io.github.pashafevralsky.liferpg") throw new Error("Stable package id changed");
+          NODE
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Sync Stable assets and plugins
+        run: npx cap sync android
+
+      - name: Patch deterministic Android release shell
+        run: node android-release-patch.mjs
+
+      - name: Run Android Stable release gate
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs"),path=require("path");
+          const cfg=require("./android-release-config.json");
+          const meta=require("./android-release-meta.json");
+          const cap=require("./capacitor.config.json");
+          if(cfg.channel!=="stable"||meta.channel!=="stable") throw new Error("Stable channel mismatch");
+          if(meta.versionName!=="14.0.0"||meta.versionCode!==14000099) throw new Error("Stable version mismatch");
+          const assets=path.join("android","app","src","main","assets","public");
+          for(const f of ["index.html","core.js","bootstrap.js","pwa.js","android-safe-area.css","android-life-ops-native.js","finance-rebuild-14.js","android-ui-14.css","android-tab-swipe-14.css","android-tab-swipe-14.js"]){
+            if(!fs.existsSync(path.join(assets,f))) throw new Error(`Android Stable asset missing: ${f}`);
+          }
+          for(const f of ["share-hub.js","share-target-sw.js","android-native-share.js","android-native-share-plugin.js","sw.js"]){
+            if(fs.existsSync(path.join(assets,f))) throw new Error(`Excluded Android asset present: ${f}`);
+          }
+          const html=fs.readFileSync(path.join(assets,"index.html"),"utf8");
+          if(!html.includes('window.__LIFE_RPG_RELEASE_CHANNEL__="stable"')) throw new Error("Stable marker missing from Android assets");
+          if(!fs.readFileSync(path.join(assets,"core.js"),"utf8").includes('APP_VERSION="14.0.0"')) throw new Error("Stable runtime version missing");
+          const gradle=fs.readFileSync(path.join("android","app","build.gradle"),"utf8");
+          if(!gradle.includes("versionCode 14000099")||!gradle.includes('versionName "14.0.0"')) throw new Error("Gradle Stable version mismatch");
+          const manifest=fs.readFileSync(path.join("android","app","src","main","AndroidManifest.xml"),"utf8");
+          if(manifest.includes("android.intent.action.SEND")||manifest.includes("android.intent.action.SEND_MULTIPLE")) throw new Error("Native Share filter present");
+          const settings=fs.readFileSync(path.join("android","capacitor.settings.gradle"),"utf8");
+          if(!settings.includes("capacitor-local-notifications")) throw new Error("Local Notifications plugin missing");
+          const javaDir=path.join("android","app","src","main","java",...String(cap.appId).split("."));
+          const main=fs.readFileSync(path.join(javaDir,"MainActivity.java"),"utf8");
+          if(!main.includes("refreshBundledWebAssets()")||!main.includes("navigator.serviceWorker.getRegistrations()")) throw new Error("Android update hardening missing");
+          NODE
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Restore permanent signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD secret is missing"; exit 1; }
+
+          mkdir -p "$RUNNER_TEMP/life-rpg-signing"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore"
+
+          keytool -list \
+            -keystore "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore" \
+            -storetype PKCS12 \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias life-rpg >/dev/null
+
+      - name: Configure Stable signing
+        shell: bash
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  lifeRpgRelease {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias "life-rpg"
+                      keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.lifeRpgRelease
+                  }
+              }
+          }
+          GRADLE
+
+      - name: Build signed Stable APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/life-rpg-signing/Life-RPG-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
+      - name: Prepare Stable release files
+        id: stable
+        shell: bash
+        run: |
+          VERSION_NAME="$(node -p "require('./android-release-meta.json').versionName")"
+          VERSION_CODE="$(node -p "require('./android-release-meta.json').versionCode")"
+
+          test "$VERSION_NAME" = "14.0.0"
+          test "$VERSION_CODE" = "14000099"
+
+          mkdir -p android-stable-out
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "android-stable-out/Life-RPG-14.0.0.apk"
+          cp android-release-meta.json android-stable-out/release-manifest.json
+
+          (
+            cd android-stable-out
+            sha256sum "Life-RPG-14.0.0.apk" > SHA256SUMS.txt
+          )
+
+          {
+            echo "# Life RPG 14.0.0 — Android Stable"
+            echo
+            echo "Accepted from the 14.0 RC line after real-device validation."
+            echo
+            echo "- Package ID: \`io.github.pashafevralsky.liferpg\`"
+            echo "- State schema: v18"
+            echo "- Signed with the permanent Life RPG Android key"
+            echo "- Installs over accepted RC builds without clearing local IndexedDB"
+            echo "- Native Android Share Target remains intentionally excluded from 14.0.0"
+            echo "- Includes Finance Rebuild snapshot v2, Android UI hardening and smooth sub-tab swipe navigation"
+            echo
+            echo "## SHA-256"
+            echo
+            echo '```'
+            cat android-stable-out/SHA256SUMS.txt
+            echo '```'
+          } > android-stable-out/RELEASE-NOTES.md
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Stable build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Life-RPG-14.0.0-Android-Stable
+          path: |
+            android-stable-out/Life-RPG-14.0.0.apk
+            android-stable-out/release-manifest.json
+            android-stable-out/SHA256SUMS.txt
+            android-stable-out/RELEASE-NOTES.md
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publish immutable GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v14.0.0 \
+            "android-stable-out/Life-RPG-14.0.0.apk" \
+            "android-stable-out/release-manifest.json" \
+            "android-stable-out/SHA256SUMS.txt" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "Life RPG 14.0.0 — Android Stable" \
+            --notes-file android-stable-out/RELEASE-NOTES.md
