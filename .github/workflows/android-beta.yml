@@ -57,37 +57,6 @@ jobs:
       - name: Audit production bundle
         run: node dist-audit.test.js
 
-      - name: Apply Android-only web layers
-        shell: bash
-        run: |
-          test -f android-safe-area.css
-          test -f android-native-share.js
-          cp android-safe-area.css dist/android-safe-area.css
-          cp android-native-share.js dist/android-native-share.js
-          node <<'NODE'
-          const fs = require("fs");
-          const path = "dist/index.html";
-          let html = fs.readFileSync(path, "utf8");
-
-          const css = '<link rel="stylesheet" href="./android-safe-area.css">';
-          if (!html.includes(css)) {
-            if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
-            html = html.replace("</head>", `${css}\n</head>`);
-          }
-
-          const js = '<script src="./android-native-share.js"></script>';
-          if (!html.includes(js)) {
-            if (!html.includes("</body>")) throw new Error("dist/index.html has no </body>");
-            html = html.replace("</body>", `${js}\n</body>`);
-          }
-
-          fs.writeFileSync(path, html);
-
-          const finalHtml = fs.readFileSync(path, "utf8");
-          if (!finalHtml.includes("android-safe-area.css")) throw new Error("Android safe-area stylesheet was not injected");
-          if (!finalHtml.includes("android-native-share.js")) throw new Error("Android native share bridge was not injected");
-          NODE
-
       - name: Verify Capacitor SystemBars configuration
         run: |
           node <<'NODE'
@@ -103,6 +72,78 @@ jobs:
           @capacitor/core@8.5.2
           @capacitor/android@8.5.2
           @capacitor/cli@8.5.2
+
+      - name: Build real Capacitor NativeShare JS proxy
+        shell: bash
+        run: |
+          cat > android-native-share-entry.tmp.js <<'JS'
+          import { registerPlugin } from '@capacitor/core';
+          globalThis.LifeRpgNativeSharePlugin = registerPlugin('NativeShare');
+          JS
+
+          cat > android-native-share.vite.tmp.mjs <<'JS'
+          import { defineConfig } from 'vite';
+          import { resolve } from 'node:path';
+
+          export default defineConfig({
+            build: {
+              lib: {
+                entry: resolve(process.cwd(), 'android-native-share-entry.tmp.js'),
+                name: 'LifeRpgNativeShareProxy',
+                formats: ['iife'],
+                fileName: () => 'android-native-share-plugin.js'
+              },
+              outDir: resolve(process.cwd(), 'dist'),
+              emptyOutDir: false,
+              minify: false
+            }
+          });
+          JS
+
+          npx vite build --config android-native-share.vite.tmp.mjs
+
+          test -s dist/android-native-share-plugin.js
+          grep -q "NativeShare" dist/android-native-share-plugin.js
+
+      - name: Apply Android-only web layers
+        shell: bash
+        run: |
+          test -f android-safe-area.css
+          test -f android-native-share.js
+
+          cp android-safe-area.css dist/android-safe-area.css
+          cp android-native-share.js dist/android-native-share.js
+
+          node <<'NODE'
+          const fs = require("fs");
+          const path = "dist/index.html";
+          let html = fs.readFileSync(path, "utf8");
+
+          const css = '<link rel="stylesheet" href="./android-safe-area.css">';
+          if (!html.includes(css)) {
+            if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
+            html = html.replace("</head>", `${css}\n</head>`);
+          }
+
+          const proxy = '<script src="./android-native-share-plugin.js"></script>';
+          const bridge = '<script src="./android-native-share.js"></script>';
+
+          if (!html.includes(proxy) || !html.includes(bridge)) {
+            if (!html.includes("</body>")) throw new Error("dist/index.html has no </body>");
+            html = html.replace("</body>", `${proxy}\n${bridge}\n</body>`);
+          }
+
+          fs.writeFileSync(path, html);
+
+          const finalHtml = fs.readFileSync(path, "utf8");
+          const proxyPos = finalHtml.indexOf("android-native-share-plugin.js");
+          const bridgePos = finalHtml.indexOf("android-native-share.js");
+
+          if (!finalHtml.includes("android-safe-area.css")) throw new Error("Android safe-area stylesheet was not injected");
+          if (proxyPos < 0) throw new Error("NativeShare plugin proxy was not injected");
+          if (bridgePos < 0) throw new Error("NativeShare bridge was not injected");
+          if (proxyPos > bridgePos) throw new Error("NativeShare proxy must load before bridge");
+          NODE
 
       - name: Create Android project
         run: npx cap add android
@@ -120,6 +161,9 @@ jobs:
           grep -R "android.intent.action.SEND_MULTIPLE" android/app/src/main/AndroidManifest.xml
           grep -R "registerPlugin(NativeSharePlugin.class)" android/app/src/main/java
           grep -R '@CapacitorPlugin(name = "NativeShare")' android/app/src/main/java
+          grep -R "getShareStatus" android/app/src/main/java
+          test -s android/app/src/main/assets/public/android-native-share-plugin.js
+          test -s android/app/src/main/assets/public/android-native-share.js
 
       - name: Set Android version
         shell: bash
@@ -155,8 +199,10 @@ jobs:
         run: |
           test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; }
           test -n "$KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD secret is missing"; exit 1; }
+
           mkdir -p "$RUNNER_TEMP/life-rpg-signing"
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore"
+
           keytool -list \
             -keystore "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore" \
             -storetype PKCS12 \
@@ -200,6 +246,7 @@ jobs:
         run: |
           APK="android/app/build/outputs/apk/release/app-release.apk"
           test -f "$APK"
+
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
@@ -210,8 +257,10 @@ jobs:
         run: |
           VERSION="$(node -p "require('./package.json').version")"
           RUN="${GITHUB_RUN_NUMBER}"
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
+
           mkdir -p android-out
           cp android/app/build/outputs/apk/release/app-release.apk \
             "android-out/Life-RPG-${VERSION}-Signed-Beta-${RUN}.apk"
