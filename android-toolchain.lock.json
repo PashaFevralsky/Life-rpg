@@ -1,0 +1,8 @@
+{
+  "node": "22",
+  "java": "21",
+  "capacitorCore": "8.5.2",
+  "capacitorAndroid": "8.5.2",
+  "capacitorCli": "8.5.2",
+  "localNotifications": "8.3.1"
+}

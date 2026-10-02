@@ -1,0 +1,7 @@
+{
+  "targetVersion": "14.0.0",
+  "channel": "rc",
+  "stateVersion": 18,
+  "androidShareEnabled": false,
+  "notes": "Android RC excludes unfinished native Share Target. PWA source remains 13.9.1 until RC acceptance."
+}

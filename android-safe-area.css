@@ -1,6 +1,5 @@
-/* Life RPG 13.9.1 — Android safe-area bridge
-   This file is injected into the Capacitor APK only by android-beta.yml.
-   GitHub Pages / PWA styling is intentionally unchanged. */
+/* Life RPG — Android release safe-area layer.
+   Injected only into Capacitor APK builds. */
 
 :root{
   --life-safe-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
@@ -10,7 +9,6 @@
 }
 
 @media(max-width:850px){
-  /* Today: the profile header is the first app surface under Android status bar. */
   .ui82.ui139 .top{
     padding-top:calc(10px + var(--life-safe-top))!important;
     padding-left:calc(11px + var(--life-safe-left))!important;
@@ -19,15 +17,11 @@
     margin-right:calc(-11px - var(--life-safe-right))!important;
   }
 
-  /* When Today is scrolled, the sticky header itself owns the Android top inset.
-     Keep it at top:0 so its opaque background covers the whole status-bar zone;
-     put the safe-area clearance inside the header instead of leaving a transparent gap. */
   body.ui82.ui139.ui139-scrolled[data-section="today"] #today>.ux7-section-head{
     top:0!important;
     padding-top:calc(4px + var(--life-safe-top))!important;
   }
 
-  /* Other sections hide .top, so their sticky section head owns the top inset. */
   body.ui82.ui139[data-section]:not([data-section="today"]) .ux7-section-head{
     top:0!important;
     padding-top:calc(8px + var(--life-safe-top))!important;
@@ -40,9 +34,8 @@
     padding-top:calc(4px + var(--life-safe-top))!important;
   }
 
-  /* Keep fixed Android chrome and scrollable content above gesture/navigation inset. */
   .ui82.ui139 .shell{
-    padding-bottom:calc(126px + var(--life-safe-bottom))!important;
+    padding-bottom:calc(164px + var(--life-safe-bottom))!important;
   }
   .ui82.ui139 .bottom{
     bottom:max(6px,var(--life-safe-bottom))!important;
@@ -58,7 +51,11 @@
     bottom:calc(116px + var(--life-safe-bottom))!important;
   }
 
-  /* Bottom sheets: status-bar clearance at top and gesture clearance inside the sheet. */
+  /* Finance already owns its action model; global FAB only covers Money Engine cards. */
+  body.ui82.ui139[data-section="finance"] .ux7-fab{
+    display:none!important;
+  }
+
   .ui82.ui139 .modal{
     padding-top:var(--life-safe-top)!important;
     padding-right:var(--life-safe-right)!important;

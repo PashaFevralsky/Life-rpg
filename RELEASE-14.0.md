@@ -1,0 +1,33 @@
+# Life RPG 14.0 — Release Hardening
+
+Цель: перейти от серии Android Beta к контролируемому RC → Stable.
+
+## Что меняется на Stage 1
+
+- Новый Android RC workflow, отдельный от legacy beta.
+- Android RC получает versionName `14.0.0-rc.N`.
+- versionCode рассчитывается детерминированно и выше линии 13.9.1 beta.
+- State schema остаётся v18: миграции пользовательских данных нет.
+- Перед Android release выполняются:
+  - полный `npm test`;
+  - production build;
+  - dist audit;
+  - Playwright mobile E2E;
+  - Android release gate;
+  - signed release APK;
+  - `apksigner verify`.
+- В APK сохраняются native Local Notifications и Android safe-area.
+- PWA Service Worker не входит в Android RC; при обновлении старые регистрации/cache удаляются без очистки IndexedDB.
+- Незавершённый native Android Share Target исключён из RC. Он не считается функцией 14.0.
+- Legacy Beta workflow больше не запускается автоматически.
+
+## Что остаётся до Stable
+
+1. Перезаполнить финансовые данные актуальным импортом.
+2. Провести Data Integrity audit и сверку Money Engine/Autopilot.
+3. Закрыть полный UI audit на реальном Android.
+4. Пройти `ANDROID-ACCEPTANCE-14.0.md`.
+5. Собрать минимум один RC и обновить его поверх предыдущей версии.
+6. После PASS — перевести release config в stable, синхронно bump исходников web/PWA до 14.0.0 и создать постоянный GitHub Release.
+
+Никакая новая крупная функция до Stable не добавляется.
