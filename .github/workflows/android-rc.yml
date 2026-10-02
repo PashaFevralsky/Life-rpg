@@ -17,6 +17,10 @@ on:
       - "android-life-ops-native.vite.mjs"
       - "finance-rebuild-14.js"
       - "finance-rebuild-14.test.js"
+      - "android-ui-14.css"
+      - "android-ui-14.test.js"
+      - "android-ui-14.e2e.test.js"
+      - "playwright.android-rc.config.mjs"
       - "ANDROID-ACCEPTANCE-14.0.md"
       - "RELEASE-14.0.md"
       - "android-safe-area.css"
@@ -66,6 +70,9 @@ jobs:
 
       - name: Test Finance Rebuild contracts
         run: node finance-rebuild-14.test.js
+
+      - name: Test Android UI hardening source contract
+        run: node android-ui-14.test.js
 
       - name: Build production web bundle
         run: npm run build
@@ -125,6 +132,9 @@ jobs:
 
       - name: Prepare Android RC web assets
         run: node android-release-prepare.mjs
+
+      - name: Android RC UI geometry gate
+        run: npx playwright test --config=playwright.android-rc.config.mjs
 
       - name: Verify Capacitor SystemBars configuration
         run: |
