@@ -6,14 +6,14 @@ async function boot(page){
   await expect(page.locator('html')).not.toHaveClass(/life-rpg-booting/);
   await expect.poll(()=>page.evaluate(()=>globalThis.LifeTabSwipe14?.isReady?.()===true)).toBe(true);
 }
-async function gesture(page,selector,{x1=300,y1=520,x2=210,y2=525,duration=100}={}){
+async function gesture(page,selector,{x1=300,y1=520,x2=210,y2=525,duration=100,wait=380}={}){
   await page.evaluate(({selector,x1,y1,x2,y2,duration})=>new Promise(resolve=>{
     const el=document.querySelector(selector);if(!el)throw new Error(`target not found: ${selector}`);
     const init=(x,y)=>({bubbles:true,cancelable:true,pointerId:71,pointerType:'touch',isPrimary:true,clientX:x,clientY:y});
     el.dispatchEvent(new PointerEvent('pointerdown',init(x1,y1)));
     setTimeout(()=>{el.dispatchEvent(new PointerEvent('pointerup',init(x2,y2)));resolve()},duration);
   }),{selector,x1,y1,x2,y2,duration});
-  await page.waitForTimeout(240);
+  if(wait)await page.waitForTimeout(wait);
 }
 async function view(page){return page.evaluate(()=>({section:document.body.dataset.section,view:document.body.dataset.view}))}
 
@@ -27,6 +27,25 @@ test('swipe changes only sub-tabs inside the current main section',async({page})
   expect(await view(page)).toEqual({section:'finance',view:'debts'});
   await gesture(page,'#finance .ux7-card:not(.ux7-hidden)',{x1:80,x2:175});
   expect(await view(page)).toEqual({section:'finance',view:'operations'});
+});
+
+test('swipe transition has leave, switch and enter phases',async({page})=>{
+  await boot(page);
+  await page.evaluate(()=>ux7Go('finance','overview'));
+  await page.waitForTimeout(100);
+
+  await gesture(page,'#finance .ux7-card:not(.ux7-hidden)',{x1:310,x2:220,duration:60,wait:0});
+
+  await expect.poll(()=>page.evaluate(()=>globalThis.LifeTabSwipe14?.isTransitioning?.()===true)).toBe(true);
+  await expect(page.locator('#finance')).toHaveClass(/life-tab-swipe-transitioning/);
+
+  await page.waitForTimeout(125);
+  expect((await view(page)).view).toBe('operations');
+  await expect(page.locator('#finance')).toHaveClass(/life-tab-swipe-enter-next/);
+
+  await page.waitForTimeout(230);
+  await expect.poll(()=>page.evaluate(()=>globalThis.LifeTabSwipe14?.isTransitioning?.()===false)).toBe(true);
+  await expect(page.locator('#finance')).not.toHaveClass(/life-tab-swipe-transitioning/);
 });
 
 test('swipe never wraps past first or last sub-tab',async({page})=>{

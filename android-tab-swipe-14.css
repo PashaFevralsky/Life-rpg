@@ -1,10 +1,48 @@
-/* Life RPG 14.0 — Android sub-tab swipe feedback. */
+/* Life RPG 14.0 — Android sub-tab swipe feedback.
+   Two-phase motion keeps a tab change perceptible without feeling slow. */
 html.life-tab-swipe-ready .section.active{touch-action:pan-y pinch-zoom}
+
 @media (prefers-reduced-motion:no-preference){
-  .section.active.life-tab-swipe-next .ux7-card:not(.ux7-hidden),
-  .section.active.life-tab-swipe-prev .ux7-card:not(.ux7-hidden){animation-duration:150ms;animation-timing-function:ease-out;animation-fill-mode:both}
-  .section.active.life-tab-swipe-next .ux7-card:not(.ux7-hidden){animation-name:lifeTabSwipeNext}
-  .section.active.life-tab-swipe-prev .ux7-card:not(.ux7-hidden){animation-name:lifeTabSwipePrev}
-  @keyframes lifeTabSwipeNext{from{opacity:.82;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
-  @keyframes lifeTabSwipePrev{from{opacity:.82;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+  .section.active.life-tab-swipe-transitioning .ux7-card:not(.ux7-hidden){
+    will-change:transform,opacity;
+    backface-visibility:hidden;
+  }
+
+  .section.active.life-tab-swipe-leave-next .ux7-card:not(.ux7-hidden){
+    animation:lifeTabSwipeLeaveNext 90ms cubic-bezier(.4,0,1,1) both;
+  }
+  .section.active.life-tab-swipe-leave-prev .ux7-card:not(.ux7-hidden){
+    animation:lifeTabSwipeLeavePrev 90ms cubic-bezier(.4,0,1,1) both;
+  }
+  .section.active.life-tab-swipe-enter-next .ux7-card:not(.ux7-hidden){
+    animation:lifeTabSwipeEnterNext 190ms cubic-bezier(.22,.61,.36,1) both;
+  }
+  .section.active.life-tab-swipe-enter-prev .ux7-card:not(.ux7-hidden){
+    animation:lifeTabSwipeEnterPrev 190ms cubic-bezier(.22,.61,.36,1) both;
+  }
+
+  @keyframes lifeTabSwipeLeaveNext{
+    from{opacity:1;transform:translate3d(0,0,0)}
+    to{opacity:.46;transform:translate3d(-12px,0,0)}
+  }
+  @keyframes lifeTabSwipeLeavePrev{
+    from{opacity:1;transform:translate3d(0,0,0)}
+    to{opacity:.46;transform:translate3d(12px,0,0)}
+  }
+  @keyframes lifeTabSwipeEnterNext{
+    from{opacity:.42;transform:translate3d(16px,0,0)}
+    to{opacity:1;transform:translate3d(0,0,0)}
+  }
+  @keyframes lifeTabSwipeEnterPrev{
+    from{opacity:.42;transform:translate3d(-16px,0,0)}
+    to{opacity:1;transform:translate3d(0,0,0)}
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .section.active.life-tab-swipe-transitioning .ux7-card:not(.ux7-hidden){
+    animation:none!important;
+    transform:none!important;
+    opacity:1!important;
+  }
 }
