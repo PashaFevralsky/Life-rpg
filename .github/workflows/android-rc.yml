@@ -1,0 +1,234 @@
+name: Build Life RPG Android RC
+run-name: Life RPG 14.0 Android RC • run ${{ github.run_number }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android-release-config.json"
+      - "android-toolchain.lock.json"
+      - "android-release-prepare.mjs"
+      - "android-release-patch.mjs"
+      - "android-release-gate.test.js"
+      - "release-readiness-14.0.test.js"
+      - "android-life-ops-native-entry.js"
+      - "android-life-ops-native.vite.mjs"
+      - "ANDROID-ACCEPTANCE-14.0.md"
+      - "RELEASE-14.0.md"
+      - "android-safe-area.css"
+      - "life-ops.js"
+      - "capacitor.config.json"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.mjs"
+      - "index.html"
+      - "manifest.webmanifest"
+      - "READING-LIST-27.json"
+      - "*.js"
+      - "*.css"
+      - ".github/workflows/android-rc.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: life-rpg-android-rc
+  cancel-in-progress: true
+
+jobs:
+  build-android-rc:
+    name: Release gate, sign and build Android RC
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run full regression gate
+        run: npm test
+
+      - name: Verify 14.0 release-hardening source contract
+        run: node release-readiness-14.0.test.js
+
+      - name: Build production web bundle
+        run: npm run build
+
+      - name: Audit production web bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium for release E2E
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Validate Android release toolchain pins
+        shell: bash
+        run: |
+          node <<'NODE'
+          const t=require("./android-toolchain.lock.json");
+          if(t.node!=="22"||t.java!=="21") throw new Error("Unexpected Node/Java release pins");
+          for(const k of ["capacitorCore","capacitorAndroid","capacitorCli","localNotifications"]){
+            if(!/^\d+\.\d+\.\d+$/.test(t[k])) throw new Error(`Invalid toolchain pin ${k}: ${t[k]}`);
+          }
+          NODE
+
+      - name: Install pinned Capacitor release toolchain
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs"),t=require("./android-toolchain.lock.json");
+          const p=JSON.parse(fs.readFileSync("package.json","utf8"));
+          p.dependencies=p.dependencies||{};
+          p.dependencies["@capacitor/local-notifications"]=t.localNotifications;
+          fs.writeFileSync("package.json",JSON.stringify(p,null,2)+"\n");
+          NODE
+
+          CORE="$(node -p "require('./android-toolchain.lock.json').capacitorCore")"
+          ANDROID="$(node -p "require('./android-toolchain.lock.json').capacitorAndroid")"
+          CLI="$(node -p "require('./android-toolchain.lock.json').capacitorCli")"
+          NOTIF="$(node -p "require('./android-toolchain.lock.json').localNotifications")"
+
+          npm install --no-save --package-lock=false \
+            "@capacitor/core@$CORE" \
+            "@capacitor/android@$ANDROID" \
+            "@capacitor/cli@$CLI" \
+            "@capacitor/local-notifications@$NOTIF"
+
+          test "$(node -p "require('./node_modules/@capacitor/core/package.json').version")" = "$CORE"
+          test "$(node -p "require('./node_modules/@capacitor/android/package.json').version")" = "$ANDROID"
+          test "$(node -p "require('./node_modules/@capacitor/cli/package.json').version")" = "$CLI"
+          test "$(node -p "require('./node_modules/@capacitor/local-notifications/package.json').version")" = "$NOTIF"
+
+      - name: Build Android Life Ops native bridge
+        run: |
+          npx vite build --config android-life-ops-native.vite.mjs
+          test -s dist/android-life-ops-native.js
+          grep -q "LocalNotifications" dist/android-life-ops-native.js
+
+      - name: Prepare Android RC web assets
+        run: node android-release-prepare.mjs
+
+      - name: Verify Capacitor SystemBars configuration
+        run: |
+          node <<'NODE'
+          const c=require("./capacitor.config.json");
+          if(c?.plugins?.SystemBars?.insetsHandling!=="css") throw new Error("SystemBars.insetsHandling must be css");
+          NODE
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Sync RC assets and plugins
+        run: npx cap sync android
+
+      - name: Patch deterministic Android release shell
+        run: node android-release-patch.mjs
+
+      - name: Run Android RC release gate
+        run: node android-release-gate.test.js
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Restore permanent signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD secret is missing"; exit 1; }
+
+          mkdir -p "$RUNNER_TEMP/life-rpg-signing"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore"
+
+          keytool -list \
+            -keystore "$RUNNER_TEMP/life-rpg-signing/Life-RPG-release.keystore" \
+            -storetype PKCS12 \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias life-rpg >/dev/null
+
+      - name: Configure release signing
+        shell: bash
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  lifeRpgRelease {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias "life-rpg"
+                      keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.lifeRpgRelease
+                  }
+              }
+          }
+          GRADLE
+
+      - name: Build signed RC APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/life-rpg-signing/Life-RPG-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
+      - name: Prepare RC artifact and checksum
+        id: meta
+        shell: bash
+        run: |
+          VERSION_NAME="$(node -p "require('./android-release-meta.json').versionName")"
+          VERSION_CODE="$(node -p "require('./android-release-meta.json').versionCode")"
+          SAFE_NAME="$(printf '%s' "$VERSION_NAME" | tr '[:lower:]' '[:upper:]')"
+
+          mkdir -p android-rc-out
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "android-rc-out/Life-RPG-${VERSION_NAME}.apk"
+          cp android-release-meta.json android-rc-out/release-manifest.json
+          (
+            cd android-rc-out
+            sha256sum "Life-RPG-${VERSION_NAME}.apk" > SHA256SUMS.txt
+          )
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Android RC
+        uses: actions/upload-artifact@v7
+        with:
+          name: Life-RPG-${{ steps.meta.outputs.version_name }}-Android-RC
+          path: android-rc-out/*
+          retention-days: 90
+          if-no-files-found: error
