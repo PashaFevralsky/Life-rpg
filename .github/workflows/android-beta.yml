@@ -73,6 +73,32 @@ jobs:
           @capacitor/android@8.5.2
           @capacitor/cli@8.5.2
 
+      - name: Disable PWA Service Worker inside Android bundle
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const path = "dist/pwa.js";
+          let s = fs.readFileSync(path, "utf8");
+
+          const needle = "function setupPwa(){";
+          const replacement = `function setupPwa(){
+            if(globalThis.__LIFE_RPG_ANDROID__){
+              pwaSetupDone=true;
+              const box=typeof $==="function"?$("versionStatus"):null;
+              if(box)box.textContent=\`Life RPG \${APP_VERSION} • Android APK • локальные данные v\${STATE_VERSION}\`;
+              return;
+            }`;
+
+          if (!s.includes(needle)) throw new Error("setupPwa() signature not found");
+          s = s.replace(needle, replacement);
+          fs.writeFileSync(path, s);
+
+          if (!fs.readFileSync(path, "utf8").includes("__LIFE_RPG_ANDROID__")) {
+            throw new Error("Android Service Worker guard was not applied");
+          }
+          NODE
+
       - name: Build real Capacitor NativeShare JS proxy
         shell: bash
         run: |
@@ -119,6 +145,12 @@ jobs:
           const path = "dist/index.html";
           let html = fs.readFileSync(path, "utf8");
 
+          const marker = '<script>window.__LIFE_RPG_ANDROID__=true;</script>';
+          if (!html.includes(marker)) {
+            if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
+            html = html.replace("</head>", `${marker}\n</head>`);
+          }
+
           const css = '<link rel="stylesheet" href="./android-safe-area.css">';
           if (!html.includes(css)) {
             if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
@@ -139,6 +171,7 @@ jobs:
           const proxyPos = finalHtml.indexOf("android-native-share-plugin.js");
           const bridgePos = finalHtml.indexOf("android-native-share.js");
 
+          if (!finalHtml.includes("__LIFE_RPG_ANDROID__")) throw new Error("Android runtime marker was not injected");
           if (!finalHtml.includes("android-safe-area.css")) throw new Error("Android safe-area stylesheet was not injected");
           if (proxyPos < 0) throw new Error("NativeShare plugin proxy was not injected");
           if (bridgePos < 0) throw new Error("NativeShare bridge was not injected");
@@ -164,6 +197,8 @@ jobs:
           grep -R "getShareStatus" android/app/src/main/java
           test -s android/app/src/main/assets/public/android-native-share-plugin.js
           test -s android/app/src/main/assets/public/android-native-share.js
+          grep -q "__LIFE_RPG_ANDROID__" android/app/src/main/assets/public/index.html
+          grep -q "__LIFE_RPG_ANDROID__" android/app/src/main/assets/public/pwa.js
 
       - name: Set Android version
         shell: bash
