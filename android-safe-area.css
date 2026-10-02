@@ -1,4 +1,4 @@
-/* Life RPG 13.9.1 — Android Beta 2 safe-area bridge
+/* Life RPG 13.9.1 — Android safe-area bridge
    This file is injected into the Capacitor APK only by android-beta.yml.
    GitHub Pages / PWA styling is intentionally unchanged. */
 
@@ -17,6 +17,12 @@
     padding-right:calc(11px + var(--life-safe-right))!important;
     margin-left:calc(-11px - var(--life-safe-left))!important;
     margin-right:calc(-11px - var(--life-safe-right))!important;
+  }
+
+  /* When Today is scrolled, its sticky section header replaces the profile header.
+     Keep the sticky header below the Android status bar instead of letting it slide underneath. */
+  body.ui82.ui139.ui139-scrolled[data-section="today"] #today>.ux7-section-head{
+    top:var(--life-safe-top)!important;
   }
 
   /* Other sections hide .top, so their sticky section head owns the top inset. */

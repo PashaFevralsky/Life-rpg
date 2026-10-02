@@ -19,6 +19,56 @@ let LIFE_OPS_INCOME_HOOKED=false;
 let LIFE_OPS_ACTIVITY_HOOKS=false;
 let LIFE_OPS_LAST_INCOME_ID="";
 
+function lifeOpsEnsureStyles(){
+  if(document.getElementById("lifeOpsStyles"))return;
+  const style=document.createElement("style");style.id="lifeOpsStyles";style.textContent=`
+  .ui82.ui139 #lifeOpsDayClose .life-ops-panel,
+  .ui82.ui139 #lifeOpsSettings .life-ops-settings-panel{min-width:0}
+  .ui82.ui139 #lifeOpsDayClose .life-ops-head{align-items:center}
+  .ui82.ui139 #lifeOpsDayClose .life-ops-progress{
+    display:inline-flex;align-items:center;justify-content:center;min-width:50px;height:40px;
+    padding:0 11px;border:1px solid var(--ui139-line);border-radius:12px;background:var(--ui139-surface-3);
+    font-size:13px;font-weight:760;font-variant-numeric:tabular-nums
+  }
+  .ui82.ui139 #lifeOpsDayClose .life-ops-checks{margin-top:10px;border-top:1px solid var(--ui139-line)}
+  .ui82.ui139 #lifeOpsDayClose .life-ops-check{
+    display:grid!important;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;
+    min-height:58px;margin:0!important;padding:9px 0;border-bottom:1px solid var(--ui139-line)
+  }
+  .ui82.ui139 #lifeOpsDayClose .life-ops-check input{
+    width:21px;height:21px;margin:0;align-self:center
+  }
+  .ui82.ui139 #lifeOpsDayClose .life-ops-check b{display:block;font-size:14px;line-height:1.3}
+  .ui82.ui139 #lifeOpsDayClose .life-ops-check .sub{margin-top:2px;font-size:12px;line-height:1.3}
+  .ui82.ui139 #lifeOpsDayClose .life-ops-quality{margin-top:10px;padding:11px 12px}
+  .ui82.ui139 #lifeOpsDayClose .life-ops-actions{
+    display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr);
+    gap:7px;margin-top:11px
+  }
+  .ui82.ui139 #lifeOpsDayClose .life-ops-actions .btn{width:100%;min-width:0;white-space:normal}
+  .ui82.ui139 #lifeOpsSettings .life-ops-notification-toggle{
+    display:flex!important;align-items:center;gap:10px;margin:10px 0 0!important;padding:10px 0
+  }
+  .ui82.ui139 #lifeOpsSettings .life-ops-notification-toggle input{width:21px;height:21px;margin:0;flex:0 0 auto}
+  .ui82.ui139 #lifeOpsSettings .life-ops-settings-actions{
+    display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr) minmax(0,1fr);gap:7px;margin-top:10px
+  }
+  .ui82.ui139 #lifeOpsSettings .life-ops-settings-actions .btn{width:100%;min-width:0;white-space:normal}
+  .ui82.ui139 #lifeOpsIncomePlanModal .life-ops-income-actions{
+    display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,.7fr);gap:7px;margin-top:14px
+  }
+  .ui82.ui139 #lifeOpsIncomePlanModal .life-ops-income-actions .btn{width:100%;min-width:0;white-space:normal}
+  @media(max-width:430px){
+    .ui82.ui139 #lifeOpsDayClose .life-ops-actions{grid-template-columns:1fr 1fr}
+    .ui82.ui139 #lifeOpsDayClose .life-ops-actions .btn:first-child{grid-column:1/-1}
+    .ui82.ui139 #lifeOpsSettings .life-ops-settings-actions{grid-template-columns:1fr 1fr}
+    .ui82.ui139 #lifeOpsSettings .life-ops-settings-actions .btn:first-child{grid-column:1/-1}
+    .ui82.ui139 #lifeOpsIncomePlanModal .life-ops-income-actions{grid-template-columns:1fr 1fr}
+    .ui82.ui139 #lifeOpsIncomePlanModal .life-ops-income-actions .btn:first-child{grid-column:1/-1}
+  }`;
+  document.head.appendChild(style)
+}
+
 function lifeOpsCfg(){
   S.settings=S.settings||{};
   const raw=S.settings.lifeOps&&typeof S.settings.lifeOps==="object"&&!Array.isArray(S.settings.lifeOps)?S.settings.lifeOps:{};
@@ -165,24 +215,26 @@ function lifeOpsTodayHtml(){
     ["training","Тренировка внесена / сегодня не было",`${c.training} сессий`]
   ];
   const checked=Object.values(d.confirmations||{}).filter(Boolean).length;
-  return `<div class="split"><div><div class="eyebrow">Life Ops</div><div class="section-title">Закрытие дня</div></div><span class="tag ${d.closed?"good":""}">${d.closed?"День закрыт":`${checked}/5`}</span></div>
-    <div class="muted" style="margin-top:6px">Закрытие дня подтверждает, что Life RPG располагает актуальными данными перед финансовыми решениями.</div>
-    <div style="margin-top:12px">${items.map(([k,title,meta])=>`<label class="toggle-line" style="margin-top:8px"><input type="checkbox" ${d.confirmations[k]?"checked":""} onchange="lifeOpsSetConfirmation('${k}',this.checked)"><span><b>${escapeHtml(title)}</b><span class="sub" style="display:block">${meta}</span></span></label>`).join("")}</div>
-    ${c.due.length?`<div class="notice" style="margin-top:10px"><b>Проверь обязательства:</b><br>${c.due.slice(0,5).map(x=>`${escapeHtml(x.label)} — ${rub(x.amount)}${x.overdue?" • просрочено":" • сегодня"}`).join("<br>")}</div>`:""}
-    <div class="notice" style="margin-top:10px"><b>Качество финансовых данных: ${q.good?"достаточное":"нужно обновить"}.</b>${q.good?`<br>Сверка денег ${q.age===0?"сегодня":`${q.age} дн. назад`}.`:`<br>${q.reasons.map(escapeHtml).join(" • ")}`}</div>
-    <div class="split" style="margin-top:12px"><button class="btn" onclick="lifeOpsCloseDay()" ${d.closed?"disabled":""}>${d.closed?"День закрыт":"Закрыть день"}</button>${d.closed?'<button class="btn ghost" onclick="lifeOpsReopenDay()">Открыть снова</button>':''}<button class="btn secondary" onclick="lifeOpsOpenQuick('expense')">+ Расход</button><button class="btn secondary" onclick="lifeOpsOpenQuick('income')">+ Доход</button></div>`
+  return `<div class="life-ops-panel">
+    <div class="split life-ops-head"><div><div class="eyebrow">Life Ops</div><div class="section-title">Закрытие дня</div></div><span class="life-ops-progress">${d.closed?"✓":`${checked}/5`}</span></div>
+    <div class="muted" style="margin-top:5px">Подтверди, что данные за сегодня внесены. После закрытия Life RPG может использовать день в финансовых решениях.</div>
+    <div class="life-ops-checks">${items.map(([k,title,meta])=>`<label class="life-ops-check"><input type="checkbox" ${d.confirmations[k]?"checked":""} onchange="lifeOpsSetConfirmation('${k}',this.checked)"><span><b>${escapeHtml(title)}</b><span class="sub">${meta}</span></span></label>`).join("")}</div>
+    ${c.due.length?`<div class="notice life-ops-quality"><b>Проверь обязательства:</b><br>${c.due.slice(0,5).map(x=>`${escapeHtml(x.label)} — ${rub(x.amount)}${x.overdue?" • просрочено":" • сегодня"}`).join("<br>")}</div>`:""}
+    <div class="notice life-ops-quality"><b>Финансовые данные: ${q.good?"актуальны":"нужно обновить"}.</b>${q.good?`<br>Сверка денег ${q.age===0?"сегодня":`${q.age} дн. назад`}.`:`<br>${q.reasons.map(escapeHtml).join(" • ")}`}</div>
+    <div class="life-ops-actions"><button class="btn" onclick="lifeOpsCloseDay()" ${d.closed?"disabled":""}>${d.closed?"День закрыт":"Закрыть день"}</button>${d.closed?'<button class="btn ghost" onclick="lifeOpsReopenDay()">Открыть снова</button>':'<button class="btn secondary" onclick="lifeOpsOpenQuick(\'expense\')">+ Расход</button>'}<button class="btn secondary" onclick="lifeOpsOpenQuick('income')">+ Доход</button></div>
+  </div>`
 }
 function lifeOpsSettingsHtml(){
   const cfg=lifeOpsCfg(),native=!!globalThis.LifeRpgNativeNotifications;
-  return `<div class="eyebrow">Life Ops</div><div class="section-title">Напоминания и качество данных</div>
-    <div class="muted" style="margin-top:6px">На Android вечерние уведомления планируются локально и могут прийти при закрытом приложении. Если день уже закрыт, его уведомления отменяются.</div>
+  return `<div class="life-ops-settings-panel"><div class="eyebrow">Life Ops</div><div class="section-title">Напоминания и качество данных</div>
+    <div class="muted" style="margin-top:6px">На Android уведомления планируются локально и могут прийти при закрытом приложении. После закрытия дня его вечерние напоминания отменяются.</div>
     <div class="formgrid" style="margin-top:12px"><div class="field"><label>Первое напоминание</label><input id="lifeOpsCloseTime" type="time" value="${cfg.closeTime}"></div><div class="field"><label>Повторное напоминание</label><input id="lifeOpsFollowupTime" type="time" value="${cfg.followupTime}"></div><div class="field"><label>Сверка денег считается свежей, дней</label><input id="lifeOpsFreshnessDays" type="number" min="1" max="14" value="${cfg.freshnessDays}"></div></div>
-    <label class="toggle-line" style="margin-top:10px"><input id="lifeOpsNotificationsEnabled" type="checkbox" ${cfg.notificationsEnabled?"checked":""}><span>Вечерние напоминания включены</span></label>
-    <div class="split" style="margin-top:12px"><button class="btn" onclick="lifeOpsSaveSettings()">Сохранить</button><button class="btn secondary" onclick="lifeOpsEnableNotifications()">${native?"Разрешить Android-уведомления":"Включить уведомления"}</button></div>
-    <div id="lifeOpsNotificationStatus" class="status" style="margin-top:10px">Проверяю…</div>`
+    <label class="life-ops-notification-toggle"><input id="lifeOpsNotificationsEnabled" type="checkbox" ${cfg.notificationsEnabled?"checked":""}><span>Вечерние напоминания включены</span></label>
+    <div class="life-ops-settings-actions"><button class="btn" onclick="lifeOpsSaveSettings()">Сохранить</button><button class="btn secondary" onclick="lifeOpsEnableNotifications()">${native?"Разрешение Android":"Включить уведомления"}</button>${native?'<button class="btn ghost" onclick="lifeOpsTestNotification()">Тест через 1 минуту</button>':""}</div>
+    <div id="lifeOpsNotificationStatus" class="status" style="margin-top:10px">Проверяю…</div></div>`
 }
 function ensureLifeOpsUi(){
-  lifeOpsCfg();lifeOpsInstallIncomeHook();lifeOpsInstallActivityHooks();
+  lifeOpsEnsureStyles();lifeOpsCfg();lifeOpsInstallIncomeHook();lifeOpsInstallActivityHooks();
   if(!$("lifeOpsDayClose")){
     const quick=document.querySelector("#today .quick-card"),card=document.createElement("div");card.className="card ux7-card span-12";card.dataset.ux7View="focus";card.innerHTML='<div id="lifeOpsDayClose"></div>';if(quick)quick.after(card);else document.querySelector("#today .grid")?.prepend(card)
   }
@@ -190,7 +242,7 @@ function ensureLifeOpsUi(){
     const anchor=$("notificationStatus")?.closest(".card")||document.querySelector("#more [data-ux7-view~='settings']"),card=document.createElement("div");card.className="card ux7-card span-12";card.dataset.ux7View="settings";card.innerHTML='<div id="lifeOpsSettings"></div>';if(anchor)anchor.after(card);else document.querySelector("#more .grid")?.append(card)
   }
   if(!$("lifeOpsIncomePlanModal")){
-    const modal=document.createElement("div");modal.className="modal";modal.id="lifeOpsIncomePlanModal";modal.innerHTML='<div class="modal-card"><div class="modal-head"><div class="title">Что делать с поступлением</div><button class="close" onclick="closeModal(\'lifeOpsIncomePlanModal\')">×</button></div><div id="lifeOpsIncomePlanBody"></div><div class="split" style="margin-top:14px"><button class="btn" onclick="lifeOpsAcceptAllocation()">Принять распределение</button><button class="btn secondary" onclick="closeModal(\'lifeOpsIncomePlanModal\');ux7Go(\'finance\',\'overview\')">Открыть Деньги</button><button class="btn ghost" onclick="closeModal(\'lifeOpsIncomePlanModal\')">Позже</button></div></div>';document.body.appendChild(modal)
+    const modal=document.createElement("div");modal.className="modal";modal.id="lifeOpsIncomePlanModal";modal.innerHTML='<div class="modal-card"><div class="modal-head"><div class="title">Что делать с поступлением</div><button class="close" onclick="closeModal(\'lifeOpsIncomePlanModal\')">×</button></div><div id="lifeOpsIncomePlanBody"></div><div class="life-ops-income-actions"><button class="btn" onclick="lifeOpsAcceptAllocation()">Принять распределение</button><button class="btn secondary" onclick="closeModal(\'lifeOpsIncomePlanModal\');ux7Go(\'finance\',\'overview\')">Открыть Деньги</button><button class="btn ghost" onclick="closeModal(\'lifeOpsIncomePlanModal\')">Позже</button></div></div>';document.body.appendChild(modal)
   }
   if(globalThis.__LIFE_RPG_ANDROID__){const legacy=$("notificationStatus")?.closest(".card");if(legacy)legacy.style.display="none"}
   if(!LIFE_OPS_INSTALLED){LIFE_OPS_INSTALLED=true;setTimeout(()=>{void lifeOpsInitNative()},900)}
@@ -221,14 +273,15 @@ async function lifeOpsEnableNotifications(){
 async function lifeOpsRenderNotificationStatus(){
   const box=$("lifeOpsNotificationStatus");if(!box)return;const p=await lifeOpsNotificationPermission(false),cfg=lifeOpsCfg();
   let pending="";if(p.mode==="android"&&p.granted){try{const x=await lifeOpsNative().getPending();const count=(x?.notifications||[]).filter(n=>Number(n.id)>=200000000).length;pending=` • запланировано ${count}`}catch{}}
-  box.textContent=p.mode==="android"?`Android: ${p.status}${pending} • ${cfg.closeTime} / ${cfg.followupTime}`:`Web: ${p.status} • фоновые гарантии доступны только в APK`
+  box.textContent=p.mode==="android"?`Android: ${p.status}${cfg.notificationsEnabled?pending+" • "+cfg.closeTime+" / "+cfg.followupTime:" • напоминания выключены"}`:`Web: ${p.status} • фоновые гарантии доступны только в APK`
 }
 async function lifeOpsSyncNotifications(requestPermission=false){
-  const n=lifeOpsNative(),cfg=lifeOpsCfg();if(!n||!cfg.notificationsEnabled)return false;
-  const perm=await lifeOpsNotificationPermission(requestPermission);if(!perm.granted)return false;
-  const now=new Date(),ids=[];for(let i=0;i<cfg.scheduleDays;i++){const key=lifeOpsDateOffset(i);ids.push({id:lifeOpsNotificationId(key,1)},{id:lifeOpsNotificationId(key,2)})}
+  const n=lifeOpsNative(),cfg=lifeOpsCfg();if(!n)return false;
+  const ids=[];for(let i=0;i<cfg.scheduleDays;i++){const key=lifeOpsDateOffset(i);ids.push({id:lifeOpsNotificationId(key,1)},{id:lifeOpsNotificationId(key,2)})}
   try{await n.cancel({notifications:ids})}catch{}
-  const notifications=[];
+  if(!cfg.notificationsEnabled){await lifeOpsRenderNotificationStatus();return true}
+  const perm=await lifeOpsNotificationPermission(requestPermission);if(!perm.granted){await lifeOpsRenderNotificationStatus();return false}
+  const now=new Date(),notifications=[];
   for(let i=0;i<cfg.scheduleDays;i++){
     const key=lifeOpsDateOffset(i);if(lifeOpsIsClosed(key))continue;
     for(const [slot,time,title,body] of [
@@ -239,6 +292,14 @@ async function lifeOpsSyncNotifications(requestPermission=false){
     }
   }
   if(notifications.length)await n.schedule({notifications});await lifeOpsRenderNotificationStatus();return true
+}
+async function lifeOpsTestNotification(){
+  const n=lifeOpsNative();if(!n){toast("Тестовое уведомление доступно только в Android-приложении");return}
+  const perm=await lifeOpsNotificationPermission(true);if(!perm.granted){toast("Сначала разреши Android-уведомления");await lifeOpsRenderNotificationStatus();return}
+  const id=199000001,at=new Date(Date.now()+60000);
+  try{await n.cancel({notifications:[{id}]})}catch{}
+  await n.schedule({notifications:[{id,title:"Life RPG • тест уведомлений",body:"Нативные Android-уведомления работают.",schedule:{at},extra:{lifeOps:"test"}}]});
+  toast("Тест запланирован через 1 минуту")
 }
 async function lifeOpsCancelTodayNotifications(){const n=lifeOpsNative();if(!n)return;const k=localDateKey();try{await n.cancel({notifications:[{id:lifeOpsNotificationId(k,1)},{id:lifeOpsNotificationId(k,2)}]})}catch{}}
 async function lifeOpsInitNative(){
