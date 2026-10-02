@@ -10,6 +10,7 @@ on:
       - "android-safe-area.css"
       - "android-native-share.js"
       - "android-native-share-patch.mjs"
+      - "life-ops.js"
       - ".github/workflows/android-beta.yml"
       - "package.json"
       - "package-lock.json"
@@ -66,12 +67,22 @@ jobs:
           }
           NODE
 
-      - name: Install pinned Capacitor toolchain
-        run: >
-          npm install --no-save --package-lock=false
-          @capacitor/core@8.5.2
-          @capacitor/android@8.5.2
-          @capacitor/cli@8.5.2
+      - name: Install pinned Capacitor toolchain and Local Notifications
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const path = "package.json";
+          const p = JSON.parse(fs.readFileSync(path, "utf8"));
+          p.dependencies = p.dependencies || {};
+          p.dependencies["@capacitor/local-notifications"] = "8.3.1";
+          fs.writeFileSync(path, JSON.stringify(p, null, 2) + "\n");
+          NODE
+          npm install --no-save --package-lock=false \
+            @capacitor/core@8.5.2 \
+            @capacitor/android@8.5.2 \
+            @capacitor/cli@8.5.2 \
+            @capacitor/local-notifications@8.3.1
 
       - name: Disable PWA Service Worker inside Android bundle
         shell: bash
@@ -127,15 +138,46 @@ jobs:
           JS
 
           npx vite build --config android-native-share.vite.tmp.mjs
-
           test -s dist/android-native-share-plugin.js
           grep -q "NativeShare" dist/android-native-share-plugin.js
+
+      - name: Build Android Life Ops notifications bridge
+        shell: bash
+        run: |
+          cat > android-life-ops-native-entry.tmp.js <<'JS'
+          import { LocalNotifications } from '@capacitor/local-notifications';
+          globalThis.LifeRpgNativeNotifications = LocalNotifications;
+          JS
+
+          cat > android-life-ops-native.vite.tmp.mjs <<'JS'
+          import { defineConfig } from 'vite';
+          import { resolve } from 'node:path';
+
+          export default defineConfig({
+            build: {
+              lib: {
+                entry: resolve(process.cwd(), 'android-life-ops-native-entry.tmp.js'),
+                name: 'LifeRpgLifeOpsNative',
+                formats: ['iife'],
+                fileName: () => 'android-life-ops-native.js'
+              },
+              outDir: resolve(process.cwd(), 'dist'),
+              emptyOutDir: false,
+              minify: false
+            }
+          });
+          JS
+
+          npx vite build --config android-life-ops-native.vite.tmp.mjs
+          test -s dist/android-life-ops-native.js
+          grep -q "LocalNotifications" dist/android-life-ops-native.js
 
       - name: Apply Android-only web layers
         shell: bash
         run: |
           test -f android-safe-area.css
           test -f android-native-share.js
+          test -f life-ops.js
 
           cp android-safe-area.css dist/android-safe-area.css
           cp android-native-share.js dist/android-native-share.js
@@ -157,9 +199,15 @@ jobs:
             html = html.replace("</head>", `${css}\n</head>`);
           }
 
+          const nativeOps = '<script src="./android-life-ops-native.js"></script>';
+          if (!html.includes(nativeOps)) {
+            const re = /<script src="\.\/bootstrap\.js[^\"]*"><\/script>/;
+            if (!re.test(html)) throw new Error("bootstrap.js script tag not found");
+            html = html.replace(re, `${nativeOps}\n$&`);
+          }
+
           const proxy = '<script src="./android-native-share-plugin.js"></script>';
           const bridge = '<script src="./android-native-share.js"></script>';
-
           if (!html.includes(proxy) || !html.includes(bridge)) {
             if (!html.includes("</body>")) throw new Error("dist/index.html has no </body>");
             html = html.replace("</body>", `${proxy}\n${bridge}\n</body>`);
@@ -168,11 +216,14 @@ jobs:
           fs.writeFileSync(path, html);
 
           const finalHtml = fs.readFileSync(path, "utf8");
+          const opsPos = finalHtml.indexOf("android-life-ops-native.js");
+          const bootstrapPos = finalHtml.indexOf("bootstrap.js");
           const proxyPos = finalHtml.indexOf("android-native-share-plugin.js");
           const bridgePos = finalHtml.indexOf("android-native-share.js");
 
           if (!finalHtml.includes("__LIFE_RPG_ANDROID__")) throw new Error("Android runtime marker was not injected");
           if (!finalHtml.includes("android-safe-area.css")) throw new Error("Android safe-area stylesheet was not injected");
+          if (opsPos < 0 || bootstrapPos < 0 || opsPos > bootstrapPos) throw new Error("Life Ops native bridge must load before bootstrap.js");
           if (proxyPos < 0) throw new Error("NativeShare plugin proxy was not injected");
           if (bridgePos < 0) throw new Error("NativeShare bridge was not injected");
           if (proxyPos > bridgePos) throw new Error("NativeShare proxy must load before bridge");
@@ -187,7 +238,7 @@ jobs:
       - name: Patch native Android Share Target
         run: node android-native-share-patch.mjs
 
-      - name: Verify Android Share Target source
+      - name: Verify Android native integrations
         shell: bash
         run: |
           grep -R "android.intent.action.SEND" android/app/src/main/AndroidManifest.xml
@@ -197,8 +248,13 @@ jobs:
           grep -R "getShareStatus" android/app/src/main/java
           test -s android/app/src/main/assets/public/android-native-share-plugin.js
           test -s android/app/src/main/assets/public/android-native-share.js
+          test -s android/app/src/main/assets/public/android-life-ops-native.js
           grep -q "__LIFE_RPG_ANDROID__" android/app/src/main/assets/public/index.html
           grep -q "__LIFE_RPG_ANDROID__" android/app/src/main/assets/public/pwa.js
+          grep -q "life-ops.js" android/app/src/main/assets/public/bootstrap.js
+          grep -q "LocalNotifications" android/app/src/main/assets/public/android-life-ops-native.js
+          test -f android/capacitor.settings.gradle
+          grep -q "capacitor-local-notifications" android/capacitor.settings.gradle
 
       - name: Set Android version
         shell: bash
