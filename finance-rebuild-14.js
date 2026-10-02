@@ -9,6 +9,50 @@ const FINANCE_REBUILD14_VERSION=1;
 let FINANCE_REBUILD14_PREVIEW=null;
 let FINANCE_REBUILD14_APPLY_PENDING=false;
 
+const FINANCE_REBUILD14_FINANCIAL_SETTING_KEYS=new Set([
+  "primaryAccountId","monthlyIncome","monthlyDebtGoal","dailySpendLimit","emergencyFundTarget",
+  "emergencyFundBalance","miniBufferTarget","highInterestThreshold","cashBalanceVerifiedAt",
+  "envelopeRollover","autoReserveAfterImport","learnImportRules","incomeEvents","liquidityTargetDays",
+  "minimumCashFloor","forecastIncomeFactor","financeRebuild14"
+]);
+const FINANCE_REBUILD14_PROTECTED_ROOT_KEYS=[
+  "profile","xpEarned","xpSpent","stats","xpEvents","questDone","achievements","rewardPurchases",
+  "workLogs","tennis","books","readingLogs","crmDeals","workTargets","entities"
+];
+
+function financeRebuild14Canonical(value){
+  if(Array.isArray(value))return value.map(financeRebuild14Canonical);
+  if(value&&typeof value==="object"){
+    const out={};for(const k of Object.keys(value).sort())out[k]=financeRebuild14Canonical(value[k]);return out
+  }
+  return value
+}
+function financeRebuild14ProtectedSnapshot(state){
+  const x=state||{},root={},settings={};
+  for(const key of FINANCE_REBUILD14_PROTECTED_ROOT_KEYS){
+    if(Object.prototype.hasOwnProperty.call(x,key))root[key]=deepClone(x[key])
+  }
+  for(const [key,value] of Object.entries(x.settings||{})){
+    if(FINANCE_REBUILD14_FINANCIAL_SETTING_KEYS.has(key))continue;
+    if(key==="storageSync137")continue;
+    settings[key]=deepClone(value)
+  }
+  return {root,settings}
+}
+function financeRebuild14RestoreProtectedSnapshot(target,snapshot){
+  if(!target||!snapshot)return target;
+  for(const [key,value] of Object.entries(snapshot.root||{}))target[key]=deepClone(value);
+  target.settings=target.settings&&typeof target.settings==="object"?target.settings:{};
+  for(const [key,value] of Object.entries(snapshot.settings||{}))target.settings[key]=deepClone(value);
+  return target
+}
+function financeRebuild14AssertProtectedState(expected,state){
+  const a=JSON.stringify(financeRebuild14Canonical(expected));
+  const b=JSON.stringify(financeRebuild14Canonical(financeRebuild14ProtectedSnapshot(state)));
+  if(a!==b)throw new Error("Finance Rebuild safety gate: затронут нефинансовый прогресс")
+}
+
+
 function financeRebuild14Now(){return new Date().toISOString()}
 function financeRebuild14Text(v){return String(v??"").trim()}
 function financeRebuild14Num(v,fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback}
@@ -313,7 +357,9 @@ function financeRebuild14BaseState(pkg){
     out.settings.importHub127.history=h.filter(x=>!["bank-csv","backup"].includes(x?.kind)).slice(0,60)
   }
 
-  return normalizeState(out)
+  out.version=typeof STATE_VERSION==="number"?STATE_VERSION:out.version;
+  if(typeof validateStateShape==="function")validateStateShape(out);
+  return out
 }
 
 function financeRebuild14CandidateFromTransaction(x,defaultId){
@@ -436,7 +482,7 @@ async function financeRebuild14Apply(){
   if(answer!=="ЗАМЕНИТЬ ФИНАНСЫ"){toast("Finance Rebuild отменён");return}
 
   FINANCE_REBUILD14_APPLY_PENDING=true;
-  const old=deepClone(S);
+  const old=deepClone(S),protectedBefore=financeRebuild14ProtectedSnapshot(S);
   try{
     const snapshotTs=await createPreActionSnapshot(`Finance Rebuild 14.0 • ${p.fileName||"package"}`);
     let result=null;
@@ -459,6 +505,10 @@ async function financeRebuild14Apply(){
         day.confirmations={...(day.confirmations||{}),expenses:false,income:false,payments:false};
         day.closed=false;day.closedAt=""
       }
+      /* Finance Rebuild is finance-only. Imported financial rows must never rewrite
+         XP, profile, work, tennis, knowledge, planning or non-financial settings. */
+      financeRebuild14RestoreProtectedSnapshot(S,protectedBefore);
+      financeRebuild14AssertProtectedState(protectedBefore,S);
       audit("Finance Rebuild 14.0","finance",`${p.fileName||"package"} • операций ${result?.created?.length||0}`)
     });
 
@@ -475,6 +525,31 @@ async function financeRebuild14Apply(){
     throw e
   }finally{
     FINANCE_REBUILD14_APPLY_PENDING=false
+  }
+}
+
+async function financeRebuild14RestoreProgressFromPreRebuild(){
+  const ts=Number(S.settings?.financeRebuild14?.snapshotTs||0);
+  if(!ts){toast("Не найден snapshot до Finance Rebuild");return}
+  if(!confirm("Восстановить только профиль, XP, работу, теннис, знания, планы и нефинансовые настройки из snapshot до Finance Rebuild? Текущие финансы останутся без изменений."))return;
+  try{
+    if(!db)await openDB();
+    const snap=await dbGet("backups",ts);
+    if(!snap?.state)throw new Error("Snapshot до Finance Rebuild не найден");
+    const protectedSource=financeRebuild14ProtectedSnapshot(snap.state);
+    if(!Object.keys(protectedSource.root||{}).length)throw new Error("В snapshot нет RPG-прогресса");
+    await createPreActionSnapshot("Перед восстановлением прогресса после Finance Rebuild");
+    await commitStateAtomically(()=>{
+      financeRebuild14RestoreProtectedSnapshot(S,protectedSource);
+      financeRebuild14AssertProtectedState(protectedSource,S);
+      audit("Finance Rebuild: прогресс восстановлен","system",new Date(ts).toISOString())
+    });
+    if(typeof render==="function")render();
+    renderFinanceRebuild14();
+    toast("RPG-прогресс восстановлен • финансы сохранены")
+  }catch(e){
+    toast("Не удалось восстановить прогресс: "+String(e?.message||e));
+    throw e
   }
 }
 
@@ -542,6 +617,11 @@ function ensureFinanceRebuild14Ui(){
       <button class="btn ghost" onclick="financeRebuild14Cancel()">Очистить preview</button>
       <button class="btn secondary" onclick="financeRebuild14RunAudit()">Проверить текущие финансы</button>
     </div>
+    <div class="notice" style="margin-top:12px">
+      <b>Защита нефинансового прогресса</b>
+      <div class="qmeta">Finance Rebuild не должен менять XP, профиль, работу, теннис, знания и планы. Если этот RC уже применял старую сборку Rebuild, восстанови только прогресс из автоматически созданного snapshot.</div>
+      <button class="btn ghost" style="margin-top:8px" onclick="financeRebuild14RestoreProgressFromPreRebuild()">Восстановить прогресс до Rebuild</button>
+    </div>
     <div class="title" style="margin-top:16px">Finance Integrity Audit</div>
     <div id="financeRebuild14Audit" style="margin-top:8px"></div>
   </div>`;
@@ -563,3 +643,4 @@ globalThis.financeRebuild14Cancel=financeRebuild14Cancel;
 globalThis.financeRebuild14ExportCurrent=financeRebuild14ExportCurrent;
 globalThis.financeRebuild14DownloadTemplate=financeRebuild14DownloadTemplate;
 globalThis.financeRebuild14RunAudit=financeRebuild14RunAudit;
+globalThis.financeRebuild14RestoreProgressFromPreRebuild=financeRebuild14RestoreProgressFromPreRebuild;
