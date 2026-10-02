@@ -20,7 +20,10 @@ for(const f of runtimeFiles)assert.ok(!new RegExp(`src="\\./${f.replace(".","\\.
 
 const js=[...baseModules,...runtimeFiles,"bootstrap.js","app.js"].map(read).join("\n"),names=[...js.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)].map(m=>m[1]),seen=new Set(),dups=[];for(const n of names){if(seen.has(n))dups.push(n);seen.add(n)}assert.deepEqual([...new Set(dups)],[],"Duplicate function declarations remain");
 const handlers=new Set([...html.matchAll(/\bon(?:click|change|input|submit)="\s*([A-Za-z_$][\w$]*)\s*\(/g)].map(m=>m[1]));for(const h of handlers)assert.ok(seen.has(h),`Inline handler missing function: ${h}`);
-const refs=new Set([...js.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1])),dynamic=new Set(["statementReviewAck","ux7AccountForm","ux7AssetForm","ux7FinancePulse","ux7Fab","ux7NewDebtBtn","ux7QuickSheet","ux7TodayPulse","ux7ToggleDebtForm"]),idSet=new Set(ids),missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));assert.deepEqual(missing,[],"Unexpected missing DOM ids: "+missing.join(", "));
+const refs=new Set([...js.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1])),dynamic=new Set([
+  "statementReviewAck","ux7AccountForm","ux7AssetForm","ux7FinancePulse","ux7Fab","ux7NewDebtBtn","ux7QuickSheet","ux7TodayPulse","ux7ToggleDebtForm",
+  "lifeOpsIncomePlanBody","lifeOpsDayClose","lifeOpsSettings","lifeOpsIncomePlanModal","lifeOpsAutopilotGuard","lifeOpsCloseTime","lifeOpsFollowupTime","lifeOpsNotificationsEnabled","lifeOpsNotificationStatus"
+]),idSet=new Set(ids),missing=[...refs].filter(x=>!idSet.has(x)&&!dynamic.has(x));assert.deepEqual(missing,[],"Unexpected missing DOM ids: "+missing.join(", "));
 
 const sw=read("sw.js"),manifest=read("manifest.webmanifest"),core=read("core.js"),vite=read("vite.config.mjs"),pwa=read("pwa.js"),state=read("state.js"),integration=read("integration-12.5.js"),hub=read("import-hub.js"),ux128=read("ux-12.8.js"),ux128css=read("ux-12.8.css"),training=read("training-os.js"),share=read("share-hub.js"),shareSw=read("share-target-sw.js");
 assert.ok(core.includes(`APP_VERSION="${RELEASE}"`),"Wrong runtime release");assert.ok(core.includes("STATE_VERSION=18"),"State schema changed unexpectedly");
