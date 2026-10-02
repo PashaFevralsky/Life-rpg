@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir:".",
-  testMatch:["android-ui-14.e2e.test.js","android-tab-swipe-14.e2e.test.js"],
+  testMatch:["android-ui-14.e2e.test.js","android-tab-swipe-14.e2e.test.js","finance-roundtrip-14.e2e.test.js"],
   timeout:30000,
   fullyParallel:false,
   workers:1,

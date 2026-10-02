@@ -5,7 +5,14 @@
    State schema remains v18. */
 
 const FINANCE_REBUILD14_FORMAT="life-rpg-finance-rebuild-v1";
-const FINANCE_REBUILD14_VERSION=1;
+const FINANCE_REBUILD14_VERSION=1; // editable baseline packages remain v1
+const FINANCE_REBUILD14_SNAPSHOT_VERSION=2;
+const FINANCE_REBUILD14_STATE_KEYS=[
+  "accounts","debts","regularPayments","assets","envelopeLimits","envelopeCarryovers",
+  "balanceHistory","importRules","payments","expenses","incomeLogs","bankImportIds",
+  "screenshotImportIds","bankTransfers","financeClosures","cashAdjustments","reservations",
+  "fundTransfers","assetTransfers","importBatches","reconciliationSessions"
+];
 let FINANCE_REBUILD14_PREVIEW=null;
 let FINANCE_REBUILD14_APPLY_PENDING=false;
 
@@ -55,8 +62,13 @@ function financeRebuild14AssertProtectedState(expected,state){
 
 function financeRebuild14Now(){return new Date().toISOString()}
 function financeRebuild14Text(v){return String(v??"").trim()}
-function financeRebuild14Num(v,fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback}
-function financeRebuild14Money(v){return Math.max(0,financeRebuild14Num(v,0))}
+function financeRebuild14Num(v,fallback=0){
+  if(v===undefined||v===null)return fallback;
+  if((typeof v!=="number"&&typeof v!=="string")||(typeof v==="string"&&!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(v.trim())))
+    throw new Error("Finance Rebuild: некорректное число");
+  const n=Number(v);if(!Number.isFinite(n))throw new Error("Finance Rebuild: некорректное число");return n
+}
+function financeRebuild14Money(v){const n=financeRebuild14Num(v,0);if(n<0)throw new Error("Finance Rebuild: отрицательная сумма");return n}
 function financeRebuild14Id(prefix,i,name=""){
   const raw=financeRebuild14Text(name).toLowerCase().replace(/[^a-zа-яё0-9_-]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,70);
   return `${prefix}-${raw||i+1}-${i+1}`
@@ -93,11 +105,79 @@ function financeRebuild14CloneSafe(value,key="",depth=0){
   return out
 }
 
+// Snapshot exports retain ledger identity and verification anchors. Replaying an
+// already-applied ledger would debit debts twice and discard reserve movements.
+function financeRebuild14FinancialSnapshot(state){
+  const out={settings:{}};
+  for(const key of FINANCE_REBUILD14_STATE_KEYS)out[key]=deepClone(state[key]??DEFAULT_STATE[key]);
+  for(const key of FINANCE_REBUILD14_FINANCIAL_SETTING_KEYS){
+    if(key==="financeRebuild14")continue;
+    const value=state.settings?.[key]??DEFAULT_STATE.settings[key];
+    if(value!==undefined)out.settings[key]=deepClone(value)
+  }
+  return out
+}
+function financeRebuild14ValidateSnapshot(state){
+  if(!state||typeof state!=="object"||Array.isArray(state))throw new Error("Finance Rebuild: отсутствует финансовый снимок");
+  const allowed=new Set([...FINANCE_REBUILD14_STATE_KEYS,"settings"]);
+  for(const key of Object.keys(state))if(!allowed.has(key))throw new Error(`Finance Rebuild: постороннее поле ${key}`);
+  for(const key of FINANCE_REBUILD14_STATE_KEYS){
+    const value=state[key],isArray=Array.isArray(DEFAULT_STATE[key]);
+    if(isArray?!Array.isArray(value):(!value||typeof value!=="object"||Array.isArray(value)))
+      throw new Error(`Finance Rebuild: повреждено поле ${key}`)
+  }
+  if(!state.settings||typeof state.settings!=="object"||Array.isArray(state.settings))throw new Error("Finance Rebuild: повреждены настройки");
+  for(const key of Object.keys(state.settings))if(!FINANCE_REBUILD14_FINANCIAL_SETTING_KEYS.has(key)||key==="financeRebuild14")throw new Error(`Finance Rebuild: посторонняя настройка ${key}`);
+  const numeric=new Set(["amount","balance","initial","rate","min","limit","verifiedBalance","verifiedValue","value","nextPaymentAmount","delta","syncEffect","before","after","remaining","total","income","expense","debtPayment","transfer","importCashContribution","monthlyIncome","monthlyDebtGoal","dailySpendLimit","emergencyFundTarget","emergencyFundBalance","miniBufferTarget","highInterestThreshold","liquidityTargetDays","minimumCashFloor","forecastIncomeFactor"]);
+  const walk=(x,path="snapshot")=>{
+    if(!x||typeof x!=="object")return;
+    for(const [k,v] of Object.entries(x)){
+      if(numeric.has(k)&&v!=null&&(typeof v!=="number"||!Number.isFinite(v)))throw new Error(`Finance Rebuild: некорректное число ${path}.${k}`);
+      walk(v,`${path}.${k}`)
+    }
+  };walk(state);
+  for(const [key,fields] of Object.entries({accounts:["verifiedBalance"],debts:["balance"],assets:["verifiedValue"],regularPayments:["amount"],incomeLogs:["amount"],expenses:["amount"],payments:["amount"],bankTransfers:["amount"],fundTransfers:["amount"],assetTransfers:["amount"],cashAdjustments:["delta"]})){
+    for(const row of state[key])for(const field of fields){
+      if(key==="accounts"&&row[field]===null)continue;
+      if(typeof row[field]!=="number"||!Number.isFinite(row[field])||(field!=="delta"&&row[field]<0))throw new Error(`Finance Rebuild: некорректное число ${key}.${field}`)
+    }
+  }
+  for(const value of Object.values(state.envelopeLimits))financeRebuild14Money(value);
+  const candidate={...deepClone(DEFAULT_STATE),...state,settings:{...DEFAULT_STATE.settings,...state.settings}};
+  validateStateShape(candidate);
+  for(const [rows,key] of [[state.accounts,"verifiedAt"],[state.assets,"verifiedAt"],[state.debts,"balanceVerifiedAt"]]){
+    for(const row of rows)if(row[key]&&!financeRebuild14Iso(row[key]))throw new Error(`Finance Rebuild: некорректное время сверки ${key}`)
+  }
+  const accountIds=new Set(state.accounts.map(x=>x.id)),debtIds=new Set(state.debts.map(x=>x.id)),assetIds=new Set(state.assets.map(x=>x.id));
+  for(const key of ["incomeLogs","expenses","payments","bankTransfers","fundTransfers","assetTransfers","cashAdjustments"]){
+    for(const row of state[key]){
+      const date=row.dateKey||row.localDate||String(row.date||"").slice(0,10);
+      if(!validDateKey(date)||date>localDateKey()||!financeRebuild14Iso(row.date))throw new Error(`Finance Rebuild: некорректная дата ${key}`);
+      for(const field of ["accountId","fromAccountId","toAccountId","syncAccountId"])if(row[field]&&!accountIds.has(row[field]))throw new Error(`Finance Rebuild: отсутствует счёт ${row[field]}`);
+      if(row.debtId&&!debtIds.has(row.debtId))throw new Error("Finance Rebuild: отсутствует долг");
+      if(row.assetId&&!assetIds.has(row.assetId))throw new Error("Finance Rebuild: отсутствует актив");
+      if(key==="fundTransfers"&&!["fromFund","toFund"].includes(row.direction))throw new Error("Finance Rebuild: направление резерва");
+      if(key==="assetTransfers"&&!["fromAsset","toAsset"].includes(row.direction))throw new Error("Finance Rebuild: направление актива")
+    }
+  }
+  return state
+}
+function financeRebuild14SnapshotPackage(obj){
+  if(obj.mode!=="snapshot")throw new Error("Finance Rebuild: неизвестный режим снимка");
+  const snapshot=financeRebuild14ValidateSnapshot(obj.financialState);
+  return {...snapshot,format:FINANCE_REBUILD14_FORMAT,version:FINANCE_REBUILD14_SNAPSHOT_VERSION,
+    generatedAt:financeRebuild14Iso(obj.generatedAt),baselineDate:financeRebuild14Date(obj.baselineDate),
+    note:financeRebuild14Text(obj.note),transactions:[],snapshot}
+}
+
 function financeRebuild14NormalizePackage(raw){
   const obj=financeRebuild14CloneSafe(raw);
   if(!obj||typeof obj!=="object"||Array.isArray(obj))throw new Error("Finance Rebuild: JSON должен быть объектом");
   if(obj.format!==FINANCE_REBUILD14_FORMAT)throw new Error(`Finance Rebuild: ожидается format=${FINANCE_REBUILD14_FORMAT}`);
+  if(Number(obj.version)===FINANCE_REBUILD14_SNAPSHOT_VERSION)return financeRebuild14SnapshotPackage(obj);
   if(Number(obj.version)!==FINANCE_REBUILD14_VERSION)throw new Error(`Finance Rebuild: неподдерживаемая версия ${obj.version}`);
+
+  if(obj.note==="Экспорт текущего финансового контура Life RPG")throw new Error("Этот старый финансовый экспорт неполон. Создай новый экспорт в обновлённом приложении или используй полную резервную копию.");
 
   const accounts=(Array.isArray(obj.accounts)?obj.accounts:[]).map((a,i)=>({
     id:financeRebuild14Text(a?.id)||financeRebuild14Id("account",i,a?.name),
@@ -257,7 +337,7 @@ function financeRebuild14PackageIssues(pkg){
 
   const accountIds=new Set(pkg.accounts.map(x=>x.id)),debtIds=new Set(pkg.debts.map(x=>x.id)),assetIds=new Set(pkg.assets.map(x=>x.id));
   const primary=pkg.settings.primaryAccountId||activeAccounts[0]?.id||"";
-  if(primary&&!accountIds.has(primary))add("blocker","Основной счёт отсутствует в пакете",primary);
+  if(primary&&!activeAccounts.some(a=>a.id===primary))add("blocker","Основной счёт отсутствует в пакете",primary);
 
   for(const a of activeAccounts){
     if(a.verifiedBalance==null)add("blocker",`Нет фактического остатка: ${a.name}`,"Для rebuild каждый активный счёт должен иметь verifiedBalance");
@@ -284,8 +364,8 @@ function financeRebuild14PackageIssues(pkg){
     if(x.dateKey>today){future++;continue}
     if(!(x.amount>0)){bad++;continue}
     if(x.accountId&&!accountIds.has(x.accountId))add("blocker","Операция ссылается на отсутствующий счёт",`#${i+1}: ${x.accountId}`);
-    if(x.type==="debt_payment"&&x.debtId&&!debtIds.has(x.debtId))add("blocker","Платёж ссылается на отсутствующий долг",`#${i+1}: ${x.debtId}`);
-    if(x.type==="asset_transfer"&&x.assetId&&!assetIds.has(x.assetId))add("blocker","Перевод ссылается на отсутствующий актив",`#${i+1}: ${x.assetId}`);
+    if(x.type==="debt_payment"&&!debtIds.has(x.debtId))add("blocker","Платёж ссылается на отсутствующий долг",`#${i+1}: ${x.debtId}`);
+    if(x.type==="asset_transfer"&&!assetIds.has(x.assetId))add("blocker","Перевод ссылается на отсутствующий актив",`#${i+1}: ${x.assetId}`);
     if(x.type==="transfer"){
       if(x.fromAccountId&&!accountIds.has(x.fromAccountId))add("blocker","Перевод: отсутствует счёт-источник",x.fromAccountId);
       if(x.toAccountId&&!accountIds.has(x.toAccountId))add("blocker","Перевод: отсутствует счёт-получатель",x.toAccountId)
@@ -299,6 +379,13 @@ function financeRebuild14PackageIssues(pkg){
 }
 
 function financeRebuild14Counts(pkg){
+  if(pkg.snapshot){
+    const x=pkg.snapshot,byType={income:x.incomeLogs.length,expense:x.expenses.length,debt_payment:x.payments.length,transfer:x.bankTransfers.length,asset_transfer:x.assetTransfers.length,fund_transfer:x.fundTransfers.length,cash_adjustment:x.cashAdjustments.length};
+    return {accounts:x.accounts.length,debts:x.debts.length,regular:x.regularPayments.length,assets:x.assets.length,
+      transactions:Object.values(byType).reduce((a,b)=>a+b,0),byType,
+      verifiedCash:moneySum(x.accounts.filter(a=>a.active!==false).map(a=>a.verifiedBalance||0)),
+      totalDebt:moneySum(x.debts.filter(d=>d.active!==false).map(d=>d.balance)),monthlyIncome:moneySum((x.settings.incomeEvents||[]).map(e=>e.amount))}
+  }
   const tx=pkg.transactions.filter(x=>x.include!==false&&x.type!=="ignore");
   const byType={};
   for(const x of tx)byType[x.type]=(byType[x.type]||0)+1;
@@ -313,6 +400,16 @@ function financeRebuild14Counts(pkg){
 
 function financeRebuild14BaseState(pkg){
   const out=deepClone(S),def=deepClone(DEFAULT_STATE);
+  if(pkg.snapshot){
+    const snapshot=financeRebuild14ValidateSnapshot(pkg.snapshot);
+    for(const key of FINANCE_REBUILD14_STATE_KEYS)out[key]=deepClone(snapshot[key]);
+    for(const key of FINANCE_REBUILD14_FINANCIAL_SETTING_KEYS){
+      if(key==="financeRebuild14")continue;
+      if(Object.prototype.hasOwnProperty.call(snapshot.settings,key))out.settings[key]=deepClone(snapshot.settings[key]);
+      else delete out.settings[key]
+    }
+    validateStateShape(out);return out
+  }
   const settingKeys=[
     "primaryAccountId","monthlyIncome","monthlyDebtGoal","dailySpendLimit","emergencyFundTarget",
     "emergencyFundBalance","miniBufferTarget","highInterestThreshold","cashBalanceVerifiedAt",
@@ -447,7 +544,7 @@ function financeRebuild14PreviewHtml(){
   if(!p)return'<div class="empty">Загрузи Finance Rebuild JSON. До подтверждения текущее состояние не меняется.</div>';
   if(p.error)return`<div class="notice danger"><b>Ошибка пакета:</b><div class="qmeta">${escapeHtml(p.error)}</div></div>`;
   const c=p.counts,q=p.quality;
-  return `<div class="report-grid">
+  return `${p.pkg.snapshot?'<div class="notice">Восстановление финансового снимка: остатки и история сохраняются без повторного списания операций.</div>':""}<div class="report-grid">
     <div class="report-item"><div class="smallcaps">Счета</div><b>${c.accounts}</b></div>
     <div class="report-item"><div class="smallcaps">Долги</div><b>${c.debts}</b></div>
     <div class="report-item"><div class="smallcaps">Операции</div><b>${c.transactions}</b></div>
@@ -478,6 +575,7 @@ function financeRebuild14Cancel(){FINANCE_REBUILD14_PREVIEW=null;renderFinanceRe
 async function financeRebuild14Apply(){
   if(FINANCE_REBUILD14_APPLY_PENDING){toast("Finance Rebuild уже выполняется");return}
   const p=FINANCE_REBUILD14_PREVIEW;if(!p?.pkg||p.error||!p.quality?.ok)return;
+  const quality=financeRebuild14PackageIssues(p.pkg);if(!quality.ok){toast("Пакет больше не проходит проверку");return}
   const answer=typeof prompt==="function"?String(prompt('Для полной замены финансов введи: ЗАМЕНИТЬ ФИНАНСЫ')||"").trim():"";
   if(answer!=="ЗАМЕНИТЬ ФИНАНСЫ"){toast("Finance Rebuild отменён");return}
 
@@ -498,7 +596,7 @@ async function financeRebuild14Apply(){
         baselineDate:p.pkg.baselineDate,
         sourceFile:p.fileName||"",
         snapshotTs,
-        transactionCount:result?.created?.length||0
+        transactionCount:p.pkg.snapshot?financeRebuild14Counts(p.pkg).transactions:(result?.created?.length||0)
       };
       const day=S.checks?.[localDateKey()]?.lifeOps;
       if(day&&typeof day==="object"){
@@ -509,6 +607,8 @@ async function financeRebuild14Apply(){
          XP, profile, work, tennis, knowledge, planning or non-financial settings. */
       financeRebuild14RestoreProtectedSnapshot(S,protectedBefore);
       financeRebuild14AssertProtectedState(protectedBefore,S);
+      if(p.pkg.snapshot&&JSON.stringify(financeRebuild14Canonical(p.pkg.snapshot))!==JSON.stringify(financeRebuild14Canonical(financeRebuild14FinancialSnapshot(S))))
+        throw new Error("Finance Rebuild: финансовый снимок изменился при восстановлении");
       audit("Finance Rebuild 14.0","finance",`${p.fileName||"package"} • операций ${result?.created?.length||0}`)
     });
 
@@ -554,35 +654,18 @@ async function financeRebuild14RestoreProgressFromPreRebuild(){
 }
 
 function financeRebuild14CurrentPackage(){
-  const primary=defaultAccountId();
-  const transactions=[];
-  for(const x of S.incomeLogs||[])transactions.push({dateKey:x.dateKey,occurredAt:x.date,amount:x.amount,type:"income",description:x.note||x.source||"Доход",accountId:x.accountId||primary});
-  for(const x of S.expenses||[])transactions.push({dateKey:x.dateKey,occurredAt:x.date,amount:x.amount,type:"expense",description:x.note||x.category||"Расход",category:x.category||"Другое",accountId:x.accountId||primary});
-  for(const x of S.payments||[])transactions.push({dateKey:x.localDate||x.monthKey,occurredAt:x.date,amount:x.amount,type:"debt_payment",description:x.debt||"Платёж по долгу",debtId:x.debtId||"",accountId:x.accountId||primary});
-  for(const x of S.bankTransfers||[])transactions.push({dateKey:x.dateKey,occurredAt:x.date,amount:x.amount,type:"transfer",description:x.note||"Перевод",accountId:x.syncAccountId||primary,fromAccountId:x.fromAccountId||"",toAccountId:x.toAccountId||""});
-  for(const x of S.assetTransfers||[])transactions.push({dateKey:x.dateKey,occurredAt:x.date,amount:x.amount,type:"asset_transfer",description:x.note||"Перевод актива",assetId:x.assetId||"",accountId:x.accountId||primary,ocrSign:x.direction==="fromAsset"?"+":"-"});
-
-  return {
-    format:FINANCE_REBUILD14_FORMAT,version:FINANCE_REBUILD14_VERSION,generatedAt:financeRebuild14Now(),baselineDate:localDateKey(),
-    note:"Экспорт текущего финансового контура Life RPG",
-    settings:{
-      primaryAccountId:S.settings.primaryAccountId||primary,
-      monthlyIncome:+S.settings.monthlyIncome||0,monthlyDebtGoal:+S.settings.monthlyDebtGoal||0,dailySpendLimit:+S.settings.dailySpendLimit||0,
-      emergencyFundTarget:+S.settings.emergencyFundTarget||0,emergencyFundBalance:+S.settings.emergencyFundBalance||0,miniBufferTarget:+S.settings.miniBufferTarget||0,
-      highInterestThreshold:+S.settings.highInterestThreshold||40,cashBalanceVerifiedAt:S.settings.cashBalanceVerifiedAt||"",
-      envelopeRollover:S.settings.envelopeRollover!==false,autoReserveAfterImport:S.settings.autoReserveAfterImport!==false,learnImportRules:S.settings.learnImportRules!==false,
-      incomeEvents:deepClone(S.settings.incomeEvents||[]),liquidityTargetDays:+S.settings.liquidityTargetDays||14,minimumCashFloor:+S.settings.minimumCashFloor||0,forecastIncomeFactor:+S.settings.forecastIncomeFactor||100
-    },
-    accounts:deepClone(S.accounts||[]),debts:deepClone(S.debts||[]),regularPayments:deepClone(S.regularPayments||[]),assets:deepClone(S.assets||[]),
-    envelopeLimits:deepClone(S.envelopeLimits||{}),balanceHistory:deepClone(S.balanceHistory||[]),importRules:deepClone(S.importRules||[]),transactions
-  }
+  const financialState=financeRebuild14FinancialSnapshot(S);
+  financeRebuild14ValidateSnapshot(financialState);
+  return {format:FINANCE_REBUILD14_FORMAT,version:FINANCE_REBUILD14_SNAPSHOT_VERSION,mode:"snapshot",
+    generatedAt:financeRebuild14Now(),baselineDate:localDateKey(),
+    note:"Точный финансовый снимок: остатки и операции восстанавливаются без повторного проведения",financialState}
 }
 
 function financeRebuild14Download(obj,name){
   const a=document.createElement("a"),blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
   a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)
 }
-function financeRebuild14ExportCurrent(){financeRebuild14Download(financeRebuild14CurrentPackage(),`life-rpg-finance-${localDateKey()}.json`)}
+function financeRebuild14ExportCurrent(){try{financeRebuild14Download(financeRebuild14CurrentPackage(),`life-rpg-finance-${localDateKey()}.json`)}catch(e){toast("Экспорт финансов остановлен: "+String(e?.message||e))}}
 function financeRebuild14Template(){
   const now=financeRebuild14Now();
   return {format:FINANCE_REBUILD14_FORMAT,version:1,generatedAt:now,baselineDate:localDateKey(),note:"Шаблон Finance Rebuild",

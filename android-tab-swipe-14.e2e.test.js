@@ -30,23 +30,27 @@ test('swipe changes only sub-tabs inside the current main section',async({page})
 });
 
 test('swipe transition delays the view switch and then settles cleanly',async({page})=>{
+  await page.clock.install();
   await boot(page);
   await page.evaluate(()=>ux7Go('finance','overview'));
   await page.waitForTimeout(100);
 
-  await gesture(page,'#finance .ux7-card:not(.ux7-hidden)',{x1:310,x2:220,duration:60,wait:0});
-
-  // Leave phase: transition starts but the old view is still active.
-  await expect.poll(()=>page.evaluate(()=>globalThis.LifeTabSwipe14?.isTransitioning?.()===true)).toBe(true);
+  await page.clock.pauseAt(new Date(Date.now()+1000));
+  await page.evaluate(()=>{
+    const el=document.querySelector('#finance .ux7-card:not(.ux7-hidden)');
+    const init=x=>({bubbles:true,cancelable:true,pointerId:71,pointerType:'touch',isPrimary:true,clientX:x,clientY:520});
+    el.dispatchEvent(new PointerEvent('pointerdown',init(310)));
+    el.dispatchEvent(new PointerEvent('pointerup',init(220)));
+  });
+  expect(await page.evaluate(()=>LifeTabSwipe14.isTransitioning())).toBe(true);
   expect((await view(page)).view).toBe('overview');
-
-  // After leaveMs=90 the new view must become active.
-  await page.waitForTimeout(125);
+  await page.clock.runFor(89);
+  expect((await view(page)).view).toBe('overview');
+  // Chrome dataset is synchronized on the next animation frame after leaveMs.
+  await page.clock.runFor(36);
   expect((await view(page)).view).toBe('operations');
-
-  // After enterMs + settleMs the transition must fully settle.
-  await page.waitForTimeout(250);
-  await expect.poll(()=>page.evaluate(()=>globalThis.LifeTabSwipe14?.isTransitioning?.()===false)).toBe(true);
+  await page.clock.runFor(250);
+  expect(await page.evaluate(()=>LifeTabSwipe14.isTransitioning())).toBe(false);
   await expect(page.locator('#finance')).not.toHaveClass(/life-tab-swipe-transitioning/);
 });
 
