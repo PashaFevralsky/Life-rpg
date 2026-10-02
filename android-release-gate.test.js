@@ -24,7 +24,7 @@ assert.equal(meta.androidShareEnabled,false);
 assert.equal(meta.stateVersion,18);
 
 const assets=path.join("android","app","src","main","assets","public");
-for(const f of ["index.html","core.js","bootstrap.js","pwa.js","android-safe-area.css","android-life-ops-native.js","finance-rebuild-14.js"]){
+for(const f of ["index.html","core.js","bootstrap.js","pwa.js","android-safe-area.css","android-life-ops-native.js","finance-rebuild-14.js","android-ui-14.css"]){
   assert.ok(fs.existsSync(path.join(assets,f)),`Android asset missing: ${f}`);
 }
 assert.ok(!fs.existsSync(path.join(assets,"share-hub.js")),"Share Hub must not ship in Android RC");
@@ -43,6 +43,12 @@ assert.ok(html.includes("window.__LIFE_RPG_ANDROID__=true"));
 assert.ok(html.includes("window.__LIFE_RPG_ANDROID_SHARE_ENABLED__=false"));
 assert.ok(html.includes("android-life-ops-native.js"));
 assert.ok(html.includes("finance-rebuild-14.js"));
+assert.ok(html.includes("android-ui-14.css"));
+assert.ok(html.indexOf("android-ui-14.css")>html.indexOf("android-safe-area.css"));
+const androidUi=read(path.join(assets,"android-ui-14.css"));
+assert.ok(androidUi.includes("--life-ui-nav-clearance"));
+assert.ok(androidUi.includes("background:#0f1218!important"));
+assert.ok(androidUi.includes('[data-section="finance"] .ux7-fab'));
 assert.ok(html.indexOf("android-life-ops-native.js")<html.indexOf("bootstrap.js"));
 assert.ok(html.indexOf("finance-rebuild-14.js")<html.indexOf("bootstrap.js"));
 assert.ok(boot.includes('["ensureFinanceRebuild14Ui","renderFinanceRebuild14"]'));

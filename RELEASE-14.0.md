@@ -47,3 +47,19 @@ RC получает отдельный Finance Rebuild модуль с форм�
 7. Money Autopilot используется только после устранения блокеров.
 
 Web/PWA 13.9.1 пока не получает этот модуль.
+
+
+## Stage 3 — Android UI hardening
+
+В Android RC добавлен финальный UI-слой `android-ui-14.css`, загружаемый после safe-area.
+Он не меняет доменную логику и не затрагивает PWA 13.9.1.
+
+Release gate теперь проверяет UI уже на подготовленном Android `dist`:
+- 360 / 390 / 412 / 430 px;
+- все пять разделов и все их views;
+- отсутствие page-level horizontal overflow;
+- fixed bottom navigation clearance;
+- sticky section chrome;
+- deterministic tabs;
+- modal geometry на 360x480;
+- скрытие глобального FAB там, где он дублирует основные действия.

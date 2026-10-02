@@ -1,0 +1,190 @@
+/* Life RPG 14.0 RC — Android UI/UX hardening
+   Android-only release layer. Loaded after android-safe-area.css.
+   No domain/state behavior lives here. */
+
+:root{
+  --life-ui-nav-height:72px;
+  --life-ui-nav-edge:8px;
+  --life-ui-nav-clearance:calc(var(--life-ui-nav-height) + var(--life-safe-bottom, env(safe-area-inset-bottom, 0px)) + 30px);
+  --life-ui-sticky-clearance:calc(var(--life-safe-top, env(safe-area-inset-top, 0px)) + 118px);
+}
+
+@media(max-width:850px){
+  html{
+    scroll-padding-top:var(--life-ui-sticky-clearance)!important;
+    scroll-padding-bottom:calc(var(--life-ui-nav-clearance) + 24px)!important;
+    overflow-x:clip;
+  }
+  body.ui82.ui139{
+    overflow-x:clip;
+    overscroll-behavior-x:none;
+  }
+
+  /* Fixed bottom navigation is app chrome, not translucent page content. */
+  .ui82.ui139 .bottom{
+    min-height:var(--life-ui-nav-height)!important;
+    bottom:max(var(--life-ui-nav-edge),var(--life-safe-bottom, env(safe-area-inset-bottom, 0px)))!important;
+    background:#0f1218!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    border-color:rgba(255,255,255,.09)!important;
+    box-shadow:0 -1px 0 rgba(255,255,255,.025),0 14px 34px rgba(0,0,0,.44)!important;
+    isolation:isolate;
+  }
+  .ui82.ui139 .navbtn{
+    min-height:60px!important;
+    touch-action:manipulation;
+  }
+
+  /* Final controls can always be scrolled fully above fixed bottom chrome. */
+  .ui82.ui139 .shell{
+    padding-bottom:calc(var(--life-ui-nav-clearance) + 72px)!important;
+  }
+  .ui82.ui139 .section.active{
+    scroll-padding-bottom:calc(var(--life-ui-nav-clearance) + 20px);
+  }
+  .ui82.ui139 .section.active :is(
+    .card,.log-item,.quest,.debt,.book,.crm-deal,.boss,.goal,.reward,
+    input,select,textarea,button,[tabindex]
+  ):not(.bottom):not(.bottom *){
+    scroll-margin-bottom:calc(var(--life-ui-nav-clearance) + 18px);
+  }
+
+  /* Sticky section chrome is fully opaque. */
+  .ui82.ui139 .ux7-section-head{
+    background:#090b10!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    box-shadow:0 1px 0 var(--ui139-line)!important;
+    isolation:isolate;
+  }
+
+  /* All five sections expose their tabs without horizontal discovery. */
+  .ui82.ui139 :is(#today,#finance,#work,#tennis,#more)>.ux7-section-head .ux7-tabs{
+    display:grid!important;
+    overflow:visible!important;
+    scroll-snap-type:none!important;
+    gap:4px!important;
+    padding:4px!important;
+  }
+  .ui82.ui139 #today>.ux7-section-head .ux7-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .ui82.ui139 #finance>.ux7-section-head .ux7-tabs{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .ui82.ui139 #work>.ux7-section-head .ux7-tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .ui82.ui139 #tennis>.ux7-section-head .ux7-tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .ui82.ui139 #more>.ux7-section-head .ux7-tabs{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .ui82.ui139 :is(#today,#finance,#work,#tennis,#more)>.ux7-section-head .ux7-tab{
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    min-height:44px!important;
+    padding:8px 5px!important;
+    white-space:normal;
+    line-height:1.15;
+    text-align:center;
+  }
+
+  /* Dense cards and dynamic widgets never force page-level horizontal scroll. */
+  .ui82.ui139 :is(
+    .card,.report-grid,.kpi-row,.health-grid,.forecast-os-grid,.decision-kpis,
+    .money-balance-grid,.bank-sync-summary,.analytics-grid,.autopilot-grid,
+    .compare-grid,.mini-forecast,.ux7-pulse-grid,.formgrid,.split
+  ){min-width:0;max-width:100%}
+  .ui82.ui139 :is(.card,.log-item,.notice,.status,.qtitle,.qmeta,.muted,.sub,.title,.section-title){
+    overflow-wrap:anywhere;
+    word-break:normal;
+  }
+  .ui82.ui139 .split>*{min-width:0}
+  .ui82.ui139 :is(input,select,textarea,button){max-width:100%}
+
+  .ui82.ui139 .card>.split:has(>.btn){
+    align-items:stretch;
+    row-gap:8px;
+  }
+  .ui82.ui139 .card>.split:has(>.btn)>.btn{
+    min-width:0;
+    min-height:44px;
+    white-space:normal;
+    line-height:1.2;
+  }
+
+  .ui82.ui139 #lifeOpsDayClose .life-ops-check,
+  .ui82.ui139 #lifeOpsDayClose .life-ops-actions,
+  .ui82.ui139 #lifeOpsDayClose .life-ops-quality{
+    scroll-margin-bottom:calc(var(--life-ui-nav-clearance) + 22px);
+  }
+
+  /* Finance and Settings already expose explicit primary actions. */
+  body.ui82.ui139[data-section="finance"] .ux7-fab,
+  body.ui82.ui139[data-section="more"][data-view="settings"] .ux7-fab{
+    display:none!important;
+  }
+
+  /* Bottom sheets stay usable with Android dynamic viewport / keyboard. */
+  .ui82.ui139 .modal{
+    padding-top:var(--life-safe-top, env(safe-area-inset-top, 0px))!important;
+    padding-right:var(--life-safe-right, env(safe-area-inset-right, 0px))!important;
+    padding-bottom:0!important;
+    padding-left:var(--life-safe-left, env(safe-area-inset-left, 0px))!important;
+    overscroll-behavior:contain;
+  }
+  .ui82.ui139 .modal-card{
+    width:100%!important;
+    max-width:640px!important;
+    max-height:calc(100dvh - var(--life-safe-top, env(safe-area-inset-top, 0px)) - 6px)!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    padding-bottom:calc(20px + var(--life-safe-bottom, env(safe-area-inset-bottom, 0px)))!important;
+    scroll-padding-top:16px!important;
+    scroll-padding-bottom:calc(40px + var(--life-safe-bottom, env(safe-area-inset-bottom, 0px)))!important;
+  }
+  .ui82.ui139 .modal-card :is(input,select,textarea,button){
+    scroll-margin-top:72px;
+    scroll-margin-bottom:calc(44px + var(--life-safe-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+  .ui82.ui139 .close{
+    min-width:44px!important;
+    width:44px!important;
+    min-height:44px!important;
+    height:44px!important;
+    flex:0 0 44px!important;
+  }
+
+  .ui82.ui139 :is(button,input,select,textarea,[tabindex]):focus-visible{
+    outline:2px solid var(--ui139-accent-strong)!important;
+    outline-offset:2px!important;
+  }
+
+  .ui82.ui139 :is(#today .quick-card .quick,.work-hero .kpi-row,.tennis-hero .kpi-row){
+    max-width:100%;
+    overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+}
+
+@media(max-width:390px){
+  :root{--life-ui-nav-height:70px}
+  .ui82.ui139 :is(#today,#finance,#work,#tennis,#more)>.ux7-section-head .ux7-tab{
+    font-size:11.5px!important;
+    padding-left:3px!important;
+    padding-right:3px!important;
+  }
+  .ui82.ui139 .bottom{
+    width:calc(100% - 10px - var(--life-safe-left, 0px) - var(--life-safe-right, 0px))!important;
+  }
+}
+
+@media(max-width:350px){
+  .ui82.ui139 #finance>.ux7-section-head .ux7-tab,
+  .ui82.ui139 #more>.ux7-section-head .ux7-tab{
+    font-size:10.5px!important;
+    letter-spacing:-.01em;
+  }
+}
+
+@media(max-height:560px) and (max-width:850px){
+  .ui82.ui139 .modal-card{
+    max-height:calc(100dvh - var(--life-safe-top, env(safe-area-inset-top, 0px)))!important;
+    border-radius:18px 18px 0 0!important;
+  }
+}

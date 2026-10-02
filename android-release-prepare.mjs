@@ -39,6 +39,7 @@ if (!fs.existsSync(path.join(dist, "pwa.js"))) throw new Error("dist/pwa.js miss
 if (!fs.existsSync(path.join(dist, "android-life-ops-native.js"))) throw new Error("Android Life Ops native bridge missing");
 if (!fs.existsSync(path.join(root, "finance-rebuild-14.js"))) throw new Error("finance-rebuild-14.js missing");
 if (!fs.existsSync(path.join(root, "android-safe-area.css"))) throw new Error("android-safe-area.css missing");
+if (!fs.existsSync(path.join(root, "android-ui-14.css"))) throw new Error("android-ui-14.css missing");
 
 /* Android RC gets its own runtime version without changing the accepted web/PWA source release yet. */
 let core = read("core.js");
@@ -60,9 +61,14 @@ if (!html.includes("__LIFE_RPG_ANDROID__")) {
 }
 
 const css = '<link rel="stylesheet" href="./android-safe-area.css">';
+const uiCss = '<link rel="stylesheet" href="./android-ui-14.css">';
 if (!html.includes(css)) {
   if (!html.includes("</head>")) throw new Error("dist/index.html has no </head>");
   html = html.replace("</head>", `${css}\n</head>`);
+}
+if (!html.includes(uiCss)) {
+  if (!html.includes(css)) throw new Error("Android safe-area stylesheet injection failed");
+  html = html.replace(css, `${css}\n${uiCss}`);
 }
 
 const financeRebuild = '<script src="./finance-rebuild-14.js"></script>';
@@ -133,11 +139,15 @@ delete manifest.file_handlers;
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
 fs.copyFileSync(path.join(root, "android-safe-area.css"), path.join(dist, "android-safe-area.css"));
+fs.copyFileSync(path.join(root, "android-ui-14.css"), path.join(dist, "android-ui-14.css"));
 
 const finalHtml = read("index.html");
+const safeCssPos = finalHtml.indexOf("android-safe-area.css");
+const uiCssPos = finalHtml.indexOf("android-ui-14.css");
 const financePos = finalHtml.indexOf("finance-rebuild-14.js");
 const opsPos = finalHtml.indexOf("android-life-ops-native.js");
 const bootPos = finalHtml.indexOf("bootstrap.js");
+if (safeCssPos < 0 || uiCssPos < 0 || uiCssPos < safeCssPos) throw new Error("Android UI hardening CSS must load after safe-area CSS");
 if (financePos < 0 || opsPos < 0 || bootPos < 0 || financePos > bootPos || opsPos > bootPos) throw new Error("Finance Rebuild and Life Ops native bridge must load before bootstrap.js");
 if (!finalHtml.includes(`__LIFE_RPG_ANDROID_SHARE_ENABLED__=${meta.androidShareEnabled ? "true" : "false"}`)) throw new Error("Android Share release flag missing");
 if (!read("core.js").includes(`APP_VERSION="${meta.versionName}"`)) throw new Error("Android runtime version transform failed");
