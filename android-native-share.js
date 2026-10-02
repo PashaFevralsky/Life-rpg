@@ -1,14 +1,26 @@
 "use strict";
-/* Life RPG Android-only native Share bridge — warm-start hardened.
-   Injected into the Capacitor APK by android-beta.yml.
-   GitHub Pages/PWA is intentionally unchanged. */
+/* Life RPG Android-only native Share bridge — Capacitor plugin proxy registered.
+   Injected only into the Android APK by android-beta.yml.
+   GitHub Pages/PWA remains unchanged. */
 (() => {
   let draining = false;
-  let listenerInstalled = false;
+  let nativeShare = null;
   let foregroundHooksInstalled = false;
+  let nativeListenerInstalled = false;
   let lastDrainAt = 0;
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  function getNativeShare() {
+    if (nativeShare) return nativeShare;
+
+    const cap = globalThis.Capacitor;
+    if (!cap || typeof cap.registerPlugin !== "function") return null;
+
+    /* Required JS-side registration for a local Capacitor native plugin. */
+    nativeShare = cap.registerPlugin("NativeShare");
+    return nativeShare;
+  }
 
   async function waitLifeRpgReady() {
     for (let i = 0; i < 120; i++) {
@@ -24,30 +36,11 @@
     return false;
   }
 
-  function nativeCall(method, options = {}) {
-    const cap = globalThis.Capacitor;
-    if (!cap) return Promise.reject(new Error("Capacitor runtime недоступен"));
-
-    /* Direct nativePromise is the most reliable path for a local native plugin.
-       It does not depend on a generated JS proxy being present. */
-    if (typeof cap.nativePromise === "function") {
-      return cap.nativePromise("NativeShare", method, options);
-    }
-
-    const p = cap.Plugins?.NativeShare;
-    if (p && typeof p[method] === "function") return p[method](options);
-
-    return Promise.reject(new Error("NativeShare plugin недоступен"));
-  }
-
-  function nativePluginProxy() {
-    return globalThis.Capacitor?.Plugins?.NativeShare || null;
-  }
-
   function base64File(row) {
     const raw = atob(String(row?.dataBase64 || ""));
     const bytes = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+
     return new File(
       [bytes],
       String(row?.name || `shared-${Date.now()}`),
@@ -60,14 +53,19 @@
 
   async function acceptPayload(payload) {
     if (!payload || payload.empty) return false;
-    if (!(await waitLifeRpgReady())) throw new Error("Life RPG Share Hub не успел загрузиться");
+
+    if (!(await waitLifeRpgReady())) {
+      throw new Error("Life RPG Share Hub не успел загрузиться");
+    }
 
     const files = [];
+    const payloadErrors = Array.isArray(payload.errors) ? payload.errors.map(String) : [];
+
     for (const item of payload.files || []) {
       try {
         if (item?.dataBase64) files.push(base64File(item));
       } catch (e) {
-        (payload.errors ||= []).push(`Файл ${item?.name || ""}: ${e?.message || e}`);
+        payloadErrors.push(`Файл ${item?.name || ""}: ${e?.message || e}`);
       }
     }
 
@@ -85,7 +83,7 @@
         lastModified: f.lastModified || Date.now(),
         blob: f
       })),
-      errors: Array.isArray(payload.errors) ? payload.errors.map(String) : [],
+      errors: payloadErrors,
       status: "queued",
       routedAt: ""
     };
@@ -96,12 +94,14 @@
 
     if (!(typeof storageSafeModeActive === "function" && storageSafeModeActive())) {
       const before = typeof deepClone === "function" ? deepClone(S) : null;
+
       share131HistoryAdd({
         status: "received",
         route: share131Classify(row),
         name: row.files[0]?.name || row.title || "Android Share",
         detail: `${row.files.length ? `${row.files.length} файл(а)` : "текст"} • native Android`
       });
+
       if (before && typeof persistPreparedStateAtomically === "function") {
         await persistPreparedStateAtomically(before);
       } else if (typeof persist === "function") {
@@ -114,6 +114,12 @@
     } catch {}
 
     await renderShare131();
+
+    /* Keep existing Life RPG routing rules:
+       image -> finance/Huawei route,
+       import docs -> Import Hub,
+       ICS -> calendar,
+       text -> Inbox. */
     await share131AutoRoute(row);
 
     setTimeout(() => {
@@ -130,82 +136,83 @@
   async function drain(reason = "manual") {
     const now = Date.now();
     if (draining) return false;
+    if (reason !== "manual" && now - lastDrainAt < 150) return false;
 
-    /* Foreground events can fire in a burst; coalesce them. */
-    if (reason !== "manual" && now - lastDrainAt < 180) return false;
+    const p = getNativeShare();
+    if (!p || typeof p.getPendingShare !== "function") return false;
 
     draining = true;
     lastDrainAt = now;
+
     try {
-      const payload = await nativeCall("getPendingShare", {});
+      const payload = await p.getPendingShare();
       return await acceptPayload(payload);
     } catch (e) {
-      const msg = String(e?.message || e);
-      /* Missing pending intent is not an error worth surfacing. */
-      if (!/plugin недоступен|runtime недоступен/i.test(msg)) {
-        console.error("Life RPG native share:", e);
-      }
+      console.error("Life RPG NativeShare drain:", reason, e);
+      try {
+        toast(`Android Share: ${e?.message || e}`);
+      } catch {}
       return false;
     } finally {
       draining = false;
     }
   }
 
-  function scheduleForegroundDrain(reason) {
+  function scheduleDrain(reason) {
     void drain(reason);
-    /* Android can deliver onNewIntent just after focus/visibility changes.
-       Retry briefly so the pending Intent cannot be missed by ordering races. */
     setTimeout(() => void drain(`${reason}-250`), 250);
-    setTimeout(() => void drain(`${reason}-750`), 750);
+    setTimeout(() => void drain(`${reason}-800`), 800);
   }
 
   function installForegroundHooks() {
     if (foregroundHooksInstalled) return;
     foregroundHooksInstalled = true;
 
-    globalThis.addEventListener("focus", () => scheduleForegroundDrain("focus"));
+    globalThis.addEventListener("focus", () => scheduleDrain("focus"));
 
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
-        scheduleForegroundDrain("visible");
-      }
+      if (document.visibilityState === "visible") scheduleDrain("visible");
     });
 
-    /* Capacitor bridge dispatches resume on document in supported builds. */
-    document.addEventListener("resume", () => scheduleForegroundDrain("resume"));
-
-    globalThis.addEventListener("pageshow", () => scheduleForegroundDrain("pageshow"));
+    document.addEventListener("resume", () => scheduleDrain("resume"));
+    globalThis.addEventListener("pageshow", () => scheduleDrain("pageshow"));
   }
 
-  function installNativeListener() {
-    if (listenerInstalled) return;
-    listenerInstalled = true;
+  async function installNativeListener() {
+    if (nativeListenerInstalled) return;
+    const p = getNativeShare();
+    if (!p || typeof p.addListener !== "function") return;
 
+    nativeListenerInstalled = true;
     try {
-      const p = nativePluginProxy();
-      if (p?.addListener) {
-        const ret = p.addListener("shareAvailable", () => scheduleForegroundDrain("native-event"));
-        if (ret?.catch) ret.catch(() => {});
-      }
-    } catch {}
+      await p.addListener("shareAvailable", () => scheduleDrain("native-event"));
+    } catch (e) {
+      nativeListenerInstalled = false;
+      console.error("Life RPG NativeShare listener:", e);
+    }
   }
 
   async function install() {
+    const cap = globalThis.Capacitor;
+    if (!cap) return;
+
+    const p = getNativeShare();
+    if (!p) return;
+
     installForegroundHooks();
-    installNativeListener();
+    await installNativeListener();
 
-    /* Cold start / already pending share. */
-    scheduleForegroundDrain("startup");
-
-    /* One short startup sweep also covers very early plugin registration races. */
-    for (const ms of [400, 1000, 2000]) {
+    /* Cold start and early bridge timing coverage. */
+    scheduleDrain("startup");
+    for (const ms of [350, 900, 1800]) {
       setTimeout(() => void drain(`startup-${ms}`), ms);
     }
   }
 
   globalThis.LifeRpgAndroidNativeShare = {
     drain: () => drain("manual"),
-    acceptPayload
+    acceptPayload,
+    getNativeShare
   };
 
   if (document.readyState === "loading") {
