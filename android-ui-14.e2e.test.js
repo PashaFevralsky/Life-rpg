@@ -20,7 +20,7 @@ async function boot(page,width=390,height=844){
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   await expect(page.locator("body")).toHaveClass(/ui139/);
-  await expect(page).toHaveTitle(/Life RPG 14\.0\.1-rc\./);
+  await expect(page).toHaveTitle(/Life RPG 14\.0\.2-rc\./);
   return errors;
 }
 
@@ -81,7 +81,7 @@ for(const width of widths){
         const last=cards.at(-1)?.getBoundingClientRect();
         return {navTop:bottom?.top??innerHeight,lastBottom:last?.bottom??0}
       });
-      expect(end.lastBottom,`${section}: final card must scroll above bottom navigation`).toBeLessThanOrEqual(end.navTop-8);
+      expect(end.lastBottom,`${section}: final card must scroll above bottom navigation`).toBeLessThanOrEqual(end.navTop-24);
       await page.evaluate(()=>window.scrollTo(0,0));
     }
 
@@ -173,5 +173,32 @@ test("Android RC FAB appears only on data-entry views and never covers overview 
     await expect(page.locator("#ux7Fab"),`${section}/${view}: data-entry FAB should remain available`).toBeVisible();
   }
 
+  expect(errors).toEqual([]);
+});
+
+
+test("Android RC top action buttons share one visual geometry",async({page})=>{
+  const errors=await boot(page,390,844);
+  const actions=await page.locator(".top-actions>.iconbtn").evaluateAll(nodes=>nodes
+    .filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return !el.hidden&&s.display!=="none"&&s.visibility!=="hidden"&&r.width>0&&r.height>0})
+    .map(el=>{
+      const r=el.getBoundingClientRect(),icon=el.querySelector("svg,i"),ir=icon?.getBoundingClientRect();
+      return {width:r.width,height:r.height,fontSize:parseFloat(getComputedStyle(el).fontSize)||0,iconWidth:ir?.width||0,iconHeight:ir?.height||0}
+    }));
+  expect(actions.length,"Today header should expose visible actions").toBeGreaterThanOrEqual(2);
+  for(const a of actions){
+    expect(a.width,"header action width").toBeGreaterThanOrEqual(47);
+    expect(a.width,"header action width").toBeLessThanOrEqual(49);
+    expect(a.height,"header action height").toBeGreaterThanOrEqual(47);
+    expect(a.height,"header action height").toBeLessThanOrEqual(49);
+    expect(a.fontSize,"text-icon visual size").toBeGreaterThanOrEqual(18);
+    expect(a.fontSize,"text-icon visual size").toBeLessThanOrEqual(20);
+    if(a.iconWidth){
+      expect(a.iconWidth,"SVG/icon width").toBeGreaterThanOrEqual(19);
+      expect(a.iconWidth,"SVG/icon width").toBeLessThanOrEqual(21);
+      expect(a.iconHeight,"SVG/icon height").toBeGreaterThanOrEqual(19);
+      expect(a.iconHeight,"SVG/icon height").toBeLessThanOrEqual(21);
+    }
+  }
   expect(errors).toEqual([]);
 });

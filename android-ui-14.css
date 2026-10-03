@@ -195,3 +195,57 @@
     border-radius:18px 18px 0 0!important;
   }
 }
+
+
+/* Life RPG 14.0.2 — device UI hotfix
+   Real-device correction after 14.0.1 RC acceptance. */
+:root{
+  --life-ui-nav-content-buffer:112px;
+}
+
+@media(max-width:850px){
+  .ui82.ui139 .shell{
+    padding-bottom:calc(var(--life-ui-nav-clearance) + var(--life-ui-nav-content-buffer))!important;
+  }
+  .ui82.ui139 .section.active{
+    padding-bottom:24px;
+    scroll-padding-bottom:calc(var(--life-ui-nav-clearance) + 48px)!important;
+  }
+  .ui82.ui139 .section.active :is(
+    .card,.log-item,.quest,.debt,.book,.crm-deal,.boss,.goal,.reward,
+    input,select,textarea,button,[tabindex]
+  ):not(.bottom):not(.bottom *){
+    scroll-margin-bottom:calc(var(--life-ui-nav-clearance) + 48px)!important;
+  }
+
+  .ui82.ui139 .top-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:0 0 auto;
+  }
+  .ui82.ui139 .top-actions>.iconbtn{
+    width:48px!important;
+    min-width:48px!important;
+    max-width:48px!important;
+    height:48px!important;
+    min-height:48px!important;
+    max-height:48px!important;
+    padding:0!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:hidden;
+    font-size:19px!important;
+    line-height:1!important;
+  }
+  .ui82.ui139 .top-actions>.iconbtn :is(svg,i){
+    width:20px!important;
+    min-width:20px!important;
+    max-width:20px!important;
+    height:20px!important;
+    min-height:20px!important;
+    max-height:20px!important;
+    margin:0!important;
+    flex:none!important;
+  }
+}

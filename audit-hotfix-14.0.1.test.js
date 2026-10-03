@@ -67,7 +67,10 @@ const reset=()=>run(`S=deepClone(DEFAULT_STATE);S.settings.reportStart="";S.sett
   assert.ok(fs.readFileSync("android-release-patch.mjs","utf8").includes('android:allowBackup="false"'));
   assert.ok(fs.readFileSync("android-release-patch.mjs","utf8").includes('android:fullBackupContent="false"'));
   assert.ok(fs.readFileSync("platform.vite.mjs","utf8").includes('z.enum(["income","expense","refund","transfer","asset_transfer","debt_payment"])'));
-  assert.equal(JSON.parse(fs.readFileSync("android-release-config.json","utf8")).targetVersion,"14.0.1");
+  {
+    const v=String(JSON.parse(fs.readFileSync("android-release-config.json","utf8")).targetVersion||"").split(".").map(Number);
+    assert.ok(v.length===3&&v.every(Number.isInteger)&&(v[0]>14||(v[0]===14&&(v[1]>0||(v[1]===0&&v[2]>=1)))),"Android targetVersion must be >= 14.0.1");
+  }
 
   console.log("OK — 14.0.1 audit hotfix: statement validation, refunds, reservations, rates, Life Ops and Android privacy");
 })().catch(e=>{console.error(e);process.exit(1)});

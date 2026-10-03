@@ -1,7 +1,7 @@
 {
-  "targetVersion": "14.0.1",
+  "targetVersion": "14.0.2",
   "channel": "rc",
   "stateVersion": 18,
   "androidShareEnabled": false,
-  "notes": "Android 14.0.1 RC: audit hotfix for import validation, refunds, debt-rate safety, reservation expiry, Life Ops consistency and Android privacy."
+  "notes": "Android 14.0.2 RC: real-device UI hotfix for bottom navigation clearance and consistent top action icon geometry."
 }

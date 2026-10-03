@@ -6,7 +6,7 @@ const tool=JSON.parse(read("android-toolchain.lock.json"));
 const meta=JSON.parse(read("android-release-meta.json"));
 const cap=JSON.parse(read("capacitor.config.json"));
 
-assert.equal(cfg.targetVersion,"14.0.1");
+assert.equal(cfg.targetVersion,"14.0.2");
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 assert.equal(cfg.androidShareEnabled,false);
@@ -18,8 +18,8 @@ assert.equal(tool.capacitorAndroid,"8.5.2");
 assert.equal(tool.capacitorCli,"8.5.2");
 assert.equal(tool.localNotifications,"8.3.1");
 
-assert.match(meta.versionName,/^14\.0\.1-rc\.\d+$/);
-assert.ok(meta.versionCode>14000099,"14.0.1 RC must update over signed 14.0.0 Stable");
+assert.match(meta.versionName,/^14\.0\.2-rc\.\d+$/);
+assert.ok(meta.versionCode>14000116,"14.0.2 RC must update over installed 14.0.1 RC run 16");
 assert.equal(meta.androidShareEnabled,false);
 assert.equal(meta.stateVersion,18);
 
