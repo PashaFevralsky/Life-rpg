@@ -48,6 +48,7 @@ jobs:
       - name: Syntax-check hotfix
         run: |
           node --check apply-ui-hotfix-14.0.2.mjs
+          node --check audit-hotfix-14.0.1.test.js
           node --check ui-hotfix-14.0.2.test.js
           node --check android-ui-14.e2e.test.js
 
@@ -87,11 +88,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             android-ui-14.css \
-            android-ui-14.test.js \
             android-ui-14.e2e.test.js \
             android-release-config.json \
             release-readiness-14.0.test.js \
             android-release-gate.test.js \
+            audit-hotfix-14.0.1.test.js \
             package.json \
             ui-hotfix-14.0.2.test.js \
             UI-HOTFIX-14.0.2.md
