@@ -20,7 +20,7 @@ const BackupSchema=z.object({
 }).passthrough().refine(v=>Object.keys(v).some(k=>["profile","settings","debts","accounts","books","expenses","incomeLogs","payments","workLogs","tennis","readingLogs","crmDeals"].includes(k)),{message:"Файл не похож на резервную копию Life RPG"});
 
 const ReadingListSchema=z.object({format:z.literal("life-rpg-reading-list-v1"),title:z.string().optional(),books:z.array(z.object({order:z.number().int().positive().optional(),author:z.string().optional(),title:z.string().min(1),totalPages:Money.optional()}).passthrough()).min(1)}).passthrough();
-const StatementTxSchema=z.object({date:z.string().min(8),amount:z.number().finite().optional(),signedAmount:z.number().finite().optional(),kind:z.string().min(1)}).passthrough().refine(x=>Number.isFinite(x.amount)||Number.isFinite(x.signedAmount),{message:"Операция выписки без суммы"});
+const StatementTxSchema=z.object({date:z.string().min(8),amount:z.number().finite().optional(),signedAmount:z.number().finite().optional(),kind:z.enum(["income","expense","refund","transfer","asset_transfer","debt_payment"])}).passthrough().refine(x=>Number.isFinite(x.amount)||Number.isFinite(x.signedAmount),{message:"Операция выписки без суммы"});
 const AiActionSchema=z.discriminatedUnion("type",[
   z.object({type:z.literal("income"),amount:Money,date:z.string().optional()}).passthrough(),
   z.object({type:z.literal("expense"),amount:Money,date:z.string().optional()}).passthrough(),

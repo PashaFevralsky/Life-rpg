@@ -69,7 +69,12 @@ public class MainActivity extends BridgeActivity {
 `);
 
 const manifestPath = path.join("android", "app", "src", "main", "AndroidManifest.xml");
-const manifest = fs.readFileSync(manifestPath, "utf8");
+let manifest = fs.readFileSync(manifestPath, "utf8");
+if (/android:allowBackup="[^"]*"/.test(manifest)) manifest=manifest.replace(/android:allowBackup="[^"]*"/,'android:allowBackup="false"');
+else manifest=manifest.replace("<application",'<application android:allowBackup="false"');
+if (/android:fullBackupContent="[^"]*"/.test(manifest)) manifest=manifest.replace(/android:fullBackupContent="[^"]*"/,'android:fullBackupContent="false"');
+else manifest=manifest.replace("<application",'<application android:fullBackupContent="false"');
+fs.writeFileSync(manifestPath,manifest);
 if (manifest.includes("android.intent.action.SEND") || manifest.includes("android.intent.action.SEND_MULTIPLE")) {
   throw new Error("Native Android Share filters must not exist in RC");
 }

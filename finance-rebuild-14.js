@@ -139,7 +139,8 @@ function financeRebuild14ValidateSnapshot(state){
   for(const [key,fields] of Object.entries({accounts:["verifiedBalance"],debts:["balance"],assets:["verifiedValue"],regularPayments:["amount"],incomeLogs:["amount"],expenses:["amount"],payments:["amount"],bankTransfers:["amount"],fundTransfers:["amount"],assetTransfers:["amount"],cashAdjustments:["delta"]})){
     for(const row of state[key])for(const field of fields){
       if(key==="accounts"&&row[field]===null)continue;
-      if(typeof row[field]!=="number"||!Number.isFinite(row[field])||(field!=="delta"&&row[field]<0))throw new Error(`Finance Rebuild: некорректное число ${key}.${field}`)
+      const negativeRefund=key==="expenses"&&field==="amount"&&row[field]<0;
+      if(typeof row[field]!=="number"||!Number.isFinite(row[field])||(field!=="delta"&&row[field]<0&&!negativeRefund))throw new Error(`Finance Rebuild: некорректное число ${key}.${field}`)
     }
   }
   for(const value of Object.values(state.envelopeLimits))financeRebuild14Money(value);

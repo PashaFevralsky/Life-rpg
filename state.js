@@ -334,7 +334,8 @@ function dataIntegrityIssues(){
   const issues=[],ids=new Map(),add=(level,title,detail="")=>issues.push({level,title,detail});
   const primary=(S.accounts||[]).find(a=>a.id===S.settings.primaryAccountId&&a.active!==false);if(!primary)add("bad","Основной счёт не найден","Выбери основной активный счёт");
   for(const a of activeAccounts()){const b=accountBalanceById(a.id);if(b<-.01)add("bad",`Отрицательный учётный остаток: ${a.name}`,rub(b));if(!a.verifiedAt)add("warn",`Счёт не сверялся: ${a.name}`,"Подтверди фактический остаток")}
-  const today=localDateKey();for(const d of (S.debts||[]).filter(x=>x.active!==false&&x.balance>0)){if(!validDateKey(d.nextPaymentDate))add("warn",`Нет следующей даты платежа: ${d.name}`,"Обнови данные долга");else if(d.nextPaymentDate<today)add("bad",`Просрочена дата платежа: ${d.name}`,fmtDate(parseLocal(d.nextPaymentDate)))}
+  const today=localDateKey();for(const d of (S.debts||[]).filter(x=>x.active!==false&&x.balance>0)){if(!validDateKey(d.nextPaymentDate))add("warn",`Нет следующей даты платежа: ${d.name}`,"Обнови данные долга");else if(d.nextPaymentDate<today)add("bad",`Просрочена дата платежа: ${d.name}`,fmtDate(parseLocal(d.nextPaymentDate)));if(typeof debtRateKnown==="function"&&!debtRateKnown(d))add("warn",`Ставка долга не подтверждена: ${d.name}`,"Досрочные приоритеты заблокированы до обновления ставки")}
+  for(const r of S.reservations||[]){if(r?.status==="active"&&r.untilDate&&(!validDateKey(r.untilDate)||r.untilDate<today))add("warn",`Устаревший резерв: ${r.label||r.type||r.id}`,String(r.untilDate||"без даты"))}
   const collections=[["incomeLogs",S.incomeLogs],["expenses",S.expenses],["payments",S.payments],["workLogs",S.workLogs],["tennis",S.tennis],["books",S.books],["readingLogs",S.readingLogs],["crmDeals",S.crmDeals]];for(const [name,arr] of collections)for(const x of arr||[]){if(!x?.id)continue;const key=`${name}:${x.id}`;if(ids.has(key))add("bad",`Дублирующийся ID в ${name}`,x.id);ids.set(key,true)}
   for(const p of S.payments||[]){if(p.debtId&&!debtById(p.debtId))add("warn","Платёж ссылается на отсутствующий долг",p.debt||p.debtId)}
   const accountIds=new Set((S.accounts||[]).map(a=>String(a?.id||"")).filter(Boolean)),checkAccountRef=(label,x,key="accountId")=>{const id=String(x?.[key]||"");if(id&&!accountIds.has(id))add("bad",`${label} ссылается на отсутствующий счёт`,id)};
@@ -379,6 +380,7 @@ async function repairDomainIntegrity(){
   if(!confirm("Выполнить безопасный пересчёт производных данных? Перед этим будет создан снимок."))return;
   await createPreActionSnapshot("Перед безопасным ремонтом данных");
   await commitStateAtomically(()=>{
+    for(const r of S.reservations||[])if(r?.status==="active"&&typeof reservationExpired==="function"&&reservationExpired(r)){r.status="expired";r.expiredAt=new Date().toISOString()}
     for(const b of S.books||[])recomputeBookProgress(b.id);
     const q=(S.books||[]).filter(b=>b.status==="queued").slice().sort((a,b)=>(+a.readingOrder||999999)-(+b.readingOrder||999999)||String(a.created||"").localeCompare(String(b.created||"")));
     q.forEach((b,i)=>b.readingOrder=i+1);

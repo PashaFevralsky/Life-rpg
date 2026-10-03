@@ -172,6 +172,7 @@ function tennisHuaweiClearForm(){
   const status=document.getElementById("tennisHuaweiOcrStatus");if(status)status.textContent="Выбери скриншот Huawei Health или заполни поля вручную."
 }
 async function tennisHuaweiLoadTesseract(){
+  if(globalThis.__LIFE_RPG_ANDROID__)throw new Error("Android: внешний OCR-код отключён; внеси данные Huawei вручную");
   if(window.Tesseract?.recognize)return window.Tesseract;
   await new Promise((resolve,reject)=>{
     const old=document.querySelector(`script[src="${TENNIS_HUAWEI_CDN}"]`);

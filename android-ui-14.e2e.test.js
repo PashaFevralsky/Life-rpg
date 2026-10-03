@@ -20,7 +20,7 @@ async function boot(page,width=390,height=844){
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   await expect(page.locator("body")).toHaveClass(/ui139/);
-  await expect(page).toHaveTitle(/Life RPG 14\.0\.0-rc\./);
+  await expect(page).toHaveTitle(/Life RPG 14\.0\.1-rc\./);
   return errors;
 }
 

@@ -6,7 +6,7 @@ const tool=JSON.parse(read("android-toolchain.lock.json"));
 const meta=JSON.parse(read("android-release-meta.json"));
 const cap=JSON.parse(read("capacitor.config.json"));
 
-assert.equal(cfg.targetVersion,"14.0.0");
+assert.equal(cfg.targetVersion,"14.0.1");
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 assert.equal(cfg.androidShareEnabled,false);
@@ -18,8 +18,8 @@ assert.equal(tool.capacitorAndroid,"8.5.2");
 assert.equal(tool.capacitorCli,"8.5.2");
 assert.equal(tool.localNotifications,"8.3.1");
 
-assert.match(meta.versionName,/^14\.0\.0-rc\.\d+$/);
-assert.ok(meta.versionCode>1309019,"RC must update over signed 13.9.1 beta line");
+assert.match(meta.versionName,/^14\.0\.1-rc\.\d+$/);
+assert.ok(meta.versionCode>14000099,"14.0.1 RC must update over signed 14.0.0 Stable");
 assert.equal(meta.androidShareEnabled,false);
 assert.equal(meta.stateVersion,18);
 
@@ -70,6 +70,8 @@ assert.equal("file_handlers" in manifestWeb,false);
 const nativeManifest=read(path.join("android","app","src","main","AndroidManifest.xml"));
 assert.ok(!nativeManifest.includes("android.intent.action.SEND"));
 assert.ok(!nativeManifest.includes("android.intent.action.SEND_MULTIPLE"));
+assert.ok(nativeManifest.includes('android:allowBackup="false"'),"Android backup must be disabled");
+assert.ok(nativeManifest.includes('android:fullBackupContent="false"'),"Android full backup must be disabled");
 
 const gradle=read(path.join("android","app","build.gradle"));
 assert.ok(gradle.includes(`versionCode ${meta.versionCode}`));

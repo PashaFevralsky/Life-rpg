@@ -98,7 +98,7 @@ function lifeOpsTodayCounts(){
   const income=(S.incomeLogs||[]).filter(x=>String(x.dateKey||x.date||"").slice(0,10)===k).length;
   const payments=(S.payments||[]).filter(x=>String(x.localDate||x.date||"").slice(0,10)===k).length;
   const work=(S.workLogs||[]).filter(x=>String(x.date||x.dateKey||"").slice(0,10)===k).length;
-  const training=(S.tennis||[]).filter(x=>String(x.dateKey||x.date||"").slice(0,10)===k).length;
+  const training=typeof training129AllSessions==="function"?training129AllSessions(2).filter(x=>String(x.dateKey||"")===k).length:(S.tennis||[]).filter(x=>String(x.dateKey||x.date||"").slice(0,10)===k).length;
   const plannedIncome=typeof plannedIncomeOnDate==="function"?plannedIncomeOnDate(new Date()):0;
   const due=(typeof financialEvents==="function"?financialEvents():[]).filter(x=>x.type==="payment"&&(x.overdue||String(x.dateKey||localDateKey(x.date))===k));
   return {expenses,income,payments,work,training,plannedIncome,due,dueAmount:due.reduce((s,x)=>moneyAdd(s,x.amount||0),0)}
@@ -184,14 +184,19 @@ function lifeOpsInstallIncomeHook(){
     if(added){lifeOpsMarkDirty();await persist();render();setTimeout(()=>lifeOpsShowIncomePlan(added),80)}
   }
 }
-function lifeOpsWrapActivity(name,collection){
+function lifeOpsActivityFingerprint(){
+  const k=localDateKey(),rows=(arr,key)=>JSON.stringify((arr||[]).filter(x=>String(x?.[key]||x?.date||"").slice(0,10)===k));
+  const training=typeof training129AllSessions==="function"?training129AllSessions(2).filter(x=>String(x.dateKey||"")===k).map(x=>[x.id,x.dateKey,x.minutes,x.rpe,x.type,x.domain,x.source]):[];
+  return JSON.stringify({expenses:rows(S.expenses,"dateKey"),income:rows(S.incomeLogs,"dateKey"),payments:rows(S.payments,"localDate"),work:rows(S.workLogs,"date"),tennis:rows(S.tennis,"dateKey"),reading:rows(S.readingLogs,"dateKey"),training})
+}
+function lifeOpsWrapActivity(name){
   const base=globalThis[name];if(typeof base!=="function"||base.__lifeOpsWrapped)return;
-  const wrapped=async function(){const before=Array.isArray(S[collection])?S[collection].length:-1;const out=await base.apply(this,arguments);const after=Array.isArray(S[collection])?S[collection].length:-1;if(after!==before){lifeOpsMarkDirty();await persist();render()}return out};
+  const wrapped=async function(){const before=lifeOpsActivityFingerprint(),out=await base.apply(this,arguments),after=lifeOpsActivityFingerprint();if(after!==before){lifeOpsMarkDirty();await persist();render()}return out};
   wrapped.__lifeOpsWrapped=true;globalThis[name]=wrapped
 }
 function lifeOpsInstallActivityHooks(){
   if(LIFE_OPS_ACTIVITY_HOOKS)return;LIFE_OPS_ACTIVITY_HOOKS=true;
-  for(const [fn,col] of [["addExpense","expenses"],["addPayment","payments"],["addWorkLog","workLogs"],["addTennis","tennis"],["addReading","readingLogs"]])lifeOpsWrapActivity(fn,col)
+  for(const fn of ["addExpense","deleteExpense","addPayment","undoPayment","addWorkLog","deleteWork","recordCrmRealization","addTennis","deleteTennis","addReading","deleteReading","training129Save","training129Delete","restoreLastDeleted","rollbackImportBatch","applyAiImportQueue","applyStatementImportPackage"])lifeOpsWrapActivity(fn)
 }
 function lifeOpsSetConfirmation(key,checked){
   const d=lifeOpsDayState();d.confirmations[key]=!!checked;d.closed=false;d.closedAt="";

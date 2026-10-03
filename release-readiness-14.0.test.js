@@ -16,7 +16,7 @@ for(const f of [
 ]) assert.ok(fs.existsSync(f),`${f} missing`);
 
 const cfg=JSON.parse(read("android-release-config.json"));
-assert.equal(cfg.targetVersion,"14.0.0");
+assert.equal(cfg.targetVersion,"14.0.1");
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 assert.equal(cfg.androidShareEnabled,false);
@@ -49,6 +49,8 @@ const patch=read("android-release-patch.mjs");
 assert.ok(patch.includes("refreshBundledWebAssets()"));
 assert.ok(patch.includes("navigator.serviceWorker.getRegistrations()"));
 assert.ok(patch.includes("Native Android Share filters must not exist in RC"));
+assert.ok(patch.includes('android:allowBackup="false"'));
+assert.ok(patch.includes('android:fullBackupContent="false"'));
 
 const androidUi=read("android-ui-14.css");
 const swipeJs=read("android-tab-swipe-14.js");
