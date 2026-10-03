@@ -356,14 +356,6 @@ write("audit-hotfix-14.0.1.test.js",test);
   write("package.json",JSON.stringify(p,null,2)+"\n");
 }
 
-// Ensure Android RC source contract watches the new regression file.
-replaceOnce(".github/workflows/android-rc.yml",
-`      - "package-lock.json"
-      - "vite.config.mjs"`,
-`      - "package-lock.json"
-      - "audit-hotfix-14.0.1.test.js"
-      - "vite.config.mjs"`,
-"RC workflow path for audit test");
 
 // Marker and final static checks.
 write(marker,`# Life RPG 14.0.1 — Audit Hotfix
