@@ -1,0 +1,84 @@
+name: Apply Life RPG 14.0.4 audited UI hotfix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply 14.0.4 UI patch
+        run: node apply-ui-hotfix-14.0.4.mjs
+
+      - name: Syntax-check modified JavaScript
+        run: |
+          node --check ui.js
+          node --check ux-12.8.js
+          node --check ui-audit-hotfix-14.0.4.test.js
+
+      - name: Run 14.0.4 focused contract
+        run: node ui-audit-hotfix-14.0.4.test.js
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Verify Android UI source contracts
+        run: |
+          node release-readiness-14.0.test.js
+          node android-ui-14.test.js
+          node android-tab-swipe-14.test.js
+
+      - name: Build production PWA source
+        run: npm run build
+
+      - name: Audit production bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full browser E2E
+        run: npm run test:e2e
+
+      - name: Validate patch whitespace
+        run: git diff --check
+
+      - name: Show patch summary
+        run: git status --short
+
+      - name: Commit verified 14.0.4 UI hotfix to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            ui.js \
+            ux-12.8.js \
+            interface-13.9.css \
+            ux-12.8.test.js \
+            ux-12.8.e2e.test.js \
+            android-ui-14.e2e.test.js \
+            ui-hotfix-14.0.3.test.js \
+            android-release-config.json \
+            release-readiness-14.0.test.js \
+            android-release-gate.test.js \
+            ui-audit-hotfix-14.0.4.test.js \
+            package.json \
+            UI-AUDIT-HOTFIX-14.0.4.md
+          git diff --cached --quiet && { echo "No source changes to commit"; exit 0; }
+          git commit -m "Fix audited interface issues for 14.0.4"
+          git push
