@@ -1,0 +1,83 @@
+name: Apply Life RPG 14.1 Product Core v1
+run-name: Life RPG 14.1 Product Core v1 • run ${{ github.run_number }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-product-core-14-1
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply Product Core 14.1 v1
+        run: node apply-product-core-14.1.mjs
+
+      - name: Syntax-check Product Core
+        run: |
+          node --check product-core-14.1.js
+          node --check product-core-14.1.test.js
+          node --check product-core-14.1.e2e.test.js
+          node --check bootstrap.js
+
+      - name: Run Product Core contract
+        run: node product-core-14.1.test.js
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Build production PWA
+        run: npm run build
+
+      - name: Audit production bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full browser E2E
+        run: npm run test:e2e
+
+      - name: Verify release state was not migrated
+        shell: bash
+        run: |
+          node <<'NODE'
+          const rc=require("./android-release-config.json");
+          if(rc.stateVersion!==18)throw new Error("Product Core must not migrate state");
+          NODE
+          git diff --exit-code -- android-release-config.json android-stable-config.json core.js state.js
+
+      - name: Validate patch whitespace
+        run: git diff --check
+
+      - name: Show patch summary
+        run: git status --short && git diff --stat
+
+      - name: Commit verified Product Core v1
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add product-core-14.1.js product-core-14.1.test.js product-core-14.1.e2e.test.js \
+            bootstrap.js vite.config.mjs package.json playwright.config.mjs e2e.test.js
+          git diff --cached --check
+          git commit -m "Add Product Core 14.1 v1 [skip ci]"
+          git push
