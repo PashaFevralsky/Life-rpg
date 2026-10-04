@@ -29,6 +29,8 @@ jobs:
         run: |
           node --check ui.js
           node --check ux-12.8.js
+          node --check training-os.js
+          node --check share-hub.js
           node --check ui-audit-hotfix-14.0.4.test.js
 
       - name: Run 14.0.4 focused contract
@@ -68,6 +70,9 @@ jobs:
           git add \
             ui.js \
             ux-12.8.js \
+            training-os.js \
+            training-12.9.e2e.test.js \
+            share-hub.js \
             interface-13.9.css \
             ux-12.8.test.js \
             ux-12.8.e2e.test.js \
