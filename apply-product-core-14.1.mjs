@@ -83,6 +83,22 @@ const replacement=`  await expect(page.locator("#today123Command")).toBeVisible(
   await expect(page.locator("#executionOsCommand")).toBeVisible();
   await expect(page.locator("#lifeOsCommand")).toContainText("Не предлагать");`;
 e2e=e2e.slice(0,i)+replacement+e2e.slice(j+end.length);
+
+e2e=replaceOne(
+  e2e,
+  '    await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});\n    let a=await geometryAudit(page);',
+  '    await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false);productCore141SetExpanded(true,false)});\n    let a=await geometryAudit(page);',
+  "layout gate expands Product Core tools"
+);
 write("e2e.test.js",e2e);
 
-console.log("OK — applied Life RPG 14.1 Product Core v1");
+let personal=read("personal-os.e2e.test.js");
+personal=replaceOne(
+  personal,
+  '  await page.evaluate(()=>{taskCreate({title:"E2E Focus Task",area:"Личное",priority:2,minutes:30});render()});\n  await page.locator(\'[data-testid="focus-add"]\').click();',
+  '  await page.evaluate(()=>{taskCreate({title:"E2E Focus Task",area:"Личное",priority:2,minutes:30});render();productCore141SetExpanded(true,false)});\n  await expect(page.locator(\'[data-product-core-action="details"]\')).toHaveAttribute("aria-expanded","true");\n  await page.locator(\'[data-testid="focus-add"]\').click();',
+  "Personal OS Focus expands Product Core tools"
+);
+write("personal-os.e2e.test.js",personal);
+
+console.log("OK — applied Life RPG 14.1 Product Core v1 E2E-compatible patch");
