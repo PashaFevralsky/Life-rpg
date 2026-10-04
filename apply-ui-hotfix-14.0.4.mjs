@@ -136,6 +136,34 @@ function ux7BuildSectionHeader(sectionId){
   write(p,s);changed.push(p);
 }
 
+// training-os.js — keep outdoor/conditioning entry in its own Training OS surface, not Quick Add.
+{
+  const p="training-os.js";let s=read(p);
+  const old=`function training129PatchQuick(){
+  const grid=document.querySelector("#ux7QuickSheet .ux7-action-grid");if(!grid||grid.querySelector('[data-training129-action="1"]'))return;const b=document.createElement("button");b.type="button";b.dataset.training129Action="1";b.innerHTML=\`${typeof ui82Icon==="function"?ui82Icon("activity"):""}<span>ОФП / кардио</span>\`;b.onclick=()=>{closeModal("ux7QuickSheet");ux7Go("more","overview");setTimeout(()=>document.getElementById("training129Editor")?.scrollIntoView({behavior:"smooth",block:"start"}),120)};grid.appendChild(b);window.LifePlatform?.refreshIcons?.(grid)
+}`;
+  s=replaceOnce(s,old,"function training129PatchQuick(){}","training-os.js compact Quick Add");
+  write(p,s);changed.push(p);
+}
+
+// training E2E — Training OS remains reachable in More / Overview and via Life OS routing.
+{
+  const p="training-12.9.e2e.test.js";let s=read(p);
+  s=s.replace('test("Training OS 12.9 plans only after confirmation and is reachable from Life/quick shell"','test("Training OS 12.9 plans only after confirmation and is reachable from Life OS and More"');
+  const old=`  await page.evaluate(()=>openModal("ux7QuickSheet"));await expect(page.locator('[data-training129-action="1"]')).toBeVisible();await page.evaluate(()=>closeModal("ux7QuickSheet"));`;
+  const neu=`  await expect(page.locator("#training129Editor")).toBeVisible();await page.evaluate(()=>training129OpenRoute());await expect(page.locator("#training129Command")).toBeVisible();`;
+  s=replaceOnce(s,old,neu,"training-12.9.e2e Quick Add decoupling");
+  write(p,s);changed.push(p);
+}
+
+// share-hub.js — Share stays in More / Settings and Android share flows, not Quick Add.
+{
+  const p="share-hub.js";let s=read(p);
+  const old=`function share131PatchQuickSheet(){const grid=document.querySelector("#ux7QuickSheet .ux7-action-grid");if(!grid||grid.querySelector('[data-share131-action="1"]'))return;const b=document.createElement("button");b.type="button";b.dataset.share131Action="1";b.innerHTML=\`${typeof ui82Icon==="function"?ui82Icon("plus"):""}<span>Share Inbox</span>\`;b.addEventListener("click",()=>{closeModal("ux7QuickSheet");ux7Go("more","settings");setTimeout(()=>document.getElementById("share131Command")?.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),120)});grid.appendChild(b);window.LifePlatform?.refreshIcons?.(grid)}`;
+  s=replaceOnce(s,old,"function share131PatchQuickSheet(){}","share-hub.js compact Quick Add");
+  write(p,s);changed.push(p);
+}
+
 // interface-13.9.css — raise inactive bottom-nav text contrast above WCAG AA.
 {
   const p="interface-13.9.css";let s=read(p);
@@ -288,7 +316,7 @@ test("Android RC Quick Add contains eight entry actions only",async({page})=>{
   const content=`"use strict";
 const fs=require("node:fs"),assert=require("node:assert/strict");
 const read=f=>fs.readFileSync(f,"utf8");
-const ui=read("ui.js"),ux=read("ux-12.8.js"),css=read("interface-13.9.css"),e2e=read("android-ui-14.e2e.test.js"),prev=read("ui-hotfix-14.0.3.test.js"),pkg=JSON.parse(read("package.json")),cfg=JSON.parse(read("android-release-config.json"));
+const ui=read("ui.js"),ux=read("ux-12.8.js"),training=read("training-os.js"),share=read("share-hub.js"),css=read("interface-13.9.css"),e2e=read("android-ui-14.e2e.test.js"),trainingE2e=read("training-12.9.e2e.test.js"),prev=read("ui-hotfix-14.0.3.test.js"),pkg=JSON.parse(read("package.json")),cfg=JSON.parse(read("android-release-config.json"));
 
 for(const token of ["function prepareModalAccessibility","aria-modal","aria-labelledby","function ux7BindTabKeyboard","ArrowRight","ArrowLeft","aria-controls","tabIndex=on?0:-1",'data-ui139-action="recent"'])
   assert.ok(ui.includes(token),\`14.0.4 UI accessibility token missing: \${token}\`);
@@ -296,6 +324,11 @@ for(const token of ["function prepareModalAccessibility","aria-modal","aria-labe
 assert.ok(ux.includes('ux128QuickButton("task","Задача"'),"Quick Add task action missing");
 for(const action of ["inbox","recent","search","import"])assert.ok(!ux.includes(\`ux128QuickButton("\${action}"\`),\`service action \${action} leaked into Quick Add\`);
 assert.ok(!ui.includes("Можно потратить?</span></button>"),"decision action must not remain in Quick Add");
+assert.ok(training.includes("function training129PatchQuick(){}"),"Training OS must not inject Quick Add action");
+assert.ok(share.includes("function share131PatchQuickSheet(){}"),"Share Hub must not inject Quick Add action");
+assert.ok(!training.includes("data-training129-action"),"Training OS Quick Add marker must be removed");
+assert.ok(!share.includes("data-share131-action"),"Share Hub Quick Add marker must be removed");
+assert.ok(trainingE2e.includes("reachable from Life OS and More"),"Training E2E must cover the retained navigation path");
 
 const m=css.match(/\\.ui82\\.ui139 \\.navbtn\\{[\\s\\S]*?color:(#[0-9a-f]{6})/i);assert.ok(m,"bottom nav color not found");
 function rgb(h){return [1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255)}
@@ -335,7 +368,9 @@ Changes:
 - dynamic Search / Recent / other late-created sheets receive dialog semantics on open;
 - internal section tabs retain tab semantics, gain aria-controls / tabpanel linkage, roving tabindex and Arrow/Home/End keyboard navigation;
 - inactive bottom-navigation text contrast is raised above WCAG AA 4.5:1 against Android nav background;
-- Quick Add is reduced to eight entry-oriented actions;
+- Quick Add is reduced to eight entry-oriented actions across the full PWA runtime and Android;
+- Training OS no longer injects "ОФП / кардио" into Quick Add; it remains in More / Overview and Life OS routing;
+- Share Hub no longer injects "Share Inbox" into Quick Add; it remains in More / Settings and the native/share flows;
 - Search stays in the header, Recent moves to More / Overview, Import stays in More / Settings, Inbox remains on Today, and "Can I spend?" remains in Money;
 - Android target becomes 14.0.4 RC without state migration.
 
