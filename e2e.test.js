@@ -14,22 +14,22 @@ test("Life RPG 12 mobile critical flow", async ({ page }) => {
   await expect(page.locator("#versionStatus")).toContainText("13.9.1");
   expect(await page.evaluate(()=>STATE_VERSION)).toBe(18);
 
-  await expect(page.locator("#lifeOsCommand")).toBeVisible();
-  await page.locator('#today .ux7-tab[data-view="progress"]').click();
-  await expect(page.locator("#lifeOsCommand")).not.toBeVisible();
-  await page.locator('#today .ux7-tab[data-view="focus"]').click();
+  await expect(page.locator("#today123Command")).toBeVisible();
+  await expect(page.locator("#inboxOsCommand")).toBeVisible();
+  await expect(page.locator("#lifeOsCommand")).toBeHidden();
+  await expect(page.locator("#tasksOsCommand")).toBeHidden();
+  await expect(page.locator("#routinesOsCommand")).toBeHidden();
+  await expect(page.locator("#todayFlowCommand")).toBeHidden();
+  await expect(page.locator("#decisionOsCommand")).toBeHidden();
+  await expect(page.locator("#executionOsCommand")).toBeHidden();
+  await expect(page.locator("#commandPaletteBtn")).toBeVisible();
+
+  await page.locator('[data-product-core-action="task"]').click();
   await expect(page.locator("#lifeOsCommand")).toBeVisible();
   await expect(page.locator("#tasksOsCommand")).toBeVisible();
   await expect(page.locator("#routinesOsCommand")).toBeVisible();
-  await expect(page.locator("#inboxOsCommand")).toBeVisible();
-  await expect(page.locator("#commandPaletteBtn")).toBeVisible();
-  await expect(page.locator("#today123Command")).toBeVisible();
-  await expect(page.locator("#todayFlowCommand")).not.toBeVisible();
-  await expect(page.locator("#decisionOsCommand")).toBeVisible();
   await expect(page.locator("#executionOsCommand")).toBeVisible();
   await expect(page.locator("#lifeOsCommand")).toContainText("Не предлагать");
-
-  await page.locator('button[onclick*="taskEditorCard"]').click();
   await expect(page.locator("#taskEditorCard")).toBeVisible();
   await page.locator("#taskTitle").fill("E2E задача");
   await page.locator("#taskDueDate").fill(today);
@@ -319,7 +319,7 @@ for(const width of layoutWidths){
     await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
     await seedLayoutStress(page);
 
-    await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false)});
+    await page.evaluate(()=>{switchTab("today");ux7SetView("today","focus",false);productCore141SetExpanded(true,false)});
     let a=await geometryAudit(page);
     expect(a.bodyOverflow).toBeLessThanOrEqual(1);expect(a.statBad).toBe(0);expect(a.buttonBad).toBe(0);expect(a.wrapBad).toBe(0);expect(a.pad).toBeGreaterThanOrEqual(a.bh+36);
     if(width<=600){expect(a.actionRows.length).toBeGreaterThan(0);for(const row of a.actionRows){expect(row.bodyWidth).toBeGreaterThan(120);expect(row.stacked).toBe(true);expect(row.inside).toBe(true)}}

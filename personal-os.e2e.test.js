@@ -44,7 +44,8 @@ test("Personal OS capture routes are stable and keep one Inbox surface",async({p
 test("Focus and Task planning/timers stay coherent",async({page})=>{
   const errors=await boot(page);await openTodayFocus(page);
   const tomorrow=await page.evaluate(()=>localDateKey(addDays(new Date(),1)));
-  await page.evaluate(()=>{taskCreate({title:"E2E Focus Task",area:"Личное",priority:2,minutes:30});render()});
+  await page.evaluate(()=>{taskCreate({title:"E2E Focus Task",area:"Личное",priority:2,minutes:30});render();productCore141SetExpanded(true,false)});
+  await expect(page.locator('[data-product-core-action="details"]')).toHaveAttribute("aria-expanded","true");
   await page.locator('[data-testid="focus-add"]').click();
   await page.locator("#focusTask").selectOption({label:"E2E Focus Task"});
   await page.locator("#focusDate").fill(tomorrow);
