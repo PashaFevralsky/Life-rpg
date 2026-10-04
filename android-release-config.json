@@ -1,7 +1,7 @@
 {
-  "targetVersion": "14.0.2",
+  "targetVersion": "14.0.3",
   "channel": "rc",
   "stateVersion": 18,
   "androidShareEnabled": false,
-  "notes": "Android 14.0.2 RC: real-device UI hotfix for bottom navigation clearance and consistent top action icon geometry."
+  "notes": "Android 14.0.3 RC: semantic mobile header cleanup with global search and real Quick Add only."
 }

@@ -20,7 +20,7 @@ async function boot(page,width=390,height=844){
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   await expect(page.locator("body")).toHaveClass(/ui139/);
-  await expect(page).toHaveTitle(/Life RPG 14\.0\.2-rc\./);
+  await expect(page).toHaveTitle(/Life RPG 14\.0\.3-rc\./);
   return errors;
 }
 
@@ -200,5 +200,40 @@ test("Android RC top action buttons share one visual geometry",async({page})=>{
       expect(a.iconHeight,"SVG/icon height").toBeLessThanOrEqual(21);
     }
   }
+  expect(errors).toEqual([]);
+});
+
+
+test("Android RC mobile header exposes search and Quick Add only",async({page})=>{
+  const errors=await boot(page,390,844);
+  const actions=await page.locator(".top-actions>.iconbtn").evaluateAll(nodes=>nodes
+    .filter(el=>{
+      const s=getComputedStyle(el),r=el.getBoundingClientRect();
+      return !el.hidden&&s.display!=="none"&&s.visibility!=="hidden"&&r.width>0&&r.height>0;
+    })
+    .map(el=>{
+      const r=el.getBoundingClientRect(),icon=el.querySelector("svg,i"),ir=icon?.getBoundingClientRect();
+      return {
+        id:el.id,
+        width:r.width,height:r.height,
+        iconWidth:ir?.width||0,iconHeight:ir?.height||0
+      };
+    }));
+
+  expect(actions.map(x=>x.id),"mobile Today header actions").toEqual(["ux128SearchBtn","ux7HeaderQuickAddBtn"]);
+
+  for(const a of actions){
+    expect(a.width,"header action width").toBeGreaterThanOrEqual(47);
+    expect(a.width,"header action width").toBeLessThanOrEqual(49);
+    expect(a.height,"header action height").toBeGreaterThanOrEqual(47);
+    expect(a.height,"header action height").toBeLessThanOrEqual(49);
+    expect(a.iconWidth,"header icon width").toBeGreaterThanOrEqual(19);
+    expect(a.iconWidth,"header icon width").toBeLessThanOrEqual(21);
+    expect(a.iconHeight,"header icon height").toBeGreaterThanOrEqual(19);
+    expect(a.iconHeight,"header icon height").toBeLessThanOrEqual(21);
+  }
+
+  await page.locator("#ux7HeaderQuickAddBtn").click();
+  await expect(page.locator("#ux7QuickSheet")).toHaveClass(/open/);
   expect(errors).toEqual([]);
 });

@@ -249,3 +249,65 @@
     flex:none!important;
   }
 }
+
+
+/* Life RPG 14.0.3 — semantic mobile header cleanup
+   Keep exactly two primary Today-header actions on Android:
+   global search + real Quick Add. */
+@media(max-width:850px){
+  .ui82.ui139 .top{
+    gap:12px;
+  }
+  .ui82.ui139 .profile-mini{
+    min-width:0;
+    flex:1 1 auto;
+  }
+  .ui82.ui139 .profile-mini>div:last-child{
+    min-width:0;
+  }
+  .ui82.ui139 .top .profile-mini .sub{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .ui82.ui139 .top-actions{
+    display:flex!important;
+    align-items:center;
+    gap:10px!important;
+    flex:0 0 auto;
+  }
+
+  /* Hide duplicate/irrelevant mobile-header actions by identity. */
+  .ui82.ui139 .top-actions>#commandPaletteBtn,
+  .ui82.ui139 .top-actions>#installBtn,
+  .ui82.ui139 .top-actions>button[onclick*="exportBackup"]{
+    display:none!important;
+  }
+
+  /* Keep only global search + Quick Add in a deterministic order. */
+  .ui82.ui139 .top-actions>#ux128SearchBtn,
+  .ui82.ui139 .top-actions>#ux7HeaderQuickAddBtn{
+    display:grid!important;
+    width:48px!important;
+    min-width:48px!important;
+    max-width:48px!important;
+    height:48px!important;
+    min-height:48px!important;
+    max-height:48px!important;
+    padding:0!important;
+    place-items:center!important;
+  }
+  .ui82.ui139 .top-actions>#ux128SearchBtn{order:1}
+  .ui82.ui139 .top-actions>#ux7HeaderQuickAddBtn{order:2}
+
+  .ui82.ui139 .top-actions>:is(#ux128SearchBtn,#ux7HeaderQuickAddBtn) :is(svg,i){
+    width:20px!important;
+    min-width:20px!important;
+    max-width:20px!important;
+    height:20px!important;
+    min-height:20px!important;
+    max-height:20px!important;
+    margin:0!important;
+    flex:none!important;
+  }
+}

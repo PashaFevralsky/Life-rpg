@@ -16,7 +16,7 @@ for(const f of [
 ]) assert.ok(fs.existsSync(f),`${f} missing`);
 
 const cfg=JSON.parse(read("android-release-config.json"));
-assert.equal(cfg.targetVersion,"14.0.2");
+assert.equal(cfg.targetVersion,"14.0.3");
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 assert.equal(cfg.androidShareEnabled,false);

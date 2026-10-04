@@ -16,9 +16,11 @@ for(const token of [
 
 assert.ok(e2e.includes("navTop-24"));
 assert.ok(e2e.includes("top action buttons share one visual geometry"));
-assert.ok(e2e.includes("14\\.0\\.2-rc"));
 assert.ok(audit.includes("Android targetVersion must be >= 14.0.1"));
-assert.equal(cfg.targetVersion,"14.0.2");
+{
+  const v=String(cfg.targetVersion||"").split(".").map(Number);
+  assert.ok(v.length===3&&v.every(Number.isInteger)&&(v[0]>14||(v[0]===14&&(v[1]>0||(v[1]===0&&v[2]>=2)))),"Android targetVersion must be >= 14.0.2");
+}
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 
