@@ -9,8 +9,16 @@ const MODAL_FOCUSABLE_SELECTOR='button:not([disabled]),[href],input:not([disable
 
 function modalTop(){return [...document.querySelectorAll(".modal.open")].at(-1)||null}
 function modalFocusables(m){return m?[...m.querySelectorAll(MODAL_FOCUSABLE_SELECTOR)].filter(el=>!el.hidden&&el.getAttribute("aria-hidden")!=="true"&&(!el.getClientRects||el.getClientRects().length>0)):[]}
+function prepareModalAccessibility(m){
+  if(!m)return null;
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-hidden",m.classList.contains("open")?"false":"true");
+  const title=m.querySelector(".modal-head .title,.modal-head .section-title");
+  if(title){if(!title.id&&m.id)title.id=`${m.id}Title`;if(title.id)m.setAttribute("aria-labelledby",title.id)}
+  m.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});
+  return m
+}
 function syncModalDocumentState(){const open=!!modalTop();document.documentElement?.classList.toggle("modal-open",open);document.body?.classList.toggle("modal-open",open)}
-function openModal(id){const m=$(id);if(!m)return;lastModalFocus=document.activeElement;m.classList.add("open");m.setAttribute("aria-hidden","false");syncModalDocumentState();setTimeout(()=>modalFocusables(m)[0]?.focus(),0)}
+function openModal(id){const m=prepareModalAccessibility($(id));if(!m)return;lastModalFocus=document.activeElement;m.classList.add("open");m.setAttribute("aria-hidden","false");syncModalDocumentState();setTimeout(()=>modalFocusables(m)[0]?.focus(),0)}
 function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open");m.setAttribute("aria-hidden","true");syncModalDocumentState();const top=modalTop();if(top){modalFocusables(top)[0]?.focus();return}lastModalFocus?.focus?.()}
 function handleModalKeydown(e){const m=modalTop();if(!m)return;if(e.key==="Escape"){e.preventDefault();closeModal(m.id);return}if(e.key!=="Tab")return;const a=modalFocusables(m);if(!a.length){e.preventDefault();return}const first=a[0],last=a[a.length-1],active=document.activeElement;if(e.shiftKey&&(active===first||!m.contains(active))){e.preventDefault();last.focus()}else if(!e.shiftKey&&(active===last||!m.contains(active))){e.preventDefault();first.focus()}}
 
@@ -122,13 +130,14 @@ function ui139InstallMoreHub(){
   </div>
   <div class="ui139-hub-group"><div class="ui139-hub-label">Система</div>
     <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#import127Command"><span><b>Импорт и Share</b><small>Файлы, скриншоты и внешние данные</small></span><i>›</i></button>
+    <button type="button" class="ui139-hub-row" data-ui139-action="recent"><span><b>Недавние действия</b><small>Последние изменения и быстрый возврат к ним</small></span><i>›</i></button>
     <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#recovery133Center"><span><b>Backup и Recovery</b><small>Резервные копии и восстановление</small></span><i>›</i></button>
     <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#systemDiagnostics"><span><b>Диагностика</b><small>Целостность данных и состояние системы</small></span><i>›</i></button>
   </div>
   <div class="ui139-hub-group"><div class="ui139-hub-label">Настройки</div>
     <button type="button" class="ui139-hub-row" data-ui139-view="settings" data-ui139-target="#profileName"><span><b>Профиль и параметры</b><small>Финансы, работа, теннис и чтение</small></span><i>›</i></button>
   </div>`;
-  card.querySelectorAll(".ui139-hub-row").forEach(b=>b.addEventListener("click",()=>ui139MoreNavigate(b.dataset.ui139View,b.dataset.ui139Target||"")))
+  card.querySelectorAll(".ui139-hub-row").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.ui139Action==="recent"&&typeof ux128OpenRecent==="function")return ux128OpenRecent();ui139MoreNavigate(b.dataset.ui139View,b.dataset.ui139Target||"")}))
 }
 
 let UI139_SCROLL_BOUND=false;
@@ -137,13 +146,26 @@ function ui139InstallScrollChrome(){if(UI139_SCROLL_BOUND)return;UI139_SCROLL_BO
 
 function ux7ViewsForCard(sectionId,card,index){if(card?.dataset?.ux7View)return card.dataset.ux7View;const t=ux7CardText(card);if(sectionId==="today"){if(/быстрые действия|daily engine|план дня|главные цели месяца|что сделать сегодня/.test(t))return "focus";return "progress"}if(sectionId==="finance"){if(/финансовый центр|обновить данные из банка|счета и реальные остатки|правила авторазбора|пакеты импорта|импорт банковской выписки/.test(t))return "bank";if(/кампания против долгов|состояние финансов|что делать сейчас|реальный денежный баланс|как распределить деньги сейчас|money engine|можно потратить/.test(t))return "overview";if(/денежный поток|расходы месяца|регулярные обязательные платежи|добавить регулярный платеж|единый журнал операций|transaction engine/.test(t))return "operations";if(/долги-боссы|следующее действие|история платежей|debt engine|сценарии погашения|долг → ноль|проценты|avalanche vs snowball/.test(t))return "debts";if(/прогноз|calendar center|финансовый календарь|динамический бюджет|конверты расходов|cash-flow по дням|ключевые даты|отдельный резерв|лаборатория «что если|smart budget|рекомендованный бюджет|financial health|decision engine/.test(t))return "analysis";return "more"}if(sectionId==="work"){if(/work crm|карточка сделки|сделки и следующие шаги/.test(t))return "crm";if(/добавить рабочий день|последние записи/.test(t))return "log";return "overview"}if(sectionId==="tennis"){if(/добавить сессию|история тренировок/.test(t))return "training";if(/tennis analytics|соперники/.test(t))return "analytics";return "overview"}if(sectionId==="more"){if(/библиотека|навыки \/ skill tree|чтение и знания|база знаний/.test(t))return "knowledge";if(/магазин наград|xp: процесс|история сезонов|все достижения/.test(t))return "rewards";if(/уведомления|график ожидаемых доходов|локальные снимки|профиль и настройки|облако и android|данные, версия|опасная зона|журнал изменений/.test(t))return "settings";return "overview"}return "overview"}
 
+function ux7BindTabKeyboard(sectionId,head){
+  const rail=head?.querySelector(".ux7-tabs");if(!rail||rail.dataset.keyboardBound==="1")return;rail.dataset.keyboardBound="1";
+  rail.addEventListener("keydown",e=>{
+    if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End"].includes(e.key))return;
+    const tabs=[...rail.querySelectorAll(".ux7-tab")],current=tabs.indexOf(document.activeElement);if(current<0||!tabs.length)return;
+    let next=current;if(e.key==="Home")next=0;else if(e.key==="End")next=tabs.length-1;else if(e.key==="ArrowLeft"||e.key==="ArrowUp")next=(current-1+tabs.length)%tabs.length;else next=(current+1)%tabs.length;
+    e.preventDefault();const target=tabs[next];ux7SetView(sectionId,target.dataset.view,false);target.focus()
+  })
+}
 function ux7BuildSectionHeader(sectionId){
   const section=$(sectionId),meta=UX7_META[sectionId];if(!section||!meta||section.querySelector(":scope > .ux7-section-head"))return;
   const clarity=UX7_CLARITY_SECTIONS.includes(sectionId)?`<button type="button" class="ux7-clarity-toggle" data-section="${sectionId}" aria-expanded="false">Детали</button>`:"";
-  const head=document.createElement("div");head.className="ux7-section-head";head.innerHTML=`<div class="ux7-head-copy"><h1>${meta.title}</h1><div class="ux7-head-actions"><div class="ux7-head-desc" id="ux7-desc-${sectionId}"></div>${clarity}</div></div><div class="ux7-tabs" role="tablist" aria-label="${meta.title}">${meta.tabs.map(([id,label])=>`<button type="button" class="ux7-tab" data-section="${sectionId}" data-view="${id}" role="tab">${label}</button>`).join("")}</div>`;
+  const head=document.createElement("div");head.className="ux7-section-head";head.innerHTML=`<div class="ux7-head-copy"><h1>${meta.title}</h1><div class="ux7-head-actions"><div class="ux7-head-desc" id="ux7-desc-${sectionId}"></div>${clarity}</div></div><div class="ux7-tabs" role="tablist" aria-label="${meta.title}">${meta.tabs.map(([id,label])=>`<button type="button" class="ux7-tab" id="ux7-tab-${sectionId}-${id}" data-section="${sectionId}" data-view="${id}" role="tab" aria-selected="false" tabindex="-1">${label}</button>`).join("")}</div>`;
   section.insertBefore(head,section.firstChild);
+  const panels=[...section.children].filter(el=>el!==head&&(el.classList.contains("hero")||el.classList.contains("grid")));
+  panels.forEach((panel,i)=>{if(!panel.id)panel.id=`ux7-panel-${sectionId}-${i+1}`;panel.setAttribute("role","tabpanel")});
+  const controls=panels.map(x=>x.id).join(" ");
   head.querySelector(`#ux7-desc-${sectionId}`).textContent=meta.desc();
-  head.querySelectorAll(".ux7-tab").forEach(b=>b.addEventListener("click",()=>ux7SetView(sectionId,b.dataset.view,true)));
+  head.querySelectorAll(".ux7-tab").forEach(b=>{if(controls)b.setAttribute("aria-controls",controls);b.addEventListener("click",()=>ux7SetView(sectionId,b.dataset.view,true))});
+  ux7BindTabKeyboard(sectionId,head);
   head.querySelector(".ux7-clarity-toggle")?.addEventListener("click",()=>ux7ToggleClarity(sectionId));
 }
 
@@ -185,7 +207,8 @@ function ux7SetView(sectionId,view,scrollTop=false){
   const section=$(sectionId);if(!section)return;
   if(sectionId==="more"&&view==="overview"){const hub=section.querySelector(".ui139-more-hub");if(hub)hub.hidden=false}
   const valid=(UX7_META[sectionId]?.tabs||[]).map(x=>x[0]);if(valid.length&&!valid.includes(view))view=UX7_DEFAULTS[sectionId]||valid[0];const previous=UX7_PREFS[sectionId];ux7NotifyNavigation({type:"view:before",section:sectionId,view,previous});UX7_PREFS[sectionId]=view;if(previous!==view)ux7SavePrefs();
-  section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  section.querySelectorAll(".ux7-tab").forEach(b=>{const on=b.dataset.view===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");b.tabIndex=on?0:-1});
+  const activeTab=section.querySelector(`.ux7-tab[data-view="${view}"]`);for(const id of String(activeTab?.getAttribute("aria-controls")||"").split(/\s+/).filter(Boolean)){const panel=$(id);if(panel&&activeTab?.id)panel.setAttribute("aria-labelledby",activeTab.id)}
   section.querySelectorAll(".ux7-card").forEach(card=>{const views=(card.dataset.ux7View||"").split(/\s+/);card.classList.toggle("ux7-hidden",!views.includes(view));card.classList.add("ux7-view-ready")});
   ux7ApplyClarity(sectionId,view);ux7UpdateSectionShortcuts(sectionId,view);
   if(scrollTop){const y=Math.max(0,section.getBoundingClientRect().top+window.scrollY-74);window.scrollTo({top:y,behavior:"smooth"})}
@@ -236,7 +259,7 @@ function renderUx7TodayPulse(){
 
 function ui82Icon(name){const names={expense:"minus",income:"plus",payment:"credit-card",bank:"landmark",work:"briefcase",tennis:"trophy",reading:"book-open",spend:"search"},icon=names[name]||"activity";return `<b class="ui82-action-icon"><i data-lucide="${icon}"></i></b>`}
 
-function ux7CreateQuickSheet(){if($("ux7QuickSheet"))return;const m=document.createElement("div");m.className="modal ux7-sheet";m.id="ux7QuickSheet";m.innerHTML=`<div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Быстрое действие</div><div class="title">Что добавить?</div></div><button class="close" onclick="closeModal('ux7QuickSheet')">×</button></div><div class="ux7-action-grid"><button onclick="closeModal('ux7QuickSheet');openModal('expenseModal')">${ui82Icon("expense")}<span>Расход</span></button><button onclick="closeModal('ux7QuickSheet');openIncomeModal()">${ui82Icon("income")}<span>Доход</span></button><button onclick="closeModal('ux7QuickSheet');openModal('paymentModal')">${ui82Icon("payment")}<span>Платёж долга</span></button><button onclick="closeModal('ux7QuickSheet');ux7OpenInbox(true)">${ui82Icon("bank")}<span>Скрин банка</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('work','log');setTimeout(()=>document.getElementById('workContacts')?.focus(),250)">${ui82Icon("work")}<span>Рабочий день</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('tennis','training');setTimeout(()=>document.getElementById('ttMinutes')?.focus(),250)">${ui82Icon("tennis")}<span>Тренировка</span></button><button onclick="closeModal('ux7QuickSheet');openModal('readingModal')">${ui82Icon("reading")}<span>Чтение</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('finance','overview');setTimeout(()=>document.getElementById('decisionSpendAmount')?.focus(),250)">${ui82Icon("spend")}<span>Можно потратить?</span></button></div></div>`;document.body.appendChild(m);window.LifePlatform?.refreshIcons?.(m);m.addEventListener("click",e=>{if(e.target===m)closeModal("ux7QuickSheet")});
+function ux7CreateQuickSheet(){if($("ux7QuickSheet"))return;const m=document.createElement("div");m.className="modal ux7-sheet";m.id="ux7QuickSheet";m.innerHTML=`<div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Быстрое действие</div><div class="title">Что добавить?</div></div><button class="close" onclick="closeModal('ux7QuickSheet')">×</button></div><div class="ux7-action-grid"><button onclick="closeModal('ux7QuickSheet');openModal('expenseModal')">${ui82Icon("expense")}<span>Расход</span></button><button onclick="closeModal('ux7QuickSheet');openIncomeModal()">${ui82Icon("income")}<span>Доход</span></button><button onclick="closeModal('ux7QuickSheet');openModal('paymentModal')">${ui82Icon("payment")}<span>Платёж долга</span></button><button onclick="closeModal('ux7QuickSheet');ux7OpenInbox(true)">${ui82Icon("bank")}<span>Скрин банка</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('work','log');setTimeout(()=>document.getElementById('workContacts')?.focus(),250)">${ui82Icon("work")}<span>Рабочий день</span></button><button onclick="closeModal('ux7QuickSheet');ux7Go('tennis','training');setTimeout(()=>document.getElementById('ttMinutes')?.focus(),250)">${ui82Icon("tennis")}<span>Тренировка</span></button><button onclick="closeModal('ux7QuickSheet');openModal('readingModal')">${ui82Icon("reading")}<span>Чтение</span></button></div></div>`;document.body.appendChild(m);window.LifePlatform?.refreshIcons?.(m);m.addEventListener("click",e=>{if(e.target===m)closeModal("ux7QuickSheet")});
   const fab=document.createElement("button");fab.id="ux7Fab";fab.className="ux7-fab";fab.type="button";fab.setAttribute("aria-label","Добавить");fab.textContent="＋";fab.onclick=()=>openModal("ux7QuickSheet");document.body.appendChild(fab)
   const headerAdd=document.createElement("button");headerAdd.id="ux7HeaderQuickAddBtn";headerAdd.className="iconbtn ux7-header-quick-add";headerAdd.type="button";headerAdd.setAttribute("aria-label","Быстрое добавление");headerAdd.innerHTML='<i data-lucide="plus"></i>';headerAdd.onclick=()=>openModal("ux7QuickSheet");document.querySelector(".top-actions")?.appendChild(headerAdd);window.LifePlatform?.refreshIcons?.(headerAdd)
 }
@@ -290,7 +313,7 @@ function ux7RefreshHeaders(){for(const [id,meta] of Object.entries(UX7_META)){co
 
 function ux7UpdateActiveNavLabel(sectionId){const labels={today:"Сегодня",finance:"Деньги",work:"Работа",tennis:"Теннис",more:"Ещё"};document.querySelectorAll('.navbtn').forEach(b=>{if(b.dataset.tab===sectionId){const strong=b.querySelector('b');const icon=strong?.outerHTML||'';b.innerHTML=icon+labels[sectionId]}})}
 
-function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(m=>{m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-hidden",m.classList.contains("open")?"false":"true")});document.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});document.querySelectorAll(".iconbtn").forEach((b,i)=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label",b.title||b.textContent.trim()||`Действие ${i+1}`)})}
+function ux7EnhanceAccessibility(){document.querySelectorAll(".modal").forEach(prepareModalAccessibility);document.querySelectorAll("button.close").forEach(b=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label","Закрыть")});document.querySelectorAll(".iconbtn").forEach((b,i)=>{if(!b.getAttribute("aria-label"))b.setAttribute("aria-label",b.title||b.textContent.trim()||`Действие ${i+1}`)})}
 
 function ux7InstallShell(){
   document.body.classList.add("ux7","ui82");document.body.classList.add("ui139");ux7LoadPrefs();ux7LoadClarity();

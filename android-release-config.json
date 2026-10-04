@@ -1,7 +1,7 @@
 {
-  "targetVersion": "14.0.3",
+  "targetVersion": "14.0.4",
   "channel": "rc",
   "stateVersion": 18,
   "androidShareEnabled": false,
-  "notes": "Android 14.0.3 RC: semantic mobile header cleanup with global search and real Quick Add only."
+  "notes": "Android 14.0.4 RC: audited UI accessibility, keyboard tabs, stronger bottom-nav contrast and focused Quick Add."
 }

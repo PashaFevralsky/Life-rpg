@@ -8,7 +8,7 @@ async function boot(page){
   return errors
 }
 
-test("12.8 shell exposes global search, expanded quick actions and Recent",async({page})=>{
+test("12.8 shell exposes global search, focused Quick Add and Recent",async({page})=>{
   const errors=await boot(page);
   await page.evaluate(()=>{taskCreate({title:"E2E UX Search Task",area:"Система",priority:2,minutes:15});audit("E2E recent","system","UX 12.8");render()});
 
@@ -19,10 +19,13 @@ test("12.8 shell exposes global search, expanded quick actions and Recent",async
   await page.evaluate(()=>closeModal("ux128SearchSheet"));
 
   await page.evaluate(()=>openModal("ux7QuickSheet"));
-  for(const action of ["task","inbox","recent","search","import"])await expect(page.locator(`[data-ux128-action="${action}"]`)).toBeVisible();
+  await expect(page.locator('#ux7QuickSheet [data-ux128-action="task"]')).toBeVisible();
+  expect(await page.locator("#ux7QuickSheet .ux7-action-grid>button").count()).toBe(8);
+  for(const action of ["inbox","recent","search","import"])await expect(page.locator(`#ux7QuickSheet [data-ux128-action="${action}"]`)).toHaveCount(0);
   await page.evaluate(()=>closeModal("ux7QuickSheet"));
 
-  await page.evaluate(()=>ux128OpenRecent());
+  await page.evaluate(()=>ux7Go("more","overview"));
+  await page.locator('[data-ui139-action="recent"]').click();
   await expect(page.locator("#ux128RecentSheet")).toHaveClass(/open/);
   await expect(page.locator("#ux128RecentList")).toContainText("E2E recent");
   expect(errors).toEqual([])

@@ -20,7 +20,7 @@ async function boot(page,width=390,height=844){
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   await expect(page.locator("body")).toHaveClass(/ui139/);
-  await expect(page).toHaveTitle(/Life RPG 14\.0\.3-rc\./);
+  await expect(page).toHaveTitle(/Life RPG 14\.0\.4-rc\./);
   return errors;
 }
 
@@ -235,5 +235,60 @@ test("Android RC mobile header exposes search and Quick Add only",async({page})=
 
   await page.locator("#ux7HeaderQuickAddBtn").click();
   await expect(page.locator("#ux7QuickSheet")).toHaveClass(/open/);
+  expect(errors).toEqual([]);
+});
+
+test("Android RC dynamic sheets expose dialog semantics",async({page})=>{
+  const errors=await boot(page,390,844);
+  await page.locator("#ux128SearchBtn").click();
+  const search=page.locator("#ux128SearchSheet");
+  await expect(search).toHaveAttribute("role","dialog");
+  await expect(search).toHaveAttribute("aria-modal","true");
+  await expect(search).toHaveAttribute("aria-hidden","false");
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveAttribute("aria-hidden","true");
+
+  await page.evaluate(()=>ux7Go("more","overview"));
+  await page.locator('[data-ui139-action="recent"]').click();
+  const recent=page.locator("#ux128RecentSheet");
+  await expect(recent).toHaveAttribute("role","dialog");
+  await expect(recent).toHaveAttribute("aria-modal","true");
+  await expect(recent).toHaveAttribute("aria-hidden","false");
+  expect(errors).toEqual([]);
+});
+
+test("Android RC internal tabs use roving keyboard navigation",async({page})=>{
+  const errors=await boot(page,390,844);
+  await page.evaluate(()=>ux7Go("finance","overview"));
+  const overview=page.locator('#finance .ux7-tab[data-view="overview"]');
+  const operations=page.locator('#finance .ux7-tab[data-view="operations"]');
+  await expect(overview).toHaveAttribute("aria-selected","true");
+  await expect(overview).toHaveAttribute("tabindex","0");
+  const controls=(await overview.getAttribute("aria-controls")||"").trim().split(/\s+/).filter(Boolean);
+  expect(controls.length).toBeGreaterThan(0);
+  for(const id of controls){
+    await expect(page.locator("#"+id)).toHaveAttribute("role","tabpanel");
+    await expect(page.locator("#"+id)).toHaveAttribute("aria-labelledby",await overview.getAttribute("id"));
+  }
+  await overview.focus();
+  await overview.press("ArrowRight");
+  await expect(operations).toHaveAttribute("aria-selected","true");
+  await expect(operations).toHaveAttribute("tabindex","0");
+  await expect(overview).toHaveAttribute("tabindex","-1");
+  expect(await page.evaluate(()=>document.activeElement?.getAttribute("data-view"))).toBe("operations");
+  for(const id of controls)await expect(page.locator("#"+id)).toHaveAttribute("aria-labelledby",await operations.getAttribute("id"));
+  expect(errors).toEqual([]);
+});
+
+test("Android RC Quick Add contains eight entry actions only",async({page})=>{
+  const errors=await boot(page,390,844);
+  await page.locator("#ux7HeaderQuickAddBtn").click();
+  const buttons=page.locator("#ux7QuickSheet .ux7-action-grid>button");
+  await expect(buttons).toHaveCount(8);
+  await expect(page.locator('#ux7QuickSheet [data-ux128-action="task"]')).toBeVisible();
+  await expect(page.locator('#ux7QuickSheet [data-ux128-action="recent"]')).toHaveCount(0);
+  await expect(page.locator('#ux7QuickSheet [data-ux128-action="search"]')).toHaveCount(0);
+  await expect(page.locator('#ux7QuickSheet [data-ux128-action="import"]')).toHaveCount(0);
+  await expect(page.locator("#ux7QuickSheet")).not.toContainText("Можно потратить?");
   expect(errors).toEqual([]);
 });

@@ -23,9 +23,11 @@ for(const token of [
 
 assert.ok(e2e.includes('mobile header exposes search and Quick Add only'));
 assert.ok(e2e.includes('["ux128SearchBtn","ux7HeaderQuickAddBtn"]'));
-assert.ok(e2e.includes("14\\.0\\.3-rc"));
 assert.ok(prev.includes("Android targetVersion must be >= 14.0.2"));
-assert.equal(cfg.targetVersion,"14.0.3");
+{
+  const v=String(cfg.targetVersion||"").split(".").map(Number);
+  assert.ok(v.length===3&&v.every(Number.isInteger)&&(v[0]>14||(v[0]===14&&(v[1]>0||(v[1]===0&&v[2]>=3)))),"Android targetVersion must be >= 14.0.3");
+}
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 

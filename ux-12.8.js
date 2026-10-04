@@ -99,13 +99,7 @@ function ux128QuickButton(action,label,icon,fn){
 }
 function ux128PatchQuickSheet(){
   const grid=document.querySelector("#ux7QuickSheet .ux7-action-grid");if(!grid||grid.querySelector("[data-ux128-action]"))return;
-  grid.append(
-    ux128QuickButton("task","Задача","work",ux128OpenTask),
-    ux128QuickButton("inbox","В Inbox","plus",ux128OpenCapture),
-    ux128QuickButton("recent","Недавнее","activity",ux128OpenRecent),
-    ux128QuickButton("search","Поиск","spend",ux128OpenSearch),
-    ux128QuickButton("import","Импорт","bank",ux128OpenImport)
-  );window.LifePlatform?.refreshIcons?.(grid)
+  grid.append(ux128QuickButton("task","Задача","work",ux128OpenTask));window.LifePlatform?.refreshIcons?.(grid)
 }
 
 function ux128FinanceModelNotes(){

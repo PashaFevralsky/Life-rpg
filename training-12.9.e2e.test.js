@@ -14,12 +14,12 @@ test("Training OS 12.9 records outdoor fact and combines it with tennis",async({
   expect(await page.evaluate(()=>training129Range(7).load)).toBeGreaterThanOrEqual(140);
   expect(errors).toEqual([])
 });
-test("Training OS 12.9 plans only after confirmation and is reachable from Life/quick shell",async({page})=>{
+test("Training OS 12.9 plans only after confirmation and is reachable from Life OS and More",async({page})=>{
   const errors=await boot(page);page.on("dialog",d=>d.accept());await page.evaluate(()=>{switchTab("more");ux7SetView("more","overview",false)});
   await page.locator('button[onclick="training129PlanWeek()"]').click();
   await expect.poll(()=>page.evaluate(()=>calendarManualEvents().filter(x=>String(x.note||"").includes("Training OS 12.9")).length)).toBeGreaterThan(0);
   expect(await page.evaluate(()=>training129SuggestedWeek().length)).toBeGreaterThan(0);
-  await page.evaluate(()=>openModal("ux7QuickSheet"));await expect(page.locator('[data-training129-action="1"]')).toBeVisible();await page.evaluate(()=>closeModal("ux7QuickSheet"));
+  await expect(page.locator("#training129Editor")).toBeVisible();await page.evaluate(()=>training129OpenRoute());await expect(page.locator("#training129Command")).toBeVisible();
   const candidate=await page.evaluate(()=>lifeOsCandidates().find(x=>x.route==="training129")?.title||"");
   expect(typeof candidate).toBe("string");
   expect(errors).toEqual([])

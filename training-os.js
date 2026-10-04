@@ -153,9 +153,7 @@ function training129PatchImportHub(){
   const route=document.getElementById("import127Route");if(!route)return;let b=document.getElementById("training129HubHuawei");if(!b){b=document.createElement("button");b.id="training129HubHuawei";b.className="btn secondary";b.type="button";b.textContent="Huawei / тренировка";b.onclick=training129ImportHubHuawei;route.after(b)}
   const image=typeof IMPORT127_PREVIEW!=="undefined"&&IMPORT127_PREVIEW?.kind==="image-route";b.hidden=!image
 }
-function training129PatchQuick(){
-  const grid=document.querySelector("#ux7QuickSheet .ux7-action-grid");if(!grid||grid.querySelector('[data-training129-action="1"]'))return;const b=document.createElement("button");b.type="button";b.dataset.training129Action="1";b.innerHTML=`${typeof ui82Icon==="function"?ui82Icon("activity"):""}<span>ОФП / кардио</span>`;b.onclick=()=>{closeModal("ux7QuickSheet");ux7Go("more","overview");setTimeout(()=>document.getElementById("training129Editor")?.scrollIntoView({behavior:"smooth",block:"start"}),120)};grid.appendChild(b);window.LifePlatform?.refreshIcons?.(grid)
-}
+function training129PatchQuick(){}
 let TRAINING129_INTEGRATED=false;
 function training129LifeCandidateProvider(){const d=training129Decision();if(!d||d.score<42||d.minutes<=0)return[];return [{id:`training129:${d.kind}`,area:"Тело",kind:`training-${d.kind}`,title:d.title,meta:`${d.reason} • ${d.detail}`,score:d.score,hard:false,route:"training129",source:"Training OS 12.9",confidence:training129Quality().sessions>=6?"medium":"low",evidence:[`${training129Range(7).tennis} tennis`,`${training129Range(7).outdoor} outdoor`],minutes:d.minutes}]}
 function training129OpenRoute(){ux7Go("more","overview");setTimeout(()=>document.getElementById("training129Command")?.scrollIntoView({behavior:"smooth",block:"start"}),120);return true}
