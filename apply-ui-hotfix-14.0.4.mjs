@@ -139,10 +139,10 @@ function ux7BuildSectionHeader(sectionId){
 // training-os.js — keep outdoor/conditioning entry in its own Training OS surface, not Quick Add.
 {
   const p="training-os.js";let s=read(p);
-  const old=`function training129PatchQuick(){
-  const grid=document.querySelector("#ux7QuickSheet .ux7-action-grid");if(!grid||grid.querySelector('[data-training129-action="1"]'))return;const b=document.createElement("button");b.type="button";b.dataset.training129Action="1";b.innerHTML=\`${typeof ui82Icon==="function"?ui82Icon("activity"):""}<span>ОФП / кардио</span>\`;b.onclick=()=>{closeModal("ux7QuickSheet");ux7Go("more","overview");setTimeout(()=>document.getElementById("training129Editor")?.scrollIntoView({behavior:"smooth",block:"start"}),120)};grid.appendChild(b);window.LifePlatform?.refreshIcons?.(grid)
-}`;
-  s=replaceOnce(s,old,"function training129PatchQuick(){}","training-os.js compact Quick Add");
+  const start='function training129PatchQuick(){',end='\nlet TRAINING129_INTEGRATED=false;';
+  const i=s.indexOf(start),j=i<0?-1:s.indexOf(end,i);
+  if(i<0||j<0)throw new Error("training-os.js compact Quick Add: function boundary not found");
+  s=s.slice(0,i)+"function training129PatchQuick(){}"+s.slice(j);
   write(p,s);changed.push(p);
 }
 
@@ -159,8 +159,10 @@ function ux7BuildSectionHeader(sectionId){
 // share-hub.js — Share stays in More / Settings and Android share flows, not Quick Add.
 {
   const p="share-hub.js";let s=read(p);
-  const old=`function share131PatchQuickSheet(){const grid=document.querySelector("#ux7QuickSheet .ux7-action-grid");if(!grid||grid.querySelector('[data-share131-action="1"]'))return;const b=document.createElement("button");b.type="button";b.dataset.share131Action="1";b.innerHTML=\`${typeof ui82Icon==="function"?ui82Icon("plus"):""}<span>Share Inbox</span>\`;b.addEventListener("click",()=>{closeModal("ux7QuickSheet");ux7Go("more","settings");setTimeout(()=>document.getElementById("share131Command")?.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),120)});grid.appendChild(b);window.LifePlatform?.refreshIcons?.(grid)}`;
-  s=replaceOnce(s,old,"function share131PatchQuickSheet(){}","share-hub.js compact Quick Add");
+  const start='function share131PatchQuickSheet(){',end='\nfunction ensureShare131Ui(){';
+  const i=s.indexOf(start),j=i<0?-1:s.indexOf(end,i);
+  if(i<0||j<0)throw new Error("share-hub.js compact Quick Add: function boundary not found");
+  s=s.slice(0,i)+"function share131PatchQuickSheet(){}"+s.slice(j);
   write(p,s);changed.push(p);
 }
 
