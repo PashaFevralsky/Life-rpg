@@ -4,7 +4,20 @@
 
 async function enableNotifications(){if(!("Notification" in window)){toast("Уведомления не поддерживаются");return}const p=await Notification.requestPermission();$("notificationStatus").textContent=`Разрешение: ${p}`;if(p==="granted"){toast("Уведомления включены");runReminderCheck(true)}}
 
-async function notifyOnce(tag,title,body,force=false){if(!("Notification" in window)||Notification.permission!=="granted")return;const key=`notif:${tag}`,day=localDateKey();if(!force&&localStorage.getItem(key)===day)return;localStorage.setItem(key,day);if(navigator.serviceWorker?.controller)(pwaRegistration||await navigator.serviceWorker.ready).showNotification(title,{body,icon:"./icon-192.png",badge:"./icon-192.png",tag});else new Notification(title,{body,icon:"./icon-192.png",tag})}
+const notificationPending=new Set();
+async function notifyOnce(tag,title,body,force=false){
+  if(!("Notification" in window)||Notification.permission!=="granted")return false;
+  const key=`notif:${tag}`,day=localDateKey();
+  if(notificationPending.has(key))return false;
+  try{if(!force&&localStorage.getItem(key)===day)return false}catch{}
+  notificationPending.add(key);
+  try{
+    if(navigator.serviceWorker?.controller)await (pwaRegistration||await navigator.serviceWorker.ready).showNotification(title,{body,icon:"./icon-192.png",badge:"./icon-192.png",tag});
+    else new Notification(title,{body,icon:"./icon-192.png",tag});
+    try{localStorage.setItem(key,day)}catch{}
+    return true;
+  }catch{return false}finally{notificationPending.delete(key)}
+}
 
 function runReminderCheck(force=false){const now=new Date();for(const e of financialEvents().filter(x=>x.type==="payment")){const days=daysBetween(now,e.date);if(e.amount<=0)continue;if(e.overdue)notifyOnce(`overdue-${e.kind}-${e.debtId||e.regularPaymentId||e.label}`,"Проверь обязательный платёж",`${e.label}: не закрыто ${rub(e.amount)}`,force);else if(days>=0&&days<=2)notifyOnce(`due-${e.kind}-${e.debtId||e.regularPaymentId||e.label}-${localDateKey(e.date)}`,"Скоро обязательный платёж",`${e.label}: ${rub(e.amount)}, срок ${fmtDate(e.date)}`,force)}const remain=Math.max(0,S.settings.monthlyDebtGoal-monthPayments()),daysLeft=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate();if(campaignActive(now)&&S.settings.monthlyDebtGoal>0&&remain>0&&daysLeft<=5)notifyOnce(`monthgoal-${localMonthKey()}`,"Финансовый квест месяца",`До цели осталось ${rub(remain)} и ${daysLeft} дн.`,force);for(const d of (S.crmDeals||[]).filter(x=>!["Выиграно","Проиграно"].includes(x.stage)&&x.nextDate)){const days=daysBetween(now,parseLocal(d.nextDate));if(days<0)notifyOnce(`crm-overdue-${d.id}`,"CRM: просрочен следующий шаг",`${d.name}: ${d.nextStep||"следующий шаг не указан"}`,force);else if(days<=1)notifyOnce(`crm-due-${d.id}-${d.nextDate}`,"CRM: следующий шаг",`${d.name}: ${d.nextStep||"проверь сделку"} • ${days===0?"сегодня":"завтра"}`,force)}}
 

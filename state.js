@@ -213,6 +213,18 @@ function validateNestedStateIds(value,path,depth=0){
 }
 function validateStateShape(raw){
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new Error("Состояние должно быть объектом");
+  // Backup loading and reload must reject corrupt amounts rather than silently
+  // turning them into zero. Signed expense amounts are valid for refunds.
+  const moneyFields={accounts:['verifiedBalance'],debts:['balance','initial','rate','min','limit','nextPaymentAmount'],payments:['amount'],expenses:['amount'],incomeLogs:['amount'],bankTransfers:['amount','syncEffect'],cashAdjustments:['delta'],fundTransfers:['amount'],assets:['verifiedValue','value'],assetTransfers:['amount'],reservations:['amount','remaining']};
+  for(const [collection,fields] of Object.entries(moneyFields)){
+    if(!Array.isArray(raw[collection]))continue;
+    for(const row of raw[collection])for(const field of fields){
+      const value=row?.[field];
+      if(value==null)continue;
+      if((typeof value!=="number"&&typeof value!=="string")||String(value).trim()===""||!Number.isFinite(Number(value)))throw new Error(`Некорректное число ${collection}.${field}`);
+      if(Number(value)<0&&collection!=="expenses"&&field!=="syncEffect"&&field!=="delta")throw new Error(`Отрицательная сумма ${collection}.${field}`);
+    }
+  }
   if(Number(raw.version)>STATE_VERSION)throw new Error("Данные созданы более новой версией приложения");
   for(const key of ["profile","settings","stats","checks","questDone","achievements","envelopeLimits","envelopeCarryovers","workTargets","entities"]){if(raw[key]!=null&&(typeof raw[key]!=="object"||Array.isArray(raw[key])))throw new Error(`Некорректное поле ${key}`)}
   validateNestedStateIds(raw.settings?.personalOS,"settings.personalOS");

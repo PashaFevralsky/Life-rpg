@@ -377,6 +377,7 @@ gpt135Apply=async function(){
   const snap=typeof createPreActionSnapshot==="function"?await createPreActionSnapshot(`GPT Exchange 13.6 • ${p.fileName}`):null;
   if(gpt135Store().appliedFingerprints.includes(p.fingerprint)){toast("Этот GPT-ответ уже применялся");return}
   const createdTasks=[],createdEvents=[];
+  await commitStateAtomically(()=>{
   for(const x of tasks){
     const t=taskCreate({
       title:x.title,area:x.area,priority:x.priority,dueDate:x.dueDate,plannedDate:x.plannedDate,notBefore:x.notBefore,
@@ -409,8 +410,8 @@ gpt135Apply=async function(){
     feedback:decisions.length,receiptId:receipt.id,snapshotTs:snap,summary:p.payload.summary
   });
   if(typeof audit==="function")audit("GPT Exchange 13.6 applied","system",`${createdTasks.length} задач • ${createdEvents.length} событий • feedback ${decisions.length}`);
+  });
   GPT135_PREVIEW=null;
-  if(typeof persist==="function")await persist();
   if(typeof render==="function")render();else renderGpt135();
   toast(`GPT 13.6: задач ${createdTasks.length}, событий ${createdEvents.length}, feedback ${decisions.length}`)
 
