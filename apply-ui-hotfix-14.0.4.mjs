@@ -270,7 +270,7 @@ test("Android RC Quick Add contains eight entry actions only",async({page})=>{
   expect(errors).toEqual([]);
 });
 `;
-  s=s.trimEnd()+extra+"\n";
+  s=s.trimEnd()+extra;
   write(p,s);changed.push(p);
 }
 
