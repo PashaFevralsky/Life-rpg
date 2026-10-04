@@ -1,5 +1,5 @@
 name: Apply Life RPG 14.0.3 UI Hotfix
-run-name: Apply 14.0.3 mobile-header UI hotfix and verify
+run-name: Apply 14.0.3 semantic mobile-header UI hotfix and verify
 
 on:
   workflow_dispatch:
@@ -48,8 +48,10 @@ jobs:
       - name: Syntax-check hotfix
         run: |
           node --check apply-ui-hotfix-14.0.3.mjs
+          node --check ui-hotfix-14.0.2.test.js
           node --check ui-hotfix-14.0.3.test.js
           node --check android-ui-14.e2e.test.js
+          node --check ui.js
 
       - name: Run full regression suite
         run: npm test
@@ -86,12 +88,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
+            ui.js \
             android-ui-14.css \
-            android-ui-14.test.js \
             android-ui-14.e2e.test.js \
             android-release-config.json \
             release-readiness-14.0.test.js \
             android-release-gate.test.js \
+            ui-hotfix-14.0.2.test.js \
             package.json \
             ui-hotfix-14.0.3.test.js \
             UI-HOTFIX-14.0.3.md
