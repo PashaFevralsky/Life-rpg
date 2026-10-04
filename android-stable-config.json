@@ -1,7 +1,7 @@
 {
-  "targetVersion": "14.0.0",
+  "targetVersion": "14.0.4",
   "channel": "stable",
   "stateVersion": 18,
   "androidShareEnabled": false,
-  "notes": "Android 14.0.0 Stable accepted from RC15. Native Share Target remains intentionally excluded. State schema remains v18."
+  "notes": "Android 14.0.4 Stable accepted from RC20 after real-device validation. Includes audited UI accessibility, keyboard tabs, stronger bottom-nav contrast and focused Quick Add. State schema remains v18."
 }
