@@ -1,5 +1,5 @@
 name: Build Life RPG Android Stable
-run-name: Life RPG 14.0.0 Android Stable
+run-name: Life RPG 14.0.4 Android Stable
 
 on:
   workflow_dispatch:
@@ -8,46 +8,75 @@ permissions:
   contents: write
 
 concurrency:
-  group: life-rpg-android-stable-14-0-0
+  group: life-rpg-android-stable-14-0-4
   cancel-in-progress: false
 
 jobs:
   build-android-stable:
-    name: Verify, sign and publish Android 14.0.0 Stable
+    name: Verify, sign and publish Android 14.0.4 Stable
     runs-on: ubuntu-latest
     timeout-minutes: 70
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Stable source freeze gate
         shell: bash
         run: |
+          set -euo pipefail
+          ACCEPTED_RC_SHA="3d9f7867aae9852d6b0b66f6835c782c7f96fdff"
+
+          git cat-file -e "${ACCEPTED_RC_SHA}^{commit}"
+          git merge-base --is-ancestor "$ACCEPTED_RC_SHA" HEAD
+
+          CHANGED="$(
+            git diff --name-only "$ACCEPTED_RC_SHA" HEAD -- . \
+              | grep -vE '^(android-stable-config\.json|\.github/workflows/android-stable\.yml)$' \
+              || true
+          )"
+          if [ -n "$CHANGED" ]; then
+            echo "Source changed after accepted RC20 outside Stable release files:"
+            echo "$CHANGED"
+            exit 1
+          fi
+
           node <<'NODE'
           const fs=require("fs");
           const rc=JSON.parse(fs.readFileSync("android-release-config.json","utf8"));
           const stable=JSON.parse(fs.readFileSync("android-stable-config.json","utf8"));
-          if(rc.targetVersion!=="14.0.0"||rc.channel!=="rc"||rc.stateVersion!==18) throw new Error("Accepted RC source config changed");
-          if(stable.targetVersion!=="14.0.0"||stable.channel!=="stable"||stable.stateVersion!==18) throw new Error("Stable config invalid");
-          if(stable.androidShareEnabled!==false) throw new Error("Native Share Target must remain excluded from 14.0.0 Stable");
+
+          if(rc.targetVersion!=="14.0.4"||rc.channel!=="rc"||rc.stateVersion!==18)
+            throw new Error("Accepted RC20 source config changed");
+
+          if(stable.targetVersion!=="14.0.4"||stable.channel!=="stable"||stable.stateVersion!==18)
+            throw new Error("Stable 14.0.4 config invalid");
+
+          if(stable.androidShareEnabled!==false)
+            throw new Error("Native Share Target must remain excluded from 14.0.4 Stable");
+
           const swipe=fs.readFileSync("android-tab-swipe-14.js","utf8");
-          if(!swipe.includes("leaveMs:90")||!swipe.includes("enterMs:190")) throw new Error("Accepted smooth-swipe runtime missing");
+          if(!swipe.includes("leaveMs:90")||!swipe.includes("enterMs:190"))
+            throw new Error("Accepted smooth-swipe runtime missing");
+
           const finance=fs.readFileSync("finance-rebuild-14.js","utf8");
-          if(!finance.includes("FINANCE_REBUILD14_SNAPSHOT_VERSION=2")) throw new Error("Finance snapshot v2 missing");
+          if(!finance.includes("FINANCE_REBUILD14_SNAPSHOT_VERSION=2"))
+            throw new Error("Finance snapshot v2 missing");
           NODE
 
-      - name: Ensure v14.0.0 is not already published
+      - name: Ensure v14.0.4 is not already published
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v14.0.0 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "GitHub Release v14.0.0 already exists. Stable releases are immutable."
+          if gh release view v14.0.4 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "GitHub Release v14.0.4 already exists. Stable releases are immutable."
             exit 1
           fi
-          if git ls-remote --exit-code --tags origin refs/tags/v14.0.0 >/dev/null 2>&1; then
-            echo "Git tag v14.0.0 already exists."
+          if git ls-remote --exit-code --tags origin refs/tags/v14.0.4 >/dev/null 2>&1; then
+            echo "Git tag v14.0.4 already exists."
             exit 1
           fi
 
@@ -137,7 +166,8 @@ jobs:
           cp android-stable-config.json android-release-config.json
           node <<'NODE'
           const c=require("./android-release-config.json");
-          if(c.channel!=="stable"||c.targetVersion!=="14.0.0"||c.stateVersion!==18) throw new Error("Stable config activation failed");
+          if(c.channel!=="stable"||c.targetVersion!=="14.0.4"||c.stateVersion!==18)
+            throw new Error("Stable config activation failed");
           NODE
 
       - name: Make Android UI E2E channel-neutral on runner
@@ -147,9 +177,9 @@ jobs:
           const fs=require("fs");
           const f="android-ui-14.e2e.test.js";
           let s=fs.readFileSync(f,"utf8");
-          const old='await expect(page).toHaveTitle(/Life RPG 14\\.0\\.0-rc\\./);';
-          const next='await expect(page).toHaveTitle(/Life RPG 14\\.0\\.0(?:-rc\\.\\d+)?$/);';
-          if(!s.includes(old)) throw new Error("Expected RC-only title assertion not found");
+          const old='await expect(page).toHaveTitle(/Life RPG 14\\.0\\.4-rc\\./);';
+          const next='await expect(page).toHaveTitle(/Life RPG 14\\.0\\.4(?:-rc\\.\\d+)?$/);';
+          if(!s.includes(old)) throw new Error("Expected 14.0.4 RC-only title assertion not found");
           s=s.replace(old,next);
           fs.writeFileSync(f,s);
           NODE
@@ -166,25 +196,34 @@ jobs:
           node <<'NODE'
           const fs=require("fs");
           const meta=JSON.parse(fs.readFileSync("android-release-meta.json","utf8"));
+
           if(meta.channel!=="stable") throw new Error("Release channel is not stable");
-          if(meta.versionName!=="14.0.0") throw new Error(`Unexpected stable versionName ${meta.versionName}`);
-          if(meta.versionCode!==14000099) throw new Error(`Unexpected stable versionCode ${meta.versionCode}`);
+          if(meta.versionName!=="14.0.4") throw new Error(`Unexpected stable versionName ${meta.versionName}`);
+          if(meta.versionCode!==14000499) throw new Error(`Unexpected stable versionCode ${meta.versionCode}`);
           if(meta.stateVersion!==18) throw new Error("Unexpected state schema");
           if(meta.androidShareEnabled!==false) throw new Error("Native Share must remain disabled");
+
           const html=fs.readFileSync("dist/index.html","utf8");
-          if(!html.includes('window.__LIFE_RPG_RELEASE_CHANNEL__="stable"')) throw new Error("Stable runtime marker missing");
-          if(!html.includes("android-tab-swipe-14.js")||!html.includes("finance-rebuild-14.js")) throw new Error("Stable Android payload incomplete");
-          if(html.includes("android-native-share.js")||html.includes("android-native-share-plugin.js")) throw new Error("Unaccepted Native Share payload present");
+          if(!html.includes('window.__LIFE_RPG_RELEASE_CHANNEL__="stable"'))
+            throw new Error("Stable runtime marker missing");
+          if(!html.includes("android-tab-swipe-14.js")||!html.includes("finance-rebuild-14.js"))
+            throw new Error("Stable Android payload incomplete");
+          if(html.includes("android-native-share.js")||html.includes("android-native-share-plugin.js"))
+            throw new Error("Unaccepted Native Share payload present");
+
           const core=fs.readFileSync("dist/core.js","utf8");
-          if(!core.includes('APP_VERSION="14.0.0"')) throw new Error("Stable APP_VERSION missing");
+          if(!core.includes('APP_VERSION="14.0.4"'))
+            throw new Error("Stable APP_VERSION missing");
           NODE
 
       - name: Verify Capacitor SystemBars configuration
         run: |
           node <<'NODE'
           const c=require("./capacitor.config.json");
-          if(c?.plugins?.SystemBars?.insetsHandling!=="css") throw new Error("SystemBars.insetsHandling must be css");
-          if(c.appId!=="io.github.pashafevralsky.liferpg") throw new Error("Stable package id changed");
+          if(c?.plugins?.SystemBars?.insetsHandling!=="css")
+            throw new Error("SystemBars.insetsHandling must be css");
+          if(c.appId!=="io.github.pashafevralsky.liferpg")
+            throw new Error("Stable package id changed");
           NODE
 
       - name: Create Android project
@@ -204,27 +243,46 @@ jobs:
           const cfg=require("./android-release-config.json");
           const meta=require("./android-release-meta.json");
           const cap=require("./capacitor.config.json");
-          if(cfg.channel!=="stable"||meta.channel!=="stable") throw new Error("Stable channel mismatch");
-          if(meta.versionName!=="14.0.0"||meta.versionCode!==14000099) throw new Error("Stable version mismatch");
+
+          if(cfg.channel!=="stable"||meta.channel!=="stable")
+            throw new Error("Stable channel mismatch");
+          if(meta.versionName!=="14.0.4"||meta.versionCode!==14000499)
+            throw new Error("Stable version mismatch");
+
           const assets=path.join("android","app","src","main","assets","public");
           for(const f of ["index.html","core.js","bootstrap.js","pwa.js","android-safe-area.css","android-life-ops-native.js","finance-rebuild-14.js","android-ui-14.css","android-tab-swipe-14.css","android-tab-swipe-14.js"]){
-            if(!fs.existsSync(path.join(assets,f))) throw new Error(`Android Stable asset missing: ${f}`);
+            if(!fs.existsSync(path.join(assets,f)))
+              throw new Error(`Android Stable asset missing: ${f}`);
           }
+
           for(const f of ["share-hub.js","share-target-sw.js","android-native-share.js","android-native-share-plugin.js","sw.js"]){
-            if(fs.existsSync(path.join(assets,f))) throw new Error(`Excluded Android asset present: ${f}`);
+            if(fs.existsSync(path.join(assets,f)))
+              throw new Error(`Excluded Android asset present: ${f}`);
           }
+
           const html=fs.readFileSync(path.join(assets,"index.html"),"utf8");
-          if(!html.includes('window.__LIFE_RPG_RELEASE_CHANNEL__="stable"')) throw new Error("Stable marker missing from Android assets");
-          if(!fs.readFileSync(path.join(assets,"core.js"),"utf8").includes('APP_VERSION="14.0.0"')) throw new Error("Stable runtime version missing");
+          if(!html.includes('window.__LIFE_RPG_RELEASE_CHANNEL__="stable"'))
+            throw new Error("Stable marker missing from Android assets");
+
+          if(!fs.readFileSync(path.join(assets,"core.js"),"utf8").includes('APP_VERSION="14.0.4"'))
+            throw new Error("Stable runtime version missing");
+
           const gradle=fs.readFileSync(path.join("android","app","build.gradle"),"utf8");
-          if(!gradle.includes("versionCode 14000099")||!gradle.includes('versionName "14.0.0"')) throw new Error("Gradle Stable version mismatch");
+          if(!gradle.includes("versionCode 14000499")||!gradle.includes('versionName "14.0.4"'))
+            throw new Error("Gradle Stable version mismatch");
+
           const manifest=fs.readFileSync(path.join("android","app","src","main","AndroidManifest.xml"),"utf8");
-          if(manifest.includes("android.intent.action.SEND")||manifest.includes("android.intent.action.SEND_MULTIPLE")) throw new Error("Native Share filter present");
+          if(manifest.includes("android.intent.action.SEND")||manifest.includes("android.intent.action.SEND_MULTIPLE"))
+            throw new Error("Native Share filter present");
+
           const settings=fs.readFileSync(path.join("android","capacitor.settings.gradle"),"utf8");
-          if(!settings.includes("capacitor-local-notifications")) throw new Error("Local Notifications plugin missing");
+          if(!settings.includes("capacitor-local-notifications"))
+            throw new Error("Local Notifications plugin missing");
+
           const javaDir=path.join("android","app","src","main","java",...String(cap.appId).split("."));
           const main=fs.readFileSync(path.join(javaDir,"MainActivity.java"),"utf8");
-          if(!main.includes("refreshBundledWebAssets()")||!main.includes("navigator.serviceWorker.getRegistrations()")) throw new Error("Android update hardening missing");
+          if(!main.includes("refreshBundledWebAssets()")||!main.includes("navigator.serviceWorker.getRegistrations()"))
+            throw new Error("Android update hardening missing");
           NODE
 
       - name: Setup Java
@@ -299,30 +357,31 @@ jobs:
           VERSION_NAME="$(node -p "require('./android-release-meta.json').versionName")"
           VERSION_CODE="$(node -p "require('./android-release-meta.json').versionCode")"
 
-          test "$VERSION_NAME" = "14.0.0"
-          test "$VERSION_CODE" = "14000099"
+          test "$VERSION_NAME" = "14.0.4"
+          test "$VERSION_CODE" = "14000499"
 
           mkdir -p android-stable-out
           cp android/app/build/outputs/apk/release/app-release.apk \
-            "android-stable-out/Life-RPG-14.0.0.apk"
+            "android-stable-out/Life-RPG-14.0.4.apk"
           cp android-release-meta.json android-stable-out/release-manifest.json
 
           (
             cd android-stable-out
-            sha256sum "Life-RPG-14.0.0.apk" > SHA256SUMS.txt
+            sha256sum "Life-RPG-14.0.4.apk" > SHA256SUMS.txt
           )
 
           {
-            echo "# Life RPG 14.0.0 — Android Stable"
+            echo "# Life RPG 14.0.4 — Android Stable"
             echo
-            echo "Accepted from the 14.0 RC line after real-device validation."
+            echo "Accepted from RC20 after real-device validation."
             echo
             echo "- Package ID: \`io.github.pashafevralsky.liferpg\`"
             echo "- State schema: v18"
             echo "- Signed with the permanent Life RPG Android key"
-            echo "- Installs over accepted RC builds without clearing local IndexedDB"
-            echo "- Native Android Share Target remains intentionally excluded from 14.0.0"
+            echo "- Installs over accepted RC20 without clearing local IndexedDB"
+            echo "- Native Android Share Target remains intentionally excluded"
             echo "- Includes Finance Rebuild snapshot v2, Android UI hardening and smooth sub-tab swipe navigation"
+            echo "- Includes audited dialog accessibility, keyboard tab semantics, improved bottom-nav contrast and focused 8-action Quick Add"
             echo
             echo "## SHA-256"
             echo
@@ -337,9 +396,9 @@ jobs:
       - name: Upload Stable build artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Life-RPG-14.0.0-Android-Stable
+          name: Life-RPG-14.0.4-Android-Stable
           path: |
-            android-stable-out/Life-RPG-14.0.0.apk
+            android-stable-out/Life-RPG-14.0.4.apk
             android-stable-out/release-manifest.json
             android-stable-out/SHA256SUMS.txt
             android-stable-out/RELEASE-NOTES.md
@@ -351,11 +410,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v14.0.0 \
-            "android-stable-out/Life-RPG-14.0.0.apk" \
+          gh release create v14.0.4 \
+            "android-stable-out/Life-RPG-14.0.4.apk" \
             "android-stable-out/release-manifest.json" \
             "android-stable-out/SHA256SUMS.txt" \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "Life RPG 14.0.0 — Android Stable" \
+            --title "Life RPG 14.0.4 — Android Stable" \
             --notes-file android-stable-out/RELEASE-NOTES.md
