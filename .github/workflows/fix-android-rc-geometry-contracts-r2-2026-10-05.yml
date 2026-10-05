@@ -1,0 +1,87 @@
+name: Fix Android RC Geometry Contracts 2026-10-05 R2
+run-name: Android RC • align geometry + audit contracts
+
+"on":
+  push:
+    paths:
+      - ".github/workflows/fix-android-rc-geometry-contracts-r2-2026-10-05.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-android-geometry-contract-fix-r2
+  cancel-in-progress: true
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Align Android geometry and audit contracts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          data = "ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpwPVBhdGgoImFuZHJvaWQtdWktMTQuZTJlLnRlc3QuanMiKQpzPXAucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCm9sZF9yZXR1cm49J3JldHVybiB7dG9wOnIudG9wLGhlaWdodDpyLmhlaWdodCxiYWNrZ3JvdW5kOnMuYmFja2dyb3VuZENvbG9yLHBvc2l0aW9uOnMucG9zaXRpb24saGVhZENvcHlEaXNwbGF5OmdldENvbXB1dGVkU3R5bGUoZWwucXVlcnlTZWxlY3RvcigiLnV4Ny1oZWFkLWNvcHkiKSkuZGlzcGxheX0nCm5ld19yZXR1cm49J3JldHVybiB7XG4gICAgICAgIHRvcDpyLnRvcCxcbiAgICAgICAgaGVpZ2h0OnIuaGVpZ2h0LFxuICAgICAgICBiYWNrZ3JvdW5kOnMuYmFja2dyb3VuZENvbG9yLFxuICAgICAgICBwb3NpdGlvbjpzLnBvc2l0aW9uLFxuICAgICAgICBoZWFkQ29weURpc3BsYXk6Z2V0Q29tcHV0ZWRTdHlsZShlbC5xdWVyeVNlbGVjdG9yKCIudXg3LWhlYWQtY29weSIpKS5kaXNwbGF5LFxuICAgICAgICB0aXRsZURpc3BsYXk6Z2V0Q29tcHV0ZWRTdHlsZShlbC5xdWVyeVNlbGVjdG9yKCIudXg3LWhlYWQtY29weT5oMSIpKS5kaXNwbGF5LFxuICAgICAgICBkZXNjRGlzcGxheTpnZXRDb21wdXRlZFN0eWxlKGVsLnF1ZXJ5U2VsZWN0b3IoIi51eDctaGVhZC1kZXNjIikpLmRpc3BsYXksXG4gICAgICAgIGNsYXJpdHlEaXNwbGF5OmdldENvbXB1dGVkU3R5bGUoZWwucXVlcnlTZWxlY3RvcigiLnV4Ny1jbGFyaXR5LXRvZ2dsZSIpKS5kaXNwbGF5LFxuICAgICAgICBjb21tYW5kRGlzcGxheTpnZXRDb21wdXRlZFN0eWxlKGVsLnF1ZXJ5U2VsZWN0b3IoIiNjb21tYW5kUGFsZXR0ZUJ0biIpKS5kaXNwbGF5LFxuICAgICAgICBjb21tYW5kV2lkdGg6ZWwucXVlcnlTZWxlY3RvcigiI2NvbW1hbmRQYWxldHRlQnRuIikuZ2V0Qm91bmRpbmdDbGllbnRSZWN0KCkud2lkdGgsXG4gICAgICAgIGNvbW1hbmRIZWlnaHQ6ZWwucXVlcnlTZWxlY3RvcigiI2NvbW1hbmRQYWxldHRlQnRuIikuZ2V0Qm91bmRpbmdDbGllbnRSZWN0KCkuaGVpZ2h0XG4gICAgICB9JwpvbGRfYXNzZXJ0PSdleHBlY3QoaC5oZWFkQ29weURpc3BsYXkpLnRvQmUoIm5vbmUiKTsnCm5ld19hc3NlcnQ9J2V4cGVjdChoLmhlYWRDb3B5RGlzcGxheSkubm90LnRvQmUoIm5vbmUiKTtcbiAgICBleHBlY3QoaC50aXRsZURpc3BsYXkpLnRvQmUoIm5vbmUiKTtcbiAgICBleHBlY3QoaC5kZXNjRGlzcGxheSkudG9CZSgibm9uZSIpO1xuICAgIGV4cGVjdChoLmNsYXJpdHlEaXNwbGF5KS50b0JlKCJub25lIik7XG4gICAgZXhwZWN0KGguY29tbWFuZERpc3BsYXkpLm5vdC50b0JlKCJub25lIik7XG4gICAgZXhwZWN0KGguY29tbWFuZFdpZHRoKS50b0JlR3JlYXRlclRoYW5PckVxdWFsKDQ0KTtcbiAgICBleHBlY3QoaC5jb21tYW5kSGVpZ2h0KS50b0JlR3JlYXRlclRoYW5PckVxdWFsKDQ0KTsnCmlmIG9sZF9yZXR1cm4gaW4gczoKICAgIGlmIHMuY291bnQob2xkX3JldHVybikhPTE6IHJhaXNlIFN5c3RlbUV4aXQoJ09sZCBBbmRyb2lkIGdlb21ldHJ5IHJldHVybiBleHByZXNzaW9uIGlzIG5vdCB1bmlxdWUuJykKICAgIHM9cy5yZXBsYWNlKG9sZF9yZXR1cm4sbmV3X3JldHVybiwxKQplbGlmICJjb21tYW5kV2lkdGg6ZWwucXVlcnlTZWxlY3RvciIgbm90IGluIHM6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCdBbmRyb2lkIGdlb21ldHJ5IHJldHVybiBleHByZXNzaW9uIGlzIG5laXRoZXIgb2xkIG5vciBhbGlnbmVkLicpCmlmIG9sZF9hc3NlcnQgaW4gczoKICAgIGlmIHMuY291bnQob2xkX2Fzc2VydCkhPTE6IHJhaXNlIFN5c3RlbUV4aXQoJ09sZCBBbmRyb2lkIGdlb21ldHJ5IGFzc2VydGlvbiBpcyBub3QgdW5pcXVlLicpCiAgICBzPXMucmVwbGFjZShvbGRfYXNzZXJ0LG5ld19hc3NlcnQsMSkKZWxpZiAnZXhwZWN0KGguY29tbWFuZFdpZHRoKS50b0JlR3JlYXRlclRoYW5PckVxdWFsKDQ0KTsnIG5vdCBpbiBzOgogICAgcmFpc2UgU3lzdGVtRXhpdCgnQW5kcm9pZCBnZW9tZXRyeSBhc3NlcnRpb24gaXMgbmVpdGhlciBvbGQgbm9yIGFsaWduZWQuJykKcC53cml0ZV90ZXh0KHMsZW5jb2Rpbmc9InV0Zi04IikKCmFwPVBhdGgoImF1ZGl0LWZpeC0yMDI2LTEwLTA1LnRlc3QuanMiKQphPWFwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQpvbGRfbWV0YT0nYXNzZXJ0KGUyZS5pbmNsdWRlcyhcJ2V4cGVjdChoLmhlYWRDb3B5RGlzcGxheSkudG9CZSgibm9uZSIpXCcpLCJFMkUgbXVzdCB2ZXJpZnkgY29tcGFjdCBzdGlja3kgY29udGVudCIpOycKbmV3X21ldGE9J2Fzc2VydChlMmUuaW5jbHVkZXMoXCdleHBlY3QoaC5oZWFkQ29weURpc3BsYXkpLm5vdC50b0JlKCJub25lIilcJyksIkUyRSBtdXN0IHByZXNlcnZlIHN0aWNreSBjb21tYW5kIGNvbnRhaW5lciIpO1xuYXNzZXJ0KGUyZS5pbmNsdWRlcyhcJ2V4cGVjdChoLnRpdGxlRGlzcGxheSkudG9CZSgibm9uZSIpXCcpLCJFMkUgbXVzdCBoaWRlIHN0aWNreSB0aXRsZSIpO1xuYXNzZXJ0KGUyZS5pbmNsdWRlcyhcJ2V4cGVjdChoLmNvbW1hbmREaXNwbGF5KS5ub3QudG9CZSgibm9uZSIpXCcpLCJFMkUgbXVzdCBrZWVwIGNvbW1hbmQgY29udHJvbCB2aXNpYmxlIik7XG5hc3NlcnQoZTJlLmluY2x1ZGVzKFwnZXhwZWN0KGguY29tbWFuZFdpZHRoKS50b0JlR3JlYXRlclRoYW5PckVxdWFsKDQ0KVwnKSwiRTJFIG11c3QgdmVyaWZ5IGNvbW1hbmQgdG91Y2ggdGFyZ2V0Iik7JwppZiBvbGRfbWV0YSBpbiBhOgogICAgaWYgYS5jb3VudChvbGRfbWV0YSkhPTE6IHJhaXNlIFN5c3RlbUV4aXQoJ09sZCBhdWRpdCBtZXRhLXRlc3QgYXNzZXJ0aW9uIGlzIG5vdCB1bmlxdWUuJykKICAgIGE9YS5yZXBsYWNlKG9sZF9tZXRhLG5ld19tZXRhLDEpCmVsaWYgIkUyRSBtdXN0IHZlcmlmeSBjb21tYW5kIHRvdWNoIHRhcmdldCIgbm90IGluIGE6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCdBdWRpdCBtZXRhLXRlc3QgaXMgbmVpdGhlciBvbGQgbm9yIGFsaWduZWQuJykKYXAud3JpdGVfdGV4dChhLGVuY29kaW5nPSJ1dGYtOCIpCgptYXJrZXI9UGF0aCgiRklOQUwtQVVESVQtMjAyNi0xMC0wNS5tZCIpCmlmIG1hcmtlci5leGlzdHMoKToKICAgIG09bWFya2VyLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQogICAgbGluZT0iLSBBbmRyb2lkIFJDIGdlb21ldHJ5IGFuZCBhdWRpdCBtZXRhLXRlc3RzIGFyZSBhbGlnbmVkIHdpdGggdGhlIGZpbmFsIGNvbXBhY3Qgc3RpY2t5LWhlYWRlciBjb250cmFjdCB3aGlsZSBwcmVzZXJ2aW5nIHRoZSA0NMOXNDQgY29tbWFuZCBjb250cm9sLlxuIgogICAgaWYgbGluZSBub3QgaW4gbToKICAgICAgICBtYXJrZXIud3JpdGVfdGV4dChtLnJzdHJpcCgpKyJcbiIrbGluZSxlbmNvZGluZz0idXRmLTgiKQo="
+          Path(".fix-android-geometry-contracts.py").write_bytes(base64.b64decode(data))
+          PY
+          python3 .fix-android-geometry-contracts.py
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Syntax-check corrected tests
+        run: |
+          node --check android-ui-14.e2e.test.js
+          node --check audit-fix-2026-10-05.test.js
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Build production web bundle
+        run: npm run build
+
+      - name: Audit production web bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Prepare Android RC web assets
+        run: node android-release-prepare.mjs
+
+      - name: Run corrected Android RC geometry gate
+        run: npx playwright test --config=playwright.android-rc.config.mjs
+
+      - name: Commit verified contract fix
+        shell: bash
+        run: |
+          rm -f .fix-android-geometry-contracts.py
+          git status --short
+          git add android-ui-14.e2e.test.js audit-fix-2026-10-05.test.js FINAL-AUDIT-2026-10-05.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Align Android geometry and audit contracts"
+          git push origin HEAD:main
