@@ -1,0 +1,164 @@
+name: Apply Life RPG Final Audit R2
+run-name: Final audit R2 • navigation fix, full regression, build and commit
+
+on:
+  push:
+    paths:
+      - ".github/workflows/apply-final-audit-2026-10-05-r2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-final-audit-2026-10-05-r2
+  cancel-in-progress: false
+
+jobs:
+  final-audit-r2:
+    name: Reapply audit with mobile navigation fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Guard expected state
+        shell: bash
+        run: |
+          test ! -e FINAL-AUDIT-2026-10-05.md || { echo "Final audit already applied"; exit 1; }
+          test -f .github/workflows/apply-final-audit-2026-10-05.yml
+          grep -q 'const APP_VERSION="13.9.1"' core.js
+          grep -q '"targetVersion": "14.1.2"' android-release-config.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Extract original audited one-shot patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, base64
+          src=Path(".github/workflows/apply-final-audit-2026-10-05.yml").read_text(encoding="utf-8")
+          m=re.search(r'data = """([\s\S]*?)"""\.replace',src)
+          if not m:
+              raise SystemExit("Embedded final-audit patch not found")
+          payload="".join(m.group(1).split())
+          Path(".life-rpg-final-audit.mjs").write_bytes(base64.b64decode(payload))
+          PY
+          node --check .life-rpg-final-audit.mjs
+
+      - name: Apply complete audited patch
+        run: |
+          node .life-rpg-final-audit.mjs
+          rm -f .life-rpg-final-audit.mjs
+
+      - name: Fix unstable mobile section navigation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("ui.js")
+          s=p.read_text(encoding="utf-8")
+          old='window.scrollTo({top:0,behavior:"smooth"})'
+          new='window.scrollTo({top:0,behavior:"auto"})'
+          if old not in s:
+              raise SystemExit("switchTab smooth-scroll anchor not found")
+          if s.count(old)!=1:
+              raise SystemExit("switchTab smooth-scroll anchor is not unique")
+          p.write_text(s.replace(old,new,1),encoding="utf-8")
+
+          Path("final-audit-mobile-nav.test.js").write_text(
+              '"use strict";\n'
+              'const fs=require("node:fs"),assert=require("node:assert/strict");\n'
+              'const ui=fs.readFileSync("ui.js","utf8");\n'
+              'assert.ok(ui.includes(\'window.scrollTo({top:0,behavior:"auto"})\'),"section switch must use immediate scroll");\n'
+              'const fn=(ui.match(/function switchTab\\([^)]*\\)\\{[^\\n]*\\}/)||[])[0]||"";\n'
+              'assert.ok(fn&&!fn.includes(\'behavior:"smooth"\'),"switchTab must not animate section scroll");\n'
+              'console.log("OK — mobile section navigation is immediately stable");\n',
+              encoding="utf-8"
+          )
+
+          import json
+          pkgp=Path("package.json")
+          pkg=json.loads(pkgp.read_text(encoding="utf-8"))
+          gate="node final-audit-mobile-nav.test.js"
+          if gate not in pkg["scripts"]["test"]:
+              pkg["scripts"]["test"] += " && "+gate
+              pkgp.write_text(json.dumps(pkg,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+          marker=Path("FINAL-AUDIT-2026-10-05.md")
+          text=marker.read_text(encoding="utf-8")
+          line="- primary section switching uses immediate scroll positioning so sticky mobile tabs stay stable/clickable.\n"
+          if line not in text:
+              marker.write_text(text.rstrip()+"\n"+line,encoding="utf-8")
+          PY
+
+      - name: Syntax-check critical patched files
+        shell: bash
+        run: |
+          node --check finance.js
+          node --check imports.js
+          node --check state.js
+          node --check ui.js
+          node --check life-ops.js
+          node --check ai-bridge-worker.mjs
+          node --check audit-fix-2026-10-05.test.js
+          node --check cashflow-fix-2026-10-05.test.js
+          node --check final-audit-2026-10-05.test.js
+          node --check final-audit-mobile-nav.test.js
+
+      - name: Run audit-specific regression gates
+        run: |
+          node audit-fix-2026-10-05.test.js
+          node cashflow-fix-2026-10-05.test.js
+          node final-audit-2026-10-05.test.js
+          node final-audit-mobile-nav.test.js
+
+      - name: Run full source regression suite
+        run: npm test
+
+      - name: Build production PWA
+        run: npm run build
+
+      - name: Audit production bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Verify patch integrity
+        shell: bash
+        run: |
+          git diff --check
+          test -f AUDIT-FIX-2026-10-05.md
+          test -f CASHFLOW-FIX-2026-10-05.md
+          test -f FINAL-AUDIT-2026-10-05.md
+          grep -q 'readJsonBodyLimited(request,MAX_BODY_BYTES)' ai-bridge-worker.mjs
+          grep -q 'function assetCashDelta' finance.js
+          grep -q 'function debtPriorityLabel' finance.js
+          grep -q 'window.scrollTo({top:0,behavior:"auto"})' ui.js
+
+      - name: Commit verified final audit to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Complete full application audit 2026-10-05 [skip ci]"
+          git push origin HEAD:main
