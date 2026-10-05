@@ -573,3 +573,47 @@ body.ui82.ui139[data-section="more"][data-view="settings"] #more .ux7-card[data-
     padding-right:3px;
   }
 }
+
+/* AUDIT-FIX-2026-10-05-STICKY */
+@media(max-width:850px){
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head{
+    padding-top:4px!important;
+    padding-bottom:4px!important;
+  }
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-head-copy{
+    min-height:0!important;
+    margin:0!important;
+  }
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-head-copy>h1,
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-head-desc,
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-clarity-toggle{
+    display:none!important;
+  }
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-head-actions{
+    position:absolute;
+    top:4px;
+    right:4px;
+    z-index:3;
+    display:flex!important;
+    margin:0!important;
+  }
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-head-actions>#commandPaletteBtn{
+    display:grid!important;
+    width:44px!important;
+    min-width:44px!important;
+    height:44px!important;
+    min-height:44px!important;
+    place-items:center!important;
+  }
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-tabs{
+    margin:0!important;
+    padding-right:52px!important;
+  }
+  .ui82.ui139 #payoffRecommendation .payoff-compact{
+    padding:12px 14px!important;
+  }
+  .ui82.ui139 #payoffRecommendation .payoff-compact .goal{
+    margin-top:10px!important;
+    padding:10px 12px!important;
+  }
+}

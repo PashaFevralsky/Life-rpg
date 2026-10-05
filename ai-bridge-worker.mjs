@@ -27,6 +27,11 @@ function equalSecret(a,b){
 }
 function cleanString(v,max){return String(v||"").trim().slice(0,max)}
 function tokenRequired(env){return !!String(env.BRIDGE_ACCESS_TOKEN||"").trim()}
+async function readJsonBodyLimited(request,maxBytes){
+  const reader=request.body?.getReader?.();if(!reader){const text=await request.text();if(new TextEncoder().encode(text).byteLength>maxBytes)throw Object.assign(new Error("Request too large"),{status:413});return JSON.parse(text)}
+  const chunks=[];let total=0;for(;;){const {done,value}=await reader.read();if(done)break;total+=value?.byteLength||0;if(total>maxBytes){try{await reader.cancel()}catch{}throw Object.assign(new Error("Request too large"),{status:413})}chunks.push(value)}
+  const all=new Uint8Array(total);let offset=0;for(const c of chunks){all.set(c,offset);offset+=c.byteLength}return JSON.parse(new TextDecoder().decode(all))
+}
 function quotaError(e){return /neuron|quota|daily limit|free allocation/i.test(String(e?.message||e))}
 function capacityError(e){return /3040|out of capacity|capacity|busy|rejectifbusy/i.test(String(e?.message||e))}
 function dataUrlBlob(dataUrl,mime){
@@ -120,9 +125,10 @@ export default {
     if(url.pathname!=="/v1/ask")return json({ok:false,error:"Not found"},404,corsHeaders);
     if(request.method!=="POST")return json({ok:false,error:"Method not allowed"},405,corsHeaders);
     if(!env.AI)return json({ok:false,error:"Workers AI binding AI is not configured"},503,corsHeaders);
-    if(required&&!equalSecret(request.headers.get("X-Life-RPG-Token"),env.BRIDGE_ACCESS_TOKEN))return json({ok:false,error:"Unauthorized"},401,corsHeaders);
+    if(!required)return json({ok:false,error:"BRIDGE_ACCESS_TOKEN is not configured"},503,corsHeaders);
+    if(!equalSecret(request.headers.get("X-Life-RPG-Token"),env.BRIDGE_ACCESS_TOKEN))return json({ok:false,error:"Unauthorized"},401,corsHeaders);
     const len=Number(request.headers.get("Content-Length")||0);if(len>MAX_BODY_BYTES)return json({ok:false,error:"Request too large"},413,corsHeaders);
-    let body;try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400,corsHeaders)}
+    let body;try{body=await readJsonBodyLimited(request,MAX_BODY_BYTES)}catch(e){return json({ok:false,error:e?.status===413?"Request too large":"Invalid JSON"},Number(e?.status)||400,corsHeaders)}
     if(body?.protocol!==PROTOCOL)return json({ok:false,error:"Protocol mismatch"},400,corsHeaders);
     if(!cleanString(body?.question,6000))return json({ok:false,error:"Question is required"},400,corsHeaders);
     try{

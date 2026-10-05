@@ -132,7 +132,7 @@ function lifeOpsSafeAllocation(options={}){
   return {...p,projection,dataQuality:q,floor,safeDebtExtra,debtSafetyWithheld:withheld,finalUnallocated:moneyAdd(p.unallocated,withheld)}
 }
 function lifeOpsAllocationHtml(plan,income=null){
-  const q=plan.dataQuality,proj=plan.projection,best=plan.best?escapeHtml(plan.best.name):"долги закрыты";
+  const q=plan.dataQuality,proj=plan.projection,best=plan.best?escapeHtml(plan.best.name):escapeHtml(typeof debtPriorityLabel==="function"?debtPriorityLabel():totalDebt()<=0?"долги закрыты":"приоритет не рассчитан");
   const incomeTitle=income?`Поступило ${rub(income.amount)} • ${escapeHtml(income.source||"Доход")}`:"Безопасное распределение денег";
   const mandatory=plan.mandatory.length?plan.mandatory.slice(0,6).map(x=>`<div class="qmeta">${fmtDate(x.date)} • ${escapeHtml(x.label||x.debt||"Платёж")} — ${rub(x.amount)}</div>`).join(""):"<div class=\"qmeta\">До следующего дохода новых обязательных платежей нет.</div>";
   return `<div class="eyebrow">Money Autopilot</div><div class="section-title">${incomeTitle}</div>

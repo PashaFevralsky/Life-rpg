@@ -16,7 +16,7 @@ Life RPG 13.4.1 — Free AI Bridge
 6. Открой Worker → Settings → Bindings → Add binding → Workers AI.
    Variable name / binding name: AI
    Сохрани и Deploy.
-7. Рекомендуется добавить Secret:
+7. Обязательно добавь Secret:
    BRIDGE_ACCESS_TOKEN = длинная случайная строка 32+ символа.
    Это НЕ платный API key, а локальный пароль между Life RPG и Worker.
 8. Добавь обычную переменную:
@@ -33,7 +33,7 @@ Life RPG 13.4.1 — Free AI Bridge
     aiBindingConfigured: true
 12. Life RPG → Ещё → Настройки → Free AI Bridge 13.4.1.
     Backend URL = адрес workers.dev без /health.
-    Bridge Access Token = значение BRIDGE_ACCESS_TOKEN, если ты его создавал.
+    Bridge Access Token = значение обязательного BRIDGE_ACCESS_TOKEN.
     Сохранить → Проверить Worker.
 
 Бесплатный лимит Cloudflare Workers AI:

@@ -123,10 +123,69 @@ async function addImportRule(){const keyword=$("ruleKeyword").value.trim().toLow
 
 async function deleteImportRule(id){S.importRules=S.importRules.filter(x=>x.id!==id);try{await save("Правило удалено")}catch{}}
 
-async function importBankCsv(file){
-  const text=await file.text(),lines=text.replace(/\r/g,"").split("\n").filter(x=>x.trim());if(lines.length<2)throw new Error("CSV пустой");const delim=detectDelimiter(lines[0]),headers=splitCsvLine(lines[0],delim).map(x=>x.trim().toLowerCase());const find=patterns=>headers.findIndex(h=>patterns.some(p=>h.includes(p)));let di=find(["дата","date"]),ai=find(["сумма","amount","операц","руб"]),xi=find(["опис","назнач","description","merchant","детал"]);let start=1;if(di<0||ai<0){di=0;xi=1;ai=2;start=0}const candidates=[];
-  for(let n=start;n<Math.min(lines.length,5001);n++){const cols=splitCsvLine(lines[n],delim);if(cols.length<=Math.max(di,ai,xi))continue;const dateKey=parseCsvDate(cols[di]),raw=parseMoney(cols[ai]),desc=xi>=0?cols[xi]:"Импорт CSV";if(!dateKey||!raw)continue;const amount=Math.abs(raw),strongTransfer=/между своими|между счетами|собственн|на свой|себе/i.test(String(desc||"")),type=strongTransfer?"transfer":raw>0?"income":"expense";candidates.push(refineFinancialCandidate({include:true,dateKey,amount,type,category:type==="expense"?classifyImportedExpense(desc):"Другое",desc:String(desc||"").trim()}))}
-  const r=await applyImportedCandidates(candidates,"csv");await save(`Импортировано: доходов ${r.income}, расходов ${r.expense}, переводов ${r.transfer}`);$("bankImportStatus").innerHTML=`<span class="csv-ok">Доходов: ${r.income} • расходов: ${r.expense} • переводов: ${r.transfer}</span>${r.dupes?` • дублей пропущено: ${r.dupes}`:""}`;if(S.settings.autoReserveAfterImport&&primaryCashVerifiedAt())await acceptAutopilotPlan()
+let bankCsvPending=null;
+
+function bankCsvTypeLabel(type){
+  return ({income:"Доход",expense:"Расход",transfer:"Перевод между своими",debt_payment:"Платёж по долгу",asset_transfer:"Перевод актива"})[type]||String(type||"Операция")
+}
+
+function bankCsvRenderPreview(){
+  const box=$("bankCsvPreview"),btn=$("bankCsvApplyBtn");if(!box||!btn)return;
+  const p=bankCsvPending;
+  if(!p){box.innerHTML='<div class="empty">Сначала выбери счёт и CSV-файл.</div>';btn.disabled=true;return}
+  const counts={income:0,expense:0,transfer:0,debt_payment:0,asset_transfer:0};
+  for(const x of p.candidates)counts[x.type]=(counts[x.type]||0)+1;
+  const rows=p.candidates.slice(0,20).map(x=>`<div class="log-item"><div><div class="qtitle">${escapeHtml(x.dateKey)} • ${escapeHtml(bankCsvTypeLabel(x.type))}</div><div class="qmeta">${escapeHtml(x.desc||"")}</div></div><b>${x.ocrSign==="-"?"−":x.ocrSign==="+"?"+":""}${rub(x.amount)}</b></div>`).join("");
+  const more=p.candidates.length>20?`<div class="qmeta" style="margin-top:8px">Показаны первые 20 из ${p.candidates.length} операций.</div>`:"";
+  box.innerHTML=`<div class="notice"><b>${escapeHtml(p.fileName)}</b><div class="qmeta">Счёт: ${escapeHtml(accountName(p.accountId))} • найдено ${p.candidates.length} операций • доходов ${counts.income||0} • расходов ${counts.expense||0} • переводов ${counts.transfer||0} • платежей по долгам ${counts.debt_payment||0}</div></div><div style="margin-top:10px">${rows}</div>${more}`;
+  btn.disabled=!p.candidates.length
+}
+
+function clearBankCsvPreview(){
+  bankCsvPending=null;bankCsvRenderPreview();
+  if($("bankImportStatus"))$("bankImportStatus").textContent="Предпросмотр CSV сброшен."
+}
+
+async function prepareBankCsvImport(file){
+  if(!file)return;
+  const accountId=$("bankCsvAccount")?.value||"";
+  const account=(S.accounts||[]).find(a=>a.id===accountId&&a.active!==false);
+  if(!account)throw new Error("Сначала выбери счёт, к которому относится выписка");
+  const text=await file.text(),lines=text.replace(/\r/g,"").split("\n").filter(x=>x.trim());
+  if(lines.length<2)throw new Error("CSV пустой");
+  const delim=detectDelimiter(lines[0]),headers=splitCsvLine(lines[0],delim).map(x=>x.trim().toLowerCase());
+  const find=patterns=>headers.findIndex(h=>patterns.some(p=>h.includes(p)));
+  let di=find(["дата","date"]),ai=find(["сумма","amount","операц","руб"]),xi=find(["опис","назнач","description","merchant","детал"]),start=1;
+  if(di<0||ai<0){di=0;xi=1;ai=2;start=0}
+  const candidates=[];
+  for(let n=start;n<Math.min(lines.length,5001);n++){
+    const cols=splitCsvLine(lines[n],delim);if(cols.length<=Math.max(di,ai,xi))continue;
+    const dateKey=parseCsvDate(cols[di]),raw=parseMoney(cols[ai]),desc=xi>=0?cols[xi]:"Импорт CSV";
+    if(!dateKey||!raw||!validActivityDate(dateKey))continue;
+    const amount=Math.abs(raw),strongTransfer=/между своими|между счетами|собственн|на свой|себе/i.test(String(desc||"")),type=strongTransfer?"transfer":raw>0?"income":"expense";
+    candidates.push(refineFinancialCandidate({include:true,dateKey,amount,type,accountId,ocrSign:raw>0?"+":"-",category:type==="expense"?classifyImportedExpense(desc):"Другое",desc:String(desc||"").trim()}))
+  }
+  if(!candidates.length)throw new Error("В CSV не найдено корректных операций");
+  bankCsvPending={fileName:file.name||"bank.csv",accountId,candidates,preparedAt:new Date().toISOString()};
+  bankCsvRenderPreview();
+  $("bankImportStatus").textContent="Предпросмотр готов. Проверь счёт и операции, затем нажми «Применить CSV»."
+}
+
+async function importBankCsv(file){return prepareBankCsvImport(file)}
+
+async function confirmBankCsvImport(){
+  const p=bankCsvPending;
+  if(!p?.candidates?.length){toast("Сначала подготовь CSV");return}
+  const account=(S.accounts||[]).find(a=>a.id===p.accountId&&a.active!==false);
+  if(!account){toast("Счёт выписки больше недоступен");clearBankCsvPreview();return}
+  if(!confirm(`Импортировать ${p.candidates.length} операций в счёт «${account.name}»? Перед импортом будет создан снимок.`))return;
+  await createPreActionSnapshot(`Перед CSV-импортом • ${p.fileName} • ${account.name}`);
+  let r;
+  await commitStateAtomically(async()=>{r=await applyImportedCandidates(p.candidates,"csv")},{makeBackup:true});
+  bankCsvPending=null;bankCsvRenderPreview();
+  $("bankImportStatus").innerHTML=`<span class="csv-ok">Счёт: ${escapeHtml(account.name)} • доходов: ${r.income} • расходов: ${r.expense} • переводов: ${r.transfer} • платежей по долгам: ${r.debtPayment}</span>${r.dupes?` • дублей пропущено: ${r.dupes}`:""}`;
+  render();
+  if(S.settings.autoReserveAfterImport&&primaryCashVerifiedAt())await acceptAutopilotPlan()
 }
 
 async function clearImportedTransactions(){if(!confirm("Удалить все импортированные операции? Перед удалением будет создан отдельный снимок. Банковские сверки останутся."))return;const importedPayments=(S.payments||[]).filter(x=>x.imported),locked=importedPayments.filter(x=>!x.historicalOnly&&paymentLockedBySync(x));if(locked.length){toast(`Нельзя очистить импорт: ${locked.length} платежей уже зафиксированы более поздней банковской сверкой`);return}await createPreActionSnapshot("Перед очисткой импортированных операций");for(const x of importedPayments){if(!x.historicalOnly){const d=debtById(x.debtId);if(d){d.balance+=+x.amount||0;if(x.scheduleBefore){d.nextPaymentDate=x.scheduleBefore.nextPaymentDate||"";d.nextPaymentAmount=+x.scheduleBefore.nextPaymentAmount||0}}}restoreReservationUse(x.reservationUse)}for(const x of (S.expenses||[]).filter(x=>x.imported))restoreReservationUse(x.reservationUse);S.incomeLogs=(S.incomeLogs||[]).filter(x=>!x.imported);S.expenses=(S.expenses||[]).filter(x=>!x.imported);S.payments=(S.payments||[]).filter(x=>!x.imported);S.bankTransfers=(S.bankTransfers||[]).filter(x=>!x.imported);S.assetTransfers=(S.assetTransfers||[]).filter(x=>!x.imported);S.cashAdjustments=(S.cashAdjustments||[]).filter(x=>!x.importBatchId);S.importBatches=[];S.bankImportIds=[];S.screenshotImportIds=[];audit("Импортированные операции очищены","finance","");await save("Импортированные операции удалены • предыдущее состояние сохранено в снимках")}
@@ -504,4 +563,4 @@ function unifiedTransactions(){const arr=[];for(const x of S.incomeLogs||[])arr.
 
 function renderTransactionJournal(){const box=$("transactionJournal");if(!box)return;const q=String($("transactionSearch")?.value||"").toLowerCase(),type=$("transactionType")?.value||"all";const arr=unifiedTransactions().filter(x=>(type==="all"||x.kind===type||(type==="expense"&&x.kind==="refund"))&&(!q||`${x.title} ${x.note} ${x.account} ${x.category}`.toLowerCase().includes(q))).slice(0,50);box.innerHTML=arr.length?arr.map(x=>`<div class="transaction-row"><div><div class="qtitle">${fmtDate(parseLocal(x.dateKey))} • ${escapeHtml(x.title)}</div><div class="qmeta">${escapeHtml(x.category)}${x.account?` • ${escapeHtml(x.account)}`:""}${x.note?` • ${escapeHtml(x.note)}`:""}</div></div><b class="${x.amount>0?"income-good":x.amount<0?"income-bad":""}">${x.amount>0?"+":x.amount<0?"−":"↔"}${x.amount?rub(Math.abs(x.amount)):""}</b><button class="btn ghost small" onclick="deleteJournalTransaction('${x.kind}','${x.id}')">Удалить</button></div>`).join(""):'<div class="empty">Операции не найдены.</div>'}
 
-async function deleteJournalTransaction(kind,id){if(kind==="income")return deleteIncome(id);if(kind==="expense"||kind==="refund")return deleteExpense(id);if(kind==="payment")return undoPayment(id);if(kind==="transfer")return deleteTransfer(id);if(kind==="asset_transfer"){S.assetTransfers=(S.assetTransfers||[]).filter(x=>x.id!==id);return save("Перевод актива удалён")}}
+async function deleteJournalTransaction(kind,id){if(kind==="income")return deleteIncome(id);if(kind==="expense"||kind==="refund")return deleteExpense(id);if(kind==="payment")return undoPayment(id);if(kind==="transfer")return deleteTransfer(id);if(kind==="asset_transfer")return deleteAssetTransfer(id)}

@@ -103,11 +103,12 @@ test("Android RC sticky header remains opaque and compact while scrolling",async
     await page.waitForTimeout(35);
     const h=await page.locator(`#${section}>.ux7-section-head`).evaluate(el=>{
       const r=el.getBoundingClientRect(),s=getComputedStyle(el);
-      return {top:r.top,height:r.height,background:s.backgroundColor,position:s.position}
+      return {top:r.top,height:r.height,background:s.backgroundColor,position:s.position,headCopyDisplay:getComputedStyle(el.querySelector(".ux7-head-copy")).display}
     });
     expect(h.position).toBe("sticky");
     expect(h.top).toBeGreaterThanOrEqual(-1);
-    expect(h.height).toBeLessThanOrEqual(150);
+    expect(h.height).toBeLessThanOrEqual(90);
+    expect(h.headCopyDisplay).toBe("none");
     expect(h.background).toMatch(/^rgb\(/);
     await page.evaluate(()=>window.scrollTo(0,0));
   }

@@ -311,3 +311,10 @@
     flex:none!important;
   }
 }
+
+/* FINAL-AUDIT-R3-STICKY-COMMAND */
+@media(max-width:850px){
+  body.ui82.ui139.ui139-scrolled[data-section]:not([data-section="today"]) .ux7-section-head .ux7-tabs{
+    padding-right:52px!important;
+  }
+}

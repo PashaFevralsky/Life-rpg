@@ -26,7 +26,7 @@ const UX7_NAVIGATION_LISTENERS=new Map();
 function ux7RegisterNavigationListener(id,fn){if(!id||typeof fn!=="function")return()=>{};UX7_NAVIGATION_LISTENERS.set(String(id),fn);return()=>UX7_NAVIGATION_LISTENERS.delete(String(id))}
 function ux7NotifyNavigation(event){for(const [id,fn] of UX7_NAVIGATION_LISTENERS){try{fn(event)}catch(e){console.error(`Navigation listener ${id} failed`,e)}}}
 function ux7NavigationStatus(){return {listeners:[...UX7_NAVIGATION_LISTENERS.keys()]}}
-function switchTab(id){const from=document.querySelector(".section.active")?.id||"";ux7NotifyNavigation({type:"section:before",from,section:id});document.querySelectorAll(".navbtn").forEach(x=>{const on=x.dataset.tab===id;x.classList.toggle("active",on);if(on)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current")});document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===id));window.scrollTo({top:0,behavior:"smooth"});ux7NotifyNavigation({type:"section:after",from,section:id})}
+function switchTab(id){const from=document.querySelector(".section.active")?.id||"";ux7NotifyNavigation({type:"section:before",from,section:id});document.querySelectorAll(".navbtn").forEach(x=>{const on=x.dataset.tab===id;x.classList.toggle("active",on);if(on)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current")});document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===id));window.scrollTo({top:0,behavior:"auto"});ux7NotifyNavigation({type:"section:after",from,section:id})}
 
 function quickAction(type){if(type==="income"){switchTab("finance");openIncomeModal()}if(type==="payment"){switchTab("finance");openModal("paymentModal")}if(type==="expense"){openModal("expenseModal")}if(type==="work"){ux7Go("work","log");setTimeout(()=>$("workContacts")?.focus(),40)}if(type==="tennis"){ux7Go("tennis","training");setTimeout(()=>$("ttMinutes")?.focus(),40)}if(type==="reading"){switchTab("more");openModal("readingModal")}}
 
@@ -43,6 +43,7 @@ function initUi(){if(window.__LIFE_RPG_HTML_VERSION__&&window.__LIFE_RPG_HTML_VE
   $("bankOperationsScreenshotInput")?.addEventListener("change",async e=>{const fs=e.target.files;if(!fs?.length)return;try{await recognizeBankSyncOperations(fs)}catch(err){$("screenshotImportStatus").innerHTML=`<span class="csv-bad">${escapeHtml(err.message||String(err))}</span>`}e.target.value=""});
   $("smartInboxInput")?.addEventListener("change",async e=>{const fs=e.target.files;if(fs?.length)await recognizeSmartInbox(fs);e.target.value=""});
   $("aiImportInput")?.addEventListener("change",async e=>{const f=e.target.files?.[0];if(f)await handleAiImportFile(f);e.target.value=""});
+  $("readingListImport")?.addEventListener("change",async e=>{const f=e.target.files?.[0];if(f)await importReadingListFile(f)});
   document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));document.addEventListener("keydown",handleModalKeydown);$("importFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{await importBackupFile(f)}catch(err){alert("Не удалось импортировать файл: "+err.message)}e.target.value=""});setupPwa()
 }
 
