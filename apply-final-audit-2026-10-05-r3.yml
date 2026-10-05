@@ -1,0 +1,176 @@
+name: Apply Life RPG Final Audit R3
+run-name: Final audit R3 • sticky search fix, full regression, build and commit
+
+on:
+  push:
+    paths:
+      - ".github/workflows/apply-final-audit-2026-10-05-r3.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-final-audit-2026-10-05-r3
+  cancel-in-progress: false
+
+jobs:
+  final-audit-r3:
+    name: Reapply audit with stable mobile chrome
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Guard expected state
+        shell: bash
+        run: |
+          test ! -e FINAL-AUDIT-2026-10-05.md || { echo "Final audit already applied"; exit 1; }
+          test -f .github/workflows/apply-final-audit-2026-10-05.yml
+          grep -q 'const APP_VERSION="13.9.1"' core.js
+          grep -q '"targetVersion": "14.1.2"' android-release-config.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Extract original audited one-shot patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, base64
+          src=Path(".github/workflows/apply-final-audit-2026-10-05.yml").read_text(encoding="utf-8")
+          m=re.search(r'data = """([\s\S]*?)"""\.replace',src)
+          if not m:
+              raise SystemExit("Embedded final-audit patch not found")
+          payload="".join(m.group(1).split())
+          Path(".life-rpg-final-audit.mjs").write_bytes(base64.b64decode(payload))
+          PY
+          node --check .life-rpg-final-audit.mjs
+
+      - name: Apply complete audited patch
+        run: |
+          node .life-rpg-final-audit.mjs
+          rm -f .life-rpg-final-audit.mjs
+
+      - name: Fix unstable mobile section navigation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("ui.js")
+          s=p.read_text(encoding="utf-8")
+          old='window.scrollTo({top:0,behavior:"smooth"})'
+          new='window.scrollTo({top:0,behavior:"auto"})'
+          if old not in s:
+              raise SystemExit("switchTab smooth-scroll anchor not found")
+          if s.count(old)!=1:
+              raise SystemExit("switchTab smooth-scroll anchor is not unique")
+          p.write_text(s.replace(old,new,1),encoding="utf-8")
+
+          Path("final-audit-mobile-nav.test.js").write_text(
+              '"use strict";\n'
+              'const fs=require("node:fs"),assert=require("node:assert/strict");\n'
+              'const ui=fs.readFileSync("ui.js","utf8");\n'
+              'assert.ok(ui.includes(\'window.scrollTo({top:0,behavior:"auto"})\'),"section switch must use immediate scroll");\n'
+              'const fn=(ui.match(/function switchTab\\([^)]*\\)\\{[^\\n]*\\}/)||[])[0]||"";\n'
+              'assert.ok(fn&&!fn.includes(\'behavior:"smooth"\'),"switchTab must not animate section scroll");\n'
+              'console.log("OK — mobile section navigation is immediately stable");\n',
+              encoding="utf-8"
+          )
+
+          import json
+          pkgp=Path("package.json")
+          pkg=json.loads(pkgp.read_text(encoding="utf-8"))
+          gate="node final-audit-mobile-nav.test.js"
+          if gate not in pkg["scripts"]["test"]:
+              pkg["scripts"]["test"] += " && "+gate
+              pkgp.write_text(json.dumps(pkg,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+          marker=Path("FINAL-AUDIT-2026-10-05.md")
+          text=marker.read_text(encoding="utf-8")
+          line="- primary section switching uses immediate scroll positioning so sticky mobile tabs stay stable/clickable.\n"
+          if line not in text:
+              marker.write_text(text.rstrip()+"\n"+line,encoding="utf-8")
+          PY
+
+      - name: Keep command palette reachable in compact sticky headers
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          exec(base64.b64decode("ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCBqc29uCmNzc3A9UGF0aCgiaW50ZXJmYWNlLTEzLjkuY3NzIikKY3NzPWNzc3AucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCm9sZD0nICBib2R5LnVpODIudWkxMzkudWkxMzktc2Nyb2xsZWRbZGF0YS1zZWN0aW9uXTpub3QoW2RhdGEtc2VjdGlvbj0idG9kYXkiXSkgLnV4Ny1zZWN0aW9uLWhlYWQgLnV4Ny1oZWFkLWNvcHl7XG4gICAgZGlzcGxheTpub25lIWltcG9ydGFudDtcbiAgfVxuICBib2R5LnVpODIudWkxMzkudWkxMzktc2Nyb2xsZWRbZGF0YS1zZWN0aW9uXTpub3QoW2RhdGEtc2VjdGlvbj0idG9kYXkiXSkgLnV4Ny1zZWN0aW9uLWhlYWQgLnV4Ny10YWJze1xuICAgIG1hcmdpbjowIWltcG9ydGFudDtcbiAgfScKbmV3PScgIGJvZHkudWk4Mi51aTEzOS51aTEzOS1zY3JvbGxlZFtkYXRhLXNlY3Rpb25dOm5vdChbZGF0YS1zZWN0aW9uPSJ0b2RheSJdKSAudXg3LXNlY3Rpb24taGVhZCAudXg3LWhlYWQtY29weXtcbiAgICBtaW4taGVpZ2h0OjAhaW1wb3J0YW50O1xuICAgIG1hcmdpbjowIWltcG9ydGFudDtcbiAgfVxuICBib2R5LnVpODIudWkxMzkudWkxMzktc2Nyb2xsZWRbZGF0YS1zZWN0aW9uXTpub3QoW2RhdGEtc2VjdGlvbj0idG9kYXkiXSkgLnV4Ny1zZWN0aW9uLWhlYWQgLnV4Ny1oZWFkLWNvcHk+aDEsXG4gIGJvZHkudWk4Mi51aTEzOS51aTEzOS1zY3JvbGxlZFtkYXRhLXNlY3Rpb25dOm5vdChbZGF0YS1zZWN0aW9uPSJ0b2RheSJdKSAudXg3LXNlY3Rpb24taGVhZCAudXg3LWhlYWQtZGVzYyxcbiAgYm9keS51aTgyLnVpMTM5LnVpMTM5LXNjcm9sbGVkW2RhdGEtc2VjdGlvbl06bm90KFtkYXRhLXNlY3Rpb249InRvZGF5Il0pIC51eDctc2VjdGlvbi1oZWFkIC51eDctY2xhcml0eS10b2dnbGV7XG4gICAgZGlzcGxheTpub25lIWltcG9ydGFudDtcbiAgfVxuICBib2R5LnVpODIudWkxMzkudWkxMzktc2Nyb2xsZWRbZGF0YS1zZWN0aW9uXTpub3QoW2RhdGEtc2VjdGlvbj0idG9kYXkiXSkgLnV4Ny1zZWN0aW9uLWhlYWQgLnV4Ny1oZWFkLWFjdGlvbnN7XG4gICAgcG9zaXRpb246YWJzb2x1dGU7XG4gICAgdG9wOjRweDtcbiAgICByaWdodDo0cHg7XG4gICAgei1pbmRleDozO1xuICAgIGRpc3BsYXk6ZmxleCFpbXBvcnRhbnQ7XG4gICAgbWFyZ2luOjAhaW1wb3J0YW50O1xuICB9XG4gIGJvZHkudWk4Mi51aTEzOS51aTEzOS1zY3JvbGxlZFtkYXRhLXNlY3Rpb25dOm5vdChbZGF0YS1zZWN0aW9uPSJ0b2RheSJdKSAudXg3LXNlY3Rpb24taGVhZCAudXg3LWhlYWQtYWN0aW9ucz4jY29tbWFuZFBhbGV0dGVCdG57XG4gICAgZGlzcGxheTpncmlkIWltcG9ydGFudDtcbiAgICB3aWR0aDo0NHB4IWltcG9ydGFudDtcbiAgICBtaW4td2lkdGg6NDRweCFpbXBvcnRhbnQ7XG4gICAgaGVpZ2h0OjQ0cHghaW1wb3J0YW50O1xuICAgIG1pbi1oZWlnaHQ6NDRweCFpbXBvcnRhbnQ7XG4gICAgcGxhY2UtaXRlbXM6Y2VudGVyIWltcG9ydGFudDtcbiAgfVxuICBib2R5LnVpODIudWkxMzkudWkxMzktc2Nyb2xsZWRbZGF0YS1zZWN0aW9uXTpub3QoW2RhdGEtc2VjdGlvbj0idG9kYXkiXSkgLnV4Ny1zZWN0aW9uLWhlYWQgLnV4Ny10YWJze1xuICAgIG1hcmdpbjowIWltcG9ydGFudDtcbiAgICBwYWRkaW5nLXJpZ2h0OjUycHghaW1wb3J0YW50O1xuICB9JwppZiBvbGQgbm90IGluIGNzczogcmFpc2UgU3lzdGVtRXhpdCgiY29tcGFjdCBzdGlja3kgaGVhZGVyIGFuY2hvciBub3QgZm91bmQiKQppZiBjc3MuY291bnQob2xkKSE9MTogcmFpc2UgU3lzdGVtRXhpdCgiY29tcGFjdCBzdGlja3kgaGVhZGVyIGFuY2hvciBpcyBub3QgdW5pcXVlIikKY3NzcC53cml0ZV90ZXh0KGNzcy5yZXBsYWNlKG9sZCxuZXcsMSksZW5jb2Rpbmc9InV0Zi04IikKYXA9UGF0aCgiYW5kcm9pZC11aS0xNC5jc3MiKQphbmRyb2lkPWFwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQptYXJrZXI9Ii8qIEZJTkFMLUFVRElULVIzLVNUSUNLWS1DT01NQU5EICovIgphbmRyb2lkX2FkZD0nXG4vKiBGSU5BTC1BVURJVC1SMy1TVElDS1ktQ09NTUFORCAqL1xuQG1lZGlhKG1heC13aWR0aDo4NTBweCl7XG4gIGJvZHkudWk4Mi51aTEzOS51aTEzOS1zY3JvbGxlZFtkYXRhLXNlY3Rpb25dOm5vdChbZGF0YS1zZWN0aW9uPSJ0b2RheSJdKSAudXg3LXNlY3Rpb24taGVhZCAudXg3LXRhYnN7XG4gICAgcGFkZGluZy1yaWdodDo1MnB4IWltcG9ydGFudDtcbiAgfVxufVxuJwppZiBtYXJrZXIgbm90IGluIGFuZHJvaWQ6IGFwLndyaXRlX3RleHQoYW5kcm9pZCthbmRyb2lkX2FkZCxlbmNvZGluZz0idXRmLTgiKQpmPVBhdGgoImZpbmFsLWF1ZGl0LW1vYmlsZS1jaHJvbWUudGVzdC5qcyIpCnRlc3RfY29udGVudD0nInVzZSBzdHJpY3QiO1xuY29uc3QgZnM9cmVxdWlyZSgibm9kZTpmcyIpLGFzc2VydD1yZXF1aXJlKCJub2RlOmFzc2VydC9zdHJpY3QiKTtcbmNvbnN0IHVpPWZzLnJlYWRGaWxlU3luYygidWkuanMiLCJ1dGY4IiksY3NzPWZzLnJlYWRGaWxlU3luYygiaW50ZXJmYWNlLTEzLjkuY3NzIiwidXRmOCIpLGFuZHJvaWQ9ZnMucmVhZEZpbGVTeW5jKCJhbmRyb2lkLXVpLTE0LmNzcyIsInV0ZjgiKTtcbmFzc2VydC5vayh1aS5pbmNsdWRlcyhcJ3dpbmRvdy5zY3JvbGxUbyh7dG9wOjAsYmVoYXZpb3I6ImF1dG8ifSlcJyksInNlY3Rpb24gc3dpdGNoIG11c3QgdXNlIGltbWVkaWF0ZSBzY3JvbGwiKTtcbmFzc2VydC5vayghY3NzLmluY2x1ZGVzKFwnLnV4Ny1zZWN0aW9uLWhlYWQgLnV4Ny1oZWFkLWNvcHl7XFxuICAgIGRpc3BsYXk6bm9uZSFpbXBvcnRhbnQ7XCcpLCJjb21wYWN0IGhlYWRlciBtdXN0IG5vdCBoaWRlIGNvbW1hbmQgYWN0aW9ucyIpO1xuYXNzZXJ0Lm9rKGNzcy5pbmNsdWRlcyhcJy51eDctaGVhZC1hY3Rpb25zPiNjb21tYW5kUGFsZXR0ZUJ0blwnKSwiY29tcGFjdCBzdGlja3kgY29tbWFuZCBidXR0b24gcnVsZSBtaXNzaW5nIik7XG5hc3NlcnQub2soY3NzLmluY2x1ZGVzKFwncGFkZGluZy1yaWdodDo1MnB4IWltcG9ydGFudFwnKSwic3RpY2t5IHRhYnMgbXVzdCByZXNlcnZlIHJvb20gZm9yIGNvbW1hbmQgYnV0dG9uIik7XG5hc3NlcnQub2soYW5kcm9pZC5pbmNsdWRlcygiRklOQUwtQVVESVQtUjMtU1RJQ0tZLUNPTU1BTkQiKSwiQW5kcm9pZCBzdGlja3kgY29tbWFuZCBzcGFjaW5nIG92ZXJyaWRlIG1pc3NpbmciKTtcbmNvbnNvbGUubG9nKCJPSyDigJQgbW9iaWxlIHN0aWNreSBjb21tYW5kIHBhbGV0dGUgcmVtYWlucyByZWFjaGFibGUiKTtcbicKZi53cml0ZV90ZXh0KHRlc3RfY29udGVudCxlbmNvZGluZz0idXRmLTgiKQpwa2dwPVBhdGgoInBhY2thZ2UuanNvbiIpCnBrZz1qc29uLmxvYWRzKHBrZ3AucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpKQpnYXRlPSJub2RlIGZpbmFsLWF1ZGl0LW1vYmlsZS1jaHJvbWUudGVzdC5qcyIKaWYgZ2F0ZSBub3QgaW4gcGtnWyJzY3JpcHRzIl1bInRlc3QiXToKICAgIHBrZ1sic2NyaXB0cyJdWyJ0ZXN0Il0gKz0gIiAmJiAiK2dhdGUKICAgIHBrZ3Aud3JpdGVfdGV4dChqc29uLmR1bXBzKHBrZyxlbnN1cmVfYXNjaWk9RmFsc2UsaW5kZW50PTIpKyJcbiIsZW5jb2Rpbmc9InV0Zi04IikKbWFya2VycD1QYXRoKCJGSU5BTC1BVURJVC0yMDI2LTEwLTA1Lm1kIikKbT1tYXJrZXJwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQpsaW5lPSItIGNvbXBhY3Qgc3RpY2t5IGhlYWRlcnMga2VlcCB0aGUgY29tbWFuZC9zZWFyY2ggY29udHJvbCByZWFjaGFibGUgYWZ0ZXIgbG9uZyBtb2JpbGUgc2Nyb2xsaW5nLlxuIgppZiBsaW5lIG5vdCBpbiBtOiBtYXJrZXJwLndyaXRlX3RleHQobS5yc3RyaXAoKSsiXG4iK2xpbmUsZW5jb2Rpbmc9InV0Zi04IikK"))
+          PY
+
+      - name: Syntax-check critical patched files
+        shell: bash
+        run: |
+          node --check finance.js
+          node --check imports.js
+          node --check state.js
+          node --check ui.js
+          node --check life-ops.js
+          node --check ai-bridge-worker.mjs
+          node --check audit-fix-2026-10-05.test.js
+          node --check cashflow-fix-2026-10-05.test.js
+          node --check final-audit-2026-10-05.test.js
+          node --check final-audit-mobile-nav.test.js
+          node --check final-audit-mobile-chrome.test.js
+
+      - name: Run audit-specific regression gates
+        run: |
+          node audit-fix-2026-10-05.test.js
+          node cashflow-fix-2026-10-05.test.js
+          node final-audit-2026-10-05.test.js
+          node final-audit-mobile-nav.test.js
+          node final-audit-mobile-chrome.test.js
+
+      - name: Run full source regression suite
+        run: npm test
+
+      - name: Build production PWA
+        run: npm run build
+
+      - name: Audit production bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Verify patch integrity
+        shell: bash
+        run: |
+          git diff --check
+          test -f AUDIT-FIX-2026-10-05.md
+          test -f CASHFLOW-FIX-2026-10-05.md
+          test -f FINAL-AUDIT-2026-10-05.md
+          grep -q 'readJsonBodyLimited(request,MAX_BODY_BYTES)' ai-bridge-worker.mjs
+          grep -q 'function assetCashDelta' finance.js
+          grep -q 'function debtPriorityLabel' finance.js
+          grep -q 'window.scrollTo({top:0,behavior:"auto"})' ui.js
+          grep -q 'ux7-head-actions>#commandPaletteBtn' interface-13.9.css
+          grep -q 'FINAL-AUDIT-R3-STICKY-COMMAND' android-ui-14.css
+
+      - name: Commit verified final audit to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Complete full application audit 2026-10-05 [skip ci]"
+          git push origin HEAD:main
