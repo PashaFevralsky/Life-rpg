@@ -1,7 +1,7 @@
 {
-  "targetVersion": "14.0.4",
+  "targetVersion": "14.1.2",
   "channel": "rc",
   "stateVersion": 18,
   "androidShareEnabled": false,
-  "notes": "Android 14.0.4 RC: audited UI accessibility, keyboard tabs, stronger bottom-nav contrast and focused Quick Add."
+  "notes": "Android 14.1.2 RC: Product Core with unified Today decision surface, Setup Center, Adaptive More and Domain Focus for Finance, Work and Tennis. State schema remains v18."
 }

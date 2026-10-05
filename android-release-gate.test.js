@@ -2,14 +2,30 @@
 const fs=require("node:fs"),path=require("node:path"),assert=require("node:assert/strict");
 const read=p=>fs.readFileSync(p,"utf8");
 const cfg=JSON.parse(read("android-release-config.json"));
+const stable=JSON.parse(read("android-stable-config.json"));
 const tool=JSON.parse(read("android-toolchain.lock.json"));
 const meta=JSON.parse(read("android-release-meta.json"));
 const cap=JSON.parse(read("capacitor.config.json"));
 
-assert.equal(cfg.targetVersion,"14.0.4");
+function semver(v){
+  const m=/^(\d+)\.(\d+)\.(\d+)$/.exec(String(v||""));
+  assert.ok(m,`Invalid semver: ${v}`);
+  return {major:+m[1],minor:+m[2],patch:+m[3]};
+}
+function versionCodeFloor(v,slot=99){
+  const x=semver(v);
+  return x.major*1000000+x.minor*10000+x.patch*100+slot;
+}
+function cmp(a,b){
+  const x=semver(a),y=semver(b);
+  return x.major-y.major||x.minor-y.minor||x.patch-y.patch;
+}
+
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 assert.equal(cfg.androidShareEnabled,false);
+assert.ok(cmp(cfg.targetVersion,stable.targetVersion)>0,
+  `RC target ${cfg.targetVersion} must be newer than installed stable ${stable.targetVersion}`);
 
 assert.equal(tool.node,"22");
 assert.equal(tool.java,"21");
@@ -18,13 +34,21 @@ assert.equal(tool.capacitorAndroid,"8.5.2");
 assert.equal(tool.capacitorCli,"8.5.2");
 assert.equal(tool.localNotifications,"8.3.1");
 
-assert.match(meta.versionName,/^14\.0\.4-rc\.\d+$/);
-assert.ok(meta.versionCode>14000319,"14.0.4 RC must update over installed 14.0.3 RC run 19");
+assert.equal(meta.targetVersion,cfg.targetVersion);
+const escaped=cfg.targetVersion.replace(/\./g,"\\.");
+assert.match(meta.versionName,new RegExp(`^${escaped}-rc\\.\\d+$`));
+assert.ok(meta.versionCode>versionCodeFloor(stable.targetVersion),
+  `${cfg.targetVersion} RC must update over installed ${stable.targetVersion} stable`);
 assert.equal(meta.androidShareEnabled,false);
 assert.equal(meta.stateVersion,18);
 
 const assets=path.join("android","app","src","main","assets","public");
-for(const f of ["index.html","core.js","bootstrap.js","pwa.js","android-safe-area.css","android-life-ops-native.js","finance-rebuild-14.js","android-ui-14.css","android-tab-swipe-14.css","android-tab-swipe-14.js"]){
+for(const f of [
+  "index.html","core.js","bootstrap.js","pwa.js",
+  "android-safe-area.css","android-life-ops-native.js","finance-rebuild-14.js",
+  "android-ui-14.css","android-tab-swipe-14.css","android-tab-swipe-14.js",
+  "product-core-14.1.js","product-core-14.1.1.js","product-core-14.1.2.js"
+]){
   assert.ok(fs.existsSync(path.join(assets,f)),`Android asset missing: ${f}`);
 }
 assert.ok(!fs.existsSync(path.join(assets,"share-hub.js")),"Share Hub must not ship in Android RC");
@@ -59,6 +83,9 @@ assert.ok(swipeJs.includes("pointerType!=='touch'"));
 assert.ok(html.indexOf("android-life-ops-native.js")<html.indexOf("bootstrap.js"));
 assert.ok(html.indexOf("finance-rebuild-14.js")<html.indexOf("bootstrap.js"));
 assert.ok(boot.includes('["ensureFinanceRebuild14Ui","renderFinanceRebuild14"]'));
+assert.ok(boot.includes('"product-core-14.1.js"'));
+assert.ok(boot.includes('"product-core-14.1.1.js"'));
+assert.ok(boot.includes('"product-core-14.1.2.js"'));
 assert.ok(read(path.join(assets,"finance-rebuild-14.js")).includes("life-rpg-finance-rebuild-v1"));
 assert.ok(core.includes(`APP_VERSION="${meta.versionName}"`));
 assert.ok(!boot.includes('"share-hub.js"'));

@@ -1,0 +1,12 @@
+{
+  "target": "14.1.2-rc",
+  "stateVersion": 18,
+  "files": [
+    "android-release-config.json",
+    "android-release-gate.test.js",
+    "release-readiness-14.0.test.js",
+    "ui-audit-hotfix-14.0.4.test.js",
+    "android-ui-14.e2e.test.js"
+  ],
+  "stableConfigTouched": false
+}

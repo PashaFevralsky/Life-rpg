@@ -1,8 +1,12 @@
 import { test, expect } from "@playwright/test";
+import fs from "node:fs";
 
 /* Android RC UI gate.
    Covers all five sections at 360–430px, fixed bottom navigation clearance,
    deterministic tabs, sticky chrome, horizontal containment and modal geometry. */
+
+const androidCfg=JSON.parse(fs.readFileSync("android-release-config.json","utf8"));
+const androidVersionRe=new RegExp(`Life RPG ${String(androidCfg.targetVersion).replace(/\./g,"\\.")}-rc\\.\\d+$`);
 
 const widths=[360,390,412,430];
 const views={
@@ -20,7 +24,7 @@ async function boot(page,width=390,height=844){
   await page.goto("/",{waitUntil:"domcontentloaded"});
   await expect(page.locator("html")).not.toHaveClass(/life-rpg-booting/);
   await expect(page.locator("body")).toHaveClass(/ui139/);
-  await expect(page).toHaveTitle(/Life RPG 14\.0\.4-rc\./);
+  await expect(page).toHaveTitle(androidVersionRe);
   return errors;
 }
 

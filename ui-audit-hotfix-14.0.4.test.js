@@ -25,9 +25,13 @@ assert.ok(e2e.includes("dynamic sheets expose dialog semantics"));
 assert.ok(e2e.includes("internal tabs use roving keyboard navigation"));
 assert.ok(e2e.includes("Quick Add contains eight entry actions only"));
 assert.ok(prev.includes("Android targetVersion must be >= 14.0.3"));
-assert.equal(cfg.targetVersion,"14.0.4");
+
+const vm=/^(\d+)\.(\d+)\.(\d+)$/.exec(String(cfg.targetVersion||""));
+assert.ok(vm,`Invalid Android targetVersion: ${cfg.targetVersion}`);
+const versionCode=(+vm[1])*1000000+(+vm[2])*10000+(+vm[3])*100;
+assert.ok(versionCode>=14000400,`Android targetVersion must be >= 14.0.4, got ${cfg.targetVersion}`);
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 assert.ok(pkg.scripts.test.includes("ui-audit-hotfix-14.0.4.test.js"));
 
-console.log("OK — Life RPG 14.0.4 audited UI hotfix contract passed");
+console.log(`OK — Life RPG 14.0.4 audited UI hotfix contract retained for Android ${cfg.targetVersion}`);

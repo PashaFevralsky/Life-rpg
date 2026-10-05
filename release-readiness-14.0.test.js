@@ -15,8 +15,14 @@ for(const f of [
   ".github/workflows/android-rc.yml",".github/workflows/android-beta.yml"
 ]) assert.ok(fs.existsSync(f),`${f} missing`);
 
+function semverCode(v){
+  const m=/^(\d+)\.(\d+)\.(\d+)$/.exec(String(v||""));
+  assert.ok(m,`Invalid Android targetVersion: ${v}`);
+  return (+m[1])*1000000+(+m[2])*10000+(+m[3])*100;
+}
 const cfg=JSON.parse(read("android-release-config.json"));
-assert.equal(cfg.targetVersion,"14.0.4");
+assert.ok(semverCode(cfg.targetVersion)>=semverCode("14.0.4"),
+  `Android targetVersion must be >= 14.0.4, got ${cfg.targetVersion}`);
 assert.equal(cfg.channel,"rc");
 assert.equal(cfg.stateVersion,18);
 assert.equal(cfg.androidShareEnabled,false);
@@ -76,4 +82,4 @@ for(const phrase of ["Обновление поверх","Сохранность
   assert.ok(acceptance.toLowerCase().includes(phrase.toLowerCase()),`Acceptance checklist missing: ${phrase}`);
 }
 
-console.log("OK — Life RPG 14.0 release-hardening source gate passed");
+console.log(`OK — Life RPG Android release-hardening source gate passed for ${cfg.targetVersion}`);
