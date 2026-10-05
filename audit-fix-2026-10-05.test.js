@@ -17,7 +17,13 @@ assert(finance.includes("Перед освобождением резервов 
 assert(finance.includes("Эти деньги снова будут считаться свободными"),"reservation release must require explicit confirmation");
 assert(finance.includes("Погашено с начала отслеживания"),"debt UI must state tracking baseline accurately");
 assert(css.includes("AUDIT-FIX-2026-10-05-STICKY"),"compact sticky fix missing");
-assert(e2e.includes('expect(h.headCopyDisplay).toBe("none")'),"E2E must verify compact sticky content");
+assert(e2e.includes('expect(h.headCopyDisplay).not.toBe("none")'),"E2E must preserve sticky command container");
+assert(e2e.includes('expect(h.titleDisplay).toBe("none")'),"E2E must hide sticky title");
+assert(e2e.includes('expect(h.descDisplay).toBe("none")'),"E2E must hide sticky description");
+assert(e2e.includes('expect([null,"none"]).toContain(h.clarityDisplay)'),"E2E must hide clarity control when present");
+assert(e2e.includes('expect(h.commandDisplay).toBe("grid")'),"E2E must keep command control visible");
+assert(e2e.includes('expect(h.commandWidth).toBeGreaterThanOrEqual(44)'),"E2E must verify command touch width");
+assert(e2e.includes('expect(h.commandHeight).toBeGreaterThanOrEqual(44)'),"E2E must verify command touch height");
 assert(html.includes("JSON без шифрования"),"plaintext backup must be labelled");
 assert(html.includes("Android RC собирается через GitHub Actions"),"Android build status text is stale");
 

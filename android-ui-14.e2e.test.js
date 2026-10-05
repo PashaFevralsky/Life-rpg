@@ -103,12 +103,36 @@ test("Android RC sticky header remains opaque and compact while scrolling",async
     await page.waitForTimeout(35);
     const h=await page.locator(`#${section}>.ux7-section-head`).evaluate(el=>{
       const r=el.getBoundingClientRect(),s=getComputedStyle(el);
-      return {top:r.top,height:r.height,background:s.backgroundColor,position:s.position,headCopyDisplay:getComputedStyle(el.querySelector(".ux7-head-copy")).display}
+      const headCopy=el.querySelector(".ux7-head-copy");
+      const title=headCopy?.querySelector("h1");
+      const desc=headCopy?.querySelector(".ux7-head-desc");
+      const clarity=headCopy?.querySelector(".ux7-clarity-toggle");
+      const command=headCopy?.querySelector("#commandPaletteBtn");
+      const cr=command?.getBoundingClientRect();
+      return {
+        top:r.top,
+        height:r.height,
+        background:s.backgroundColor,
+        position:s.position,
+        headCopyDisplay:headCopy?getComputedStyle(headCopy).display:null,
+        titleDisplay:title?getComputedStyle(title).display:null,
+        descDisplay:desc?getComputedStyle(desc).display:null,
+        clarityDisplay:clarity?getComputedStyle(clarity).display:null,
+        commandDisplay:command?getComputedStyle(command).display:null,
+        commandWidth:cr?.width||0,
+        commandHeight:cr?.height||0
+      }
     });
     expect(h.position).toBe("sticky");
     expect(h.top).toBeGreaterThanOrEqual(-1);
     expect(h.height).toBeLessThanOrEqual(90);
-    expect(h.headCopyDisplay).toBe("none");
+    expect(h.headCopyDisplay).not.toBe("none");
+    expect(h.titleDisplay).toBe("none");
+    expect(h.descDisplay).toBe("none");
+    expect([null,"none"]).toContain(h.clarityDisplay);
+    expect(h.commandDisplay).toBe("grid");
+    expect(h.commandWidth).toBeGreaterThanOrEqual(44);
+    expect(h.commandHeight).toBeGreaterThanOrEqual(44);
     expect(h.background).toMatch(/^rgb\(/);
     await page.evaluate(()=>window.scrollTo(0,0));
   }

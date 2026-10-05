@@ -15,3 +15,4 @@ Confirmed fixes:
 State schema remains v18. No user-data reset or destructive migration.
 - primary section switching uses immediate scroll positioning so sticky mobile tabs stay stable/clickable.
 - compact sticky headers keep the command/search control reachable after long mobile scrolling.
+- Android RC sticky geometry contract now matches the final R3 UX: compact copy is hidden while the 44×44 command control remains reachable.
