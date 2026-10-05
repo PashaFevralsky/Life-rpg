@@ -1,0 +1,114 @@
+name: Fix Android RC Geometry Contract 2026-10-05
+run-name: Android RC • align sticky-header E2E with final R3 UX
+
+"on":
+  push:
+    paths:
+      - ".github/workflows/fix-android-rc-geometry-contract-2026-10-05.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-android-geometry-contract-fix
+  cancel-in-progress: true
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Align Android sticky-header E2E contract
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path("android-ui-14.e2e.test.js")
+          s=p.read_text(encoding="utf-8")
+
+          old_return='return {top:r.top,height:r.height,background:s.backgroundColor,position:s.position,headCopyDisplay:getComputedStyle(el.querySelector(".ux7-head-copy")).display}'
+          new_return='return {\n        top:r.top,\n        height:r.height,\n        background:s.backgroundColor,\n        position:s.position,\n        headCopyDisplay:getComputedStyle(el.querySelector(".ux7-head-copy")).display,\n        titleDisplay:getComputedStyle(el.querySelector(".ux7-head-copy>h1")).display,\n        descDisplay:getComputedStyle(el.querySelector(".ux7-head-desc")).display,\n        clarityDisplay:getComputedStyle(el.querySelector(".ux7-clarity-toggle")).display,\n        commandDisplay:getComputedStyle(el.querySelector("#commandPaletteBtn")).display,\n        commandWidth:el.querySelector("#commandPaletteBtn").getBoundingClientRect().width,\n        commandHeight:el.querySelector("#commandPaletteBtn").getBoundingClientRect().height\n      }'
+
+          old_assert='expect(h.headCopyDisplay).toBe("none");'
+          new_assert='expect(h.headCopyDisplay).not.toBe("none");\n    expect(h.titleDisplay).toBe("none");\n    expect(h.descDisplay).toBe("none");\n    expect(h.clarityDisplay).toBe("none");\n    expect(h.commandDisplay).not.toBe("none");\n    expect(h.commandWidth).toBeGreaterThanOrEqual(44);\n    expect(h.commandHeight).toBeGreaterThanOrEqual(44);'
+
+          if old_return not in s:
+              if "commandWidth" not in s:
+                  raise SystemExit("Expected Android geometry return expression not found.")
+          else:
+              if s.count(old_return)!=1:
+                  raise SystemExit("Android geometry return expression is not unique.")
+              s=s.replace(old_return,new_return,1)
+
+          if old_assert not in s:
+              if 'expect(h.commandWidth).toBeGreaterThanOrEqual(44);' not in s:
+                  raise SystemExit("Expected old head-copy assertion not found.")
+          else:
+              if s.count(old_assert)!=1:
+                  raise SystemExit("Old head-copy assertion is not unique.")
+              s=s.replace(old_assert,new_assert,1)
+
+          p.write_text(s,encoding="utf-8")
+
+          marker=Path("FINAL-AUDIT-2026-10-05.md")
+          if marker.exists():
+              m=marker.read_text(encoding="utf-8")
+              line="- Android RC geometry gate validates compact sticky chrome while preserving the reachable 44×44 command control.\n"
+              if line not in m:
+                  marker.write_text(m.rstrip()+"\n"+line,encoding="utf-8")
+          PY
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Syntax-check corrected Android E2E
+        run: node --check android-ui-14.e2e.test.js
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Build production web bundle
+        run: npm run build
+
+      - name: Audit production web bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Prepare Android RC web assets
+        run: node android-release-prepare.mjs
+
+      - name: Run corrected Android RC geometry gate
+        run: npx playwright test --config=playwright.android-rc.config.mjs
+
+      - name: Commit verified geometry-contract fix
+        shell: bash
+        run: |
+          git status --short
+          git add android-ui-14.e2e.test.js FINAL-AUDIT-2026-10-05.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Align Android geometry gate with final sticky-header UX"
+          git push origin HEAD:main
