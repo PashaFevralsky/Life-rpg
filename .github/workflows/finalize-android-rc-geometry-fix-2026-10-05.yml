@@ -1,0 +1,145 @@
+name: Finalize Android RC Geometry Fix 2026-10-05
+run-name: Finalize Android RC geometry fix and hand off to official RC
+
+"on":
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/finalize-android-rc-geometry-fix-2026-10-05.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-finalize-android-geometry
+  cancel-in-progress: true
+
+jobs:
+  patch-test-commit:
+    name: Patch, fully test, then trigger official Android RC
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout exact main revision
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Guard exact source revision
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          REMOTE="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$REMOTE" = "$GITHUB_SHA"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Apply final geometry-contract correction
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          payload = "ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgplMmVfcGF0aD1QYXRoKCJhbmRyb2lkLXVpLTE0LmUyZS50ZXN0LmpzIikKZTJlPWUyZV9wYXRoLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQpvbGRfYmxvY2s9JyAgICBjb25zdCBoPWF3YWl0IHBhZ2UubG9jYXRvcihgIyR7c2VjdGlvbn0+LnV4Ny1zZWN0aW9uLWhlYWRgKS5ldmFsdWF0ZShlbD0+e1xuICAgICAgY29uc3Qgcj1lbC5nZXRCb3VuZGluZ0NsaWVudFJlY3QoKSxzPWdldENvbXB1dGVkU3R5bGUoZWwpO1xuICAgICAgcmV0dXJuIHt0b3A6ci50b3AsaGVpZ2h0OnIuaGVpZ2h0LGJhY2tncm91bmQ6cy5iYWNrZ3JvdW5kQ29sb3IscG9zaXRpb246cy5wb3NpdGlvbixoZWFkQ29weURpc3BsYXk6Z2V0Q29tcHV0ZWRTdHlsZShlbC5xdWVyeVNlbGVjdG9yKCIudXg3LWhlYWQtY29weSIpKS5kaXNwbGF5fVxuICAgIH0pO1xuICAgIGV4cGVjdChoLnBvc2l0aW9uKS50b0JlKCJzdGlja3kiKTtcbiAgICBleHBlY3QoaC50b3ApLnRvQmVHcmVhdGVyVGhhbk9yRXF1YWwoLTEpO1xuICAgIGV4cGVjdChoLmhlaWdodCkudG9CZUxlc3NUaGFuT3JFcXVhbCg5MCk7XG4gICAgZXhwZWN0KGguaGVhZENvcHlEaXNwbGF5KS50b0JlKCJub25lIik7XG4gICAgZXhwZWN0KGguYmFja2dyb3VuZCkudG9NYXRjaCgvXnJnYlxcKC8pOycKbmV3X2Jsb2NrPScgICAgY29uc3QgaD1hd2FpdCBwYWdlLmxvY2F0b3IoYCMke3NlY3Rpb259Pi51eDctc2VjdGlvbi1oZWFkYCkuZXZhbHVhdGUoZWw9PntcbiAgICAgIGNvbnN0IHI9ZWwuZ2V0Qm91bmRpbmdDbGllbnRSZWN0KCkscz1nZXRDb21wdXRlZFN0eWxlKGVsKTtcbiAgICAgIGNvbnN0IGhlYWRDb3B5PWVsLnF1ZXJ5U2VsZWN0b3IoIi51eDctaGVhZC1jb3B5Iik7XG4gICAgICBjb25zdCB0aXRsZT1oZWFkQ29weT8ucXVlcnlTZWxlY3RvcigiaDEiKTtcbiAgICAgIGNvbnN0IGRlc2M9aGVhZENvcHk/LnF1ZXJ5U2VsZWN0b3IoIi51eDctaGVhZC1kZXNjIik7XG4gICAgICBjb25zdCBjbGFyaXR5PWhlYWRDb3B5Py5xdWVyeVNlbGVjdG9yKCIudXg3LWNsYXJpdHktdG9nZ2xlIik7XG4gICAgICBjb25zdCBjb21tYW5kPWhlYWRDb3B5Py5xdWVyeVNlbGVjdG9yKCIjY29tbWFuZFBhbGV0dGVCdG4iKTtcbiAgICAgIGNvbnN0IGNyPWNvbW1hbmQ/LmdldEJvdW5kaW5nQ2xpZW50UmVjdCgpO1xuICAgICAgcmV0dXJuIHtcbiAgICAgICAgdG9wOnIudG9wLFxuICAgICAgICBoZWlnaHQ6ci5oZWlnaHQsXG4gICAgICAgIGJhY2tncm91bmQ6cy5iYWNrZ3JvdW5kQ29sb3IsXG4gICAgICAgIHBvc2l0aW9uOnMucG9zaXRpb24sXG4gICAgICAgIGhlYWRDb3B5RGlzcGxheTpoZWFkQ29weT9nZXRDb21wdXRlZFN0eWxlKGhlYWRDb3B5KS5kaXNwbGF5Om51bGwsXG4gICAgICAgIHRpdGxlRGlzcGxheTp0aXRsZT9nZXRDb21wdXRlZFN0eWxlKHRpdGxlKS5kaXNwbGF5Om51bGwsXG4gICAgICAgIGRlc2NEaXNwbGF5OmRlc2M/Z2V0Q29tcHV0ZWRTdHlsZShkZXNjKS5kaXNwbGF5Om51bGwsXG4gICAgICAgIGNsYXJpdHlEaXNwbGF5OmNsYXJpdHk/Z2V0Q29tcHV0ZWRTdHlsZShjbGFyaXR5KS5kaXNwbGF5Om51bGwsXG4gICAgICAgIGNvbW1hbmREaXNwbGF5OmNvbW1hbmQ/Z2V0Q29tcHV0ZWRTdHlsZShjb21tYW5kKS5kaXNwbGF5Om51bGwsXG4gICAgICAgIGNvbW1hbmRXaWR0aDpjcj8ud2lkdGh8fDAsXG4gICAgICAgIGNvbW1hbmRIZWlnaHQ6Y3I/LmhlaWdodHx8MFxuICAgICAgfVxuICAgIH0pO1xuICAgIGV4cGVjdChoLnBvc2l0aW9uKS50b0JlKCJzdGlja3kiKTtcbiAgICBleHBlY3QoaC50b3ApLnRvQmVHcmVhdGVyVGhhbk9yRXF1YWwoLTEpO1xuICAgIGV4cGVjdChoLmhlaWdodCkudG9CZUxlc3NUaGFuT3JFcXVhbCg5MCk7XG4gICAgZXhwZWN0KGguaGVhZENvcHlEaXNwbGF5KS5ub3QudG9CZSgibm9uZSIpO1xuICAgIGV4cGVjdChoLnRpdGxlRGlzcGxheSkudG9CZSgibm9uZSIpO1xuICAgIGV4cGVjdChoLmRlc2NEaXNwbGF5KS50b0JlKCJub25lIik7XG4gICAgZXhwZWN0KFtudWxsLCJub25lIl0pLnRvQ29udGFpbihoLmNsYXJpdHlEaXNwbGF5KTtcbiAgICBleHBlY3QoaC5jb21tYW5kRGlzcGxheSkudG9CZSgiZ3JpZCIpO1xuICAgIGV4cGVjdChoLmNvbW1hbmRXaWR0aCkudG9CZUdyZWF0ZXJUaGFuT3JFcXVhbCg0NCk7XG4gICAgZXhwZWN0KGguY29tbWFuZEhlaWdodCkudG9CZUdyZWF0ZXJUaGFuT3JFcXVhbCg0NCk7XG4gICAgZXhwZWN0KGguYmFja2dyb3VuZCkudG9NYXRjaCgvXnJnYlxcKC8pOycKaWYgb2xkX2Jsb2NrIGluIGUyZToKICAgIGlmIGUyZS5jb3VudChvbGRfYmxvY2spIT0xOiByYWlzZSBTeXN0ZW1FeGl0KCdPbGQgc3RpY2t5IGdlb21ldHJ5IGJsb2NrIGlzIG5vdCB1bmlxdWUuJykKICAgIGUyZT1lMmUucmVwbGFjZShvbGRfYmxvY2ssbmV3X2Jsb2NrLDEpCmVsaWYgbmV3X2Jsb2NrIG5vdCBpbiBlMmU6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCdTdGlja3kgZ2VvbWV0cnkgdGVzdCBpcyBpbiBhbiB1bmtub3duIHN0YXRlOyByZWZ1c2luZyBibGluZCByZXdyaXRlLicpCmlmICdleHBlY3QoaC5oZWFkQ29weURpc3BsYXkpLnRvQmUoIm5vbmUiKScgaW4gZTJlOiByYWlzZSBTeXN0ZW1FeGl0KCJTdGFsZSBzdGlja3kgaGVhZENvcHkgYXNzZXJ0aW9uIHN0aWxsIGV4aXN0cy4iKQplMmVfcGF0aC53cml0ZV90ZXh0KGUyZSxlbmNvZGluZz0idXRmLTgiKQoKYXVkaXRfcGF0aD1QYXRoKCJhdWRpdC1maXgtMjAyNi0xMC0wNS50ZXN0LmpzIikKYXVkaXQ9YXVkaXRfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKb2xkX21ldGE9J2Fzc2VydChlMmUuaW5jbHVkZXMoXCdleHBlY3QoaC5oZWFkQ29weURpc3BsYXkpLnRvQmUoIm5vbmUiKVwnKSwiRTJFIG11c3QgdmVyaWZ5IGNvbXBhY3Qgc3RpY2t5IGNvbnRlbnQiKTsnCm5ld19tZXRhPSdhc3NlcnQoZTJlLmluY2x1ZGVzKFwnZXhwZWN0KGguaGVhZENvcHlEaXNwbGF5KS5ub3QudG9CZSgibm9uZSIpXCcpLCJFMkUgbXVzdCBwcmVzZXJ2ZSBzdGlja3kgY29tbWFuZCBjb250YWluZXIiKTtcbmFzc2VydChlMmUuaW5jbHVkZXMoXCdleHBlY3QoaC50aXRsZURpc3BsYXkpLnRvQmUoIm5vbmUiKVwnKSwiRTJFIG11c3QgaGlkZSBzdGlja3kgdGl0bGUiKTtcbmFzc2VydChlMmUuaW5jbHVkZXMoXCdleHBlY3QoaC5kZXNjRGlzcGxheSkudG9CZSgibm9uZSIpXCcpLCJFMkUgbXVzdCBoaWRlIHN0aWNreSBkZXNjcmlwdGlvbiIpO1xuYXNzZXJ0KGUyZS5pbmNsdWRlcyhcJ2V4cGVjdChbbnVsbCwibm9uZSJdKS50b0NvbnRhaW4oaC5jbGFyaXR5RGlzcGxheSlcJyksIkUyRSBtdXN0IGhpZGUgY2xhcml0eSBjb250cm9sIHdoZW4gcHJlc2VudCIpO1xuYXNzZXJ0KGUyZS5pbmNsdWRlcyhcJ2V4cGVjdChoLmNvbW1hbmREaXNwbGF5KS50b0JlKCJncmlkIilcJyksIkUyRSBtdXN0IGtlZXAgY29tbWFuZCBjb250cm9sIHZpc2libGUiKTtcbmFzc2VydChlMmUuaW5jbHVkZXMoXCdleHBlY3QoaC5jb21tYW5kV2lkdGgpLnRvQmVHcmVhdGVyVGhhbk9yRXF1YWwoNDQpXCcpLCJFMkUgbXVzdCB2ZXJpZnkgY29tbWFuZCB0b3VjaCB3aWR0aCIpO1xuYXNzZXJ0KGUyZS5pbmNsdWRlcyhcJ2V4cGVjdChoLmNvbW1hbmRIZWlnaHQpLnRvQmVHcmVhdGVyVGhhbk9yRXF1YWwoNDQpXCcpLCJFMkUgbXVzdCB2ZXJpZnkgY29tbWFuZCB0b3VjaCBoZWlnaHQiKTsnCmlmIG9sZF9tZXRhIGluIGF1ZGl0OgogICAgaWYgYXVkaXQuY291bnQob2xkX21ldGEpIT0xOiByYWlzZSBTeXN0ZW1FeGl0KCdPbGQgYXVkaXQgbWV0YSBhc3NlcnRpb24gaXMgbm90IHVuaXF1ZS4nKQogICAgYXVkaXQ9YXVkaXQucmVwbGFjZShvbGRfbWV0YSxuZXdfbWV0YSwxKQplbGlmIG5ld19tZXRhIG5vdCBpbiBhdWRpdDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoJ0F1ZGl0IG1ldGEtdGVzdCBpcyBpbiBhbiB1bmtub3duIHN0YXRlOyByZWZ1c2luZyBibGluZCByZXdyaXRlLicpCmF1ZGl0X3BhdGgud3JpdGVfdGV4dChhdWRpdCxlbmNvZGluZz0idXRmLTgiKQoKbm90ZV9wYXRoPVBhdGgoIkZJTkFMLUFVRElULTIwMjYtMTAtMDUubWQiKQppZiBub3RlX3BhdGguZXhpc3RzKCk6CiAgICBub3RlPW5vdGVfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikucnN0cmlwKCkKICAgIGxpbmU9Ii0gQW5kcm9pZCBSQyBzdGlja3kgZ2VvbWV0cnkgY29udHJhY3Qgbm93IG1hdGNoZXMgdGhlIGZpbmFsIFIzIFVYOiBjb21wYWN0IGNvcHkgaXMgaGlkZGVuIHdoaWxlIHRoZSA0NMOXNDQgY29tbWFuZCBjb250cm9sIHJlbWFpbnMgcmVhY2hhYmxlLiIKICAgIGlmIGxpbmUgbm90IGluIG5vdGU6IG5vdGUgKz0gJ1xuJytsaW5lCiAgICBub3RlX3BhdGgud3JpdGVfdGV4dChub3RlKyJcbiIsZW5jb2Rpbmc9InV0Zi04Iik="
+          Path(".finalize-android-geometry.py").write_bytes(base64.b64decode(payload))
+          PY
+          python3 .finalize-android-geometry.py
+          rm -f .finalize-android-geometry.py
+
+      - name: Verify corrected source contract statically
+        shell: bash
+        run: |
+          node --check android-ui-14.e2e.test.js
+          node --check audit-fix-2026-10-05.test.js
+          node <<'NODE'
+          const fs=require("fs");
+          const e=fs.readFileSync("android-ui-14.e2e.test.js","utf8");
+          const a=fs.readFileSync("audit-fix-2026-10-05.test.js","utf8");
+          const css=fs.readFileSync("interface-13.9.css","utf8");
+          const ui=fs.readFileSync("ui.js","utf8");
+          const required=[
+            'expect(h.headCopyDisplay).not.toBe("none")',
+            'expect(h.titleDisplay).toBe("none")',
+            'expect(h.descDisplay).toBe("none")',
+            'expect([null,"none"]).toContain(h.clarityDisplay)',
+            'expect(h.commandDisplay).toBe("grid")',
+            'expect(h.commandWidth).toBeGreaterThanOrEqual(44)',
+            'expect(h.commandHeight).toBeGreaterThanOrEqual(44)'
+          ];
+          for(const s of required)if(!e.includes(s))throw new Error("Missing corrected E2E contract: "+s);
+          if(e.includes('expect(h.headCopyDisplay).toBe("none")'))throw new Error("Stale sticky E2E contract remains");
+          if(!a.includes("E2E must verify command touch width"))throw new Error("Audit meta-test was not aligned");
+          if(!css.includes(".ux7-head-actions>#commandPaletteBtn"))throw new Error("Sticky command CSS contract missing");
+          if(!css.includes("display:grid!important"))throw new Error("Sticky command display contract missing");
+          if(!ui.includes("ui139SyncCommandPalette(sectionId)"))throw new Error("Command palette relocation runtime missing");
+          NODE
+
+      - name: Install application dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run complete source regression suite
+        run: npm test
+
+      - name: Build production web bundle
+        run: npm run build
+
+      - name: Audit production web bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run complete mobile browser E2E
+        run: npm run test:e2e
+
+      - name: Verify only intended source files changed
+        shell: bash
+        run: |
+          git diff --check
+          python3 - <<'PY'
+          import subprocess
+          allowed={"android-ui-14.e2e.test.js","audit-fix-2026-10-05.test.js","FINAL-AUDIT-2026-10-05.md"}
+          changed=set(filter(None,subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()))
+          unexpected=changed-allowed
+          if unexpected:
+              raise SystemExit("Unexpected modified files: "+", ".join(sorted(unexpected)))
+          required={"android-ui-14.e2e.test.js","audit-fix-2026-10-05.test.js"}
+          missing=required-changed
+          if missing:
+              raise SystemExit("Expected corrected files are unchanged: "+", ".join(sorted(missing)))
+          print("OK — intended diff only:", ", ".join(sorted(changed)))
+          PY
+
+      - name: Guard main before commit
+        shell: bash
+        run: |
+          REMOTE="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$REMOTE" = "$GITHUB_SHA" || {
+            echo "main changed during verification; refusing to overwrite newer work"
+            exit 1
+          }
+
+      - name: Commit verified correction to main
+        shell: bash
+        run: |
+          git add android-ui-14.e2e.test.js audit-fix-2026-10-05.test.js FINAL-AUDIT-2026-10-05.md
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Align Android geometry gate with final sticky-header UX"
+          git push origin HEAD:main
+
+      - name: Confirm official Android RC trigger path
+        shell: bash
+        run: |
+          git show --name-only --format= HEAD | grep -Fx "android-ui-14.e2e.test.js"
+          grep -Fq '"android-ui-14.e2e.test.js"' .github/workflows/android-rc.yml
+          echo "OK — push matches official Android RC workflow path filter."
