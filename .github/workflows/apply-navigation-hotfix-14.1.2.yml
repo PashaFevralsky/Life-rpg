@@ -1,0 +1,87 @@
+name: Apply Life RPG 14.1.2 Navigation Hardening
+run-name: Life RPG 14.1.2 Navigation Hardening • run ${{ github.run_number }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: life-rpg-navigation-hotfix-14-1-2
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply navigation hardening
+        run: node apply-navigation-hotfix-14.1.2.mjs
+
+      - name: Syntax-check navigation patch
+        run: |
+          node --check navigation-hotfix-14.1.2.js
+          node --check navigation-hotfix-14.1.2.test.js
+          node --check navigation-hotfix-14.1.2.e2e.test.js
+          node --check bootstrap.js
+
+      - name: Run navigation contract
+        run: node navigation-hotfix-14.1.2.test.js
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Build production PWA
+        run: npm run build
+
+      - name: Audit production bundle
+        run: node dist-audit.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run navigation browser E2E
+        run: npx playwright test navigation-hotfix-14.1.2.e2e.test.js
+
+      - name: Run full browser E2E
+        run: npm run test:e2e
+
+      - name: Verify protected state and domain cores
+        shell: bash
+        run: |
+          node <<'NODE'
+          const rc=require("./android-release-config.json");
+          if(rc.stateVersion!==18)throw new Error("Navigation hotfix must not migrate state");
+          if(rc.targetVersion!=="14.1.2")throw new Error("Navigation hotfix must stay on 14.1.2 RC target");
+          NODE
+          git diff --exit-code -- android-release-config.json android-stable-config.json core.js state.js finance.js
+
+      - name: Validate patch whitespace
+        run: git diff --check
+
+      - name: Show patch summary
+        run: git status --short && git diff --stat
+
+      - name: Commit verified navigation hardening
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add navigation-hotfix-14.1.2.js navigation-hotfix-14.1.2.test.js navigation-hotfix-14.1.2.e2e.test.js \
+            bootstrap.js vite.config.mjs package.json playwright.config.mjs
+          git diff --cached --check
+          git commit -m "Harden deep navigation in Life RPG 14.1.2"
+          git push
